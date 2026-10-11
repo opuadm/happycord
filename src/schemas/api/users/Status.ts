@@ -35,4 +35,9 @@ export interface ClientStatus {
     web?: string; // e.g. browser, bot account, unknown
     embedded?: string; // e.g. embedded
     vr?: string;
+    toaster?: string; // e.g. smart toaster
+    terminal?: string; // e.g. terminal
+    toilet?: string; // e.g. smart toilet
+    bed?: string; // e.g. smart bed
+    unknown?: string; // e.g. unknown device
 }

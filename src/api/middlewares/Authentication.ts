@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { Session, User } from "@spacebar/database";
 import { Random } from "@spacebar/extensions";
-import { checkOAuth2Token, checkToken, getClientPlatform, isOAuth2AccessToken, Rights, UserTokenData } from "@spacebar/util";
+import { checkOAuth2Token, checkToken, getClientPlatform, getClientPlatforms, isOAuth2AccessToken, Rights, UserTokenData } from "@spacebar/util";
 import { storageOwnership } from "../../cdn/util/storageOwnership";
 import { CORS } from "./CORS";
 
@@ -81,7 +81,9 @@ export async function handleAuthentication(req: Request) {
                     browser,
                     platform: getClientPlatform({ os: properties.os, browser }),
                 };
-                await Session.update({ session_id: session.session_id }, { client_info: session.client_info });
+                session.client_status =
+                    session.status === "invisible" ? {} : Object.fromEntries(getClientPlatforms({ os: properties.os, browser }).map((platform) => [platform, session.status]));
+                await Session.update({ session_id: session.session_id }, { client_info: session.client_info, client_status: session.client_status });
             }
         }
     } catch (e) {

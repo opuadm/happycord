@@ -29,6 +29,7 @@ export * from "./WebAuthn";
 export * from "./ChannelFlags";
 export * from "./Collectibles";
 export * from "./ClanBadges";
+export * from "./DefaultEmojis";
 export * from "./Application";
 export * from "./NameValidation";
 export * from "./Version";

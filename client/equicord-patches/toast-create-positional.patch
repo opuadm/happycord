@@ -1,0 +1,27 @@
+diff --git a/src/webpack/common/utils.ts b/src/webpack/common/utils.ts
+--- a/src/webpack/common/utils.ts
++++ b/src/webpack/common/utils.ts
+@@ -98,9 +98,9 @@ export const createToast: t.createToast = findByCodeLazy('variant:"default",ico
+
+ /**
+  * Show a simple toast. If you need more options, use Toasts.show manually
+  */
+ export function showToast(message: string, type: t.ToastType = "message", options?: ToastOptions) {
+-    Toasts.show(createToast({ message, type, options }));
++    Toasts.show(createToast(message, type, options));
+ }
+
+ export const UserUtils = {
+diff --git a/packages/discord-types/src/toasts.d.ts b/packages/discord-types/src/toasts.d.ts
+--- a/packages/discord-types/src/toasts.d.ts
++++ b/packages/discord-types/src/toasts.d.ts
+@@ -27,7 +27,7 @@ export interface NewToastData {
+ }
+
+ export type showToast = (data: NewToastData) => void;
+ export type popToast = (context?: string) => void;
+-export type createToast = (data: ToastData) => NewToastData;
++export type createToast = (message: string, type?: ToastType, options?: ToastData["options"]) => NewToastData;
+
+ export interface Toasts {
+     show: showToast;

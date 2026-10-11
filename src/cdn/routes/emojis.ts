@@ -1,8 +1,9 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
 import { Router, Response, Request } from "express";
 import { fileTypeFromBuffer } from "file-type";
 import { HTTPError } from "lambert-server/HTTPError";
-import { Config } from "@spacebar/util";
+import { Config, defaultEmojiById, defaultEmojiFile } from "@spacebar/util";
 import { storage, internalUpload, setCacheControl, setCacheControlNotFound } from "../util";
 
 // TODO: check premium and animated pfp are allowed in the config
@@ -50,7 +51,14 @@ router.get("/:emoji_id", setCacheControl, async (req: Request, res: Response) =>
     emoji_id = emoji_id.split(".")[0]; // remove .file extension
     const path = `${pathPrefix}/${emoji_id}`;
 
-    const file = await storage.get(path);
+    let file = await storage.get(path);
+    if (!file) {
+        const fallback = defaultEmojiById(emoji_id);
+        if (fallback) {
+            const fallbackFile = defaultEmojiFile(fallback);
+            if (fs.existsSync(fallbackFile)) file = fs.readFileSync(fallbackFile);
+        }
+    }
     if (!file) return setCacheControlNotFound(req, res);
     const type = await fileTypeFromBuffer(file);
 

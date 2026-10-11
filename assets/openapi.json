@@ -11669,6 +11669,21 @@
           },
           "vr": {
             "type": "string"
+          },
+          "toaster": {
+            "type": "string"
+          },
+          "terminal": {
+            "type": "string"
+          },
+          "toilet": {
+            "type": "string"
+          },
+          "bed": {
+            "type": "string"
+          },
+          "unknown": {
+            "type": "string"
           }
         }
       },

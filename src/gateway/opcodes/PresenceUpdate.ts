@@ -1,6 +1,6 @@
 import { Session } from "@spacebar/database";
 import { WebSocket, Payload } from "@spacebar/gateway";
-import { broadcastPresence, emitSessionsReplace, sanitizeActivities } from "@spacebar/util";
+import { broadcastPresence, emitSessionsReplace, getClientPlatforms, sanitizeActivities } from "@spacebar/util";
 import { ActivitySchema, PrivateStatus } from "@spacebar/schemas";
 import { check } from "./instanceOf";
 import { ProcessLifecycle } from "@spacebar/util/util/ProcessLifecycle";
@@ -36,7 +36,9 @@ export async function onPresenceUpdate(this: WebSocket, { d }: Payload) {
     if (SettableStatuses.includes(presence.status)) this.session.status = presence.status as PrivateStatus;
     this.session.activities = sanitizeActivities(presence.activities, this.session.activities);
     const platform = this.session.client_info?.platform ?? "web";
-    this.session.client_status = this.session.status === "invisible" ? {} : { [platform]: this.session.status };
+    const platforms = getClientPlatforms({ browser: this.session.client_info?.browser, os: this.session.client_info?.os });
+    if (!platforms.includes(platform as (typeof platforms)[number])) platforms.push(platform as (typeof platforms)[number]);
+    this.session.client_status = this.session.status === "invisible" ? {} : Object.fromEntries(platforms.map((p) => [p, this.session!.status]));
     this.session.last_seen = new Date();
 
     if (previous === JSON.stringify([this.session.status, this.session.activities, this.session.client_status])) return;

@@ -75,17 +75,45 @@ export interface AggregatedPresence {
 }
 
 const PresencePriority: Record<string, number> = { dnd: 0, online: 1, idle: 2 };
-const ClientPlatforms = ["desktop", "mobile", "web", "embedded", "vr"] as const;
+const ClientPlatforms = ["desktop", "mobile", "web", "embedded", "vr", "toaster", "terminal", "toilet", "bed", "unknown"] as const;
 export type ClientPlatform = (typeof ClientPlatforms)[number];
+
+function platformTokens(browser: string, os: string) {
+    const found = new Set<ClientPlatform>();
+    if (browser.includes("android") || browser.includes("ios") || os === "android" || os === "ios") found.add("mobile");
+    if (browser.includes("discord client") || browser.includes("electron")) found.add("desktop");
+    if (browser.includes("toaster")) found.add("toaster");
+    if (browser.includes("terminal")) found.add("terminal");
+    if (browser.includes("toilet")) found.add("toilet");
+    if (browser.includes("discord bed")) found.add("bed");
+    if (browser.includes("unknown")) found.add("unknown");
+    if (browser.includes("embedded")) found.add("embedded");
+    if (browser.includes("vr")) found.add("vr");
+    return { browser, found };
+}
 
 export function getClientPlatform(properties?: { browser?: string; $browser?: string; os?: string; $os?: string }): ClientPlatform {
     const browser = (properties?.browser ?? properties?.$browser ?? "").toLowerCase();
     const os = (properties?.os ?? properties?.$os ?? "").toLowerCase();
     if (browser.includes("android") || browser.includes("ios") || os === "android" || os === "ios") return "mobile";
-    if (browser === "discord client" || browser.includes("electron")) return "desktop";
+    if (browser.includes("discord client") || browser.includes("electron")) return "desktop";
+    if (browser.includes("toaster")) return "toaster";
+    if (browser.includes("terminal")) return "terminal";
+    if (browser.includes("toilet")) return "toilet";
+    if (browser.includes("discord bed")) return "bed";
+    if (browser.includes("unknown")) return "unknown";
     if (browser.includes("embedded")) return "embedded";
     if (browser.includes("vr")) return "vr";
     return "web";
+}
+
+export function getClientPlatforms(properties?: { browser?: string; $browser?: string; os?: string; $os?: string; device?: string; $device?: string }): ClientPlatform[] {
+    const browser = `${properties?.browser ?? properties?.$browser ?? ""} ${properties?.device ?? properties?.$device ?? ""}`.toLowerCase();
+    const os = (properties?.os ?? properties?.$os ?? "").toLowerCase();
+    const { found } = platformTokens(browser, os);
+    if (!found.size) return ["web"];
+    if (browser.includes("chrome") || browser.includes("firefox") || browser.includes("safari") || browser.includes("edge") || browser.includes("opera")) found.add("web");
+    return ClientPlatforms.filter((x) => found.has(x));
 }
 
 const ActivityKeys = [
@@ -153,8 +181,13 @@ export function aggregatePresence(sessions: PresenceSession[]): AggregatedPresen
 
     for (const session of visible) {
         status = best(status, session.status);
-        const platform = ClientPlatforms.find((x) => x === session.client_info?.platform) ?? "web";
-        client_status[platform] = best(client_status[platform], session.status);
+        const platforms = new Set<ClientPlatform>();
+        for (const key of Object.keys(session.client_status ?? {})) {
+            const platform = ClientPlatforms.find((x) => x === key);
+            if (platform) platforms.add(platform);
+        }
+        platforms.add(ClientPlatforms.find((x) => x === session.client_info?.platform) ?? "web");
+        for (const platform of platforms) client_status[platform] = best(client_status[platform], session.status);
         for (const activity of session.activities ?? []) {
             const key = activity.type === 4 ? "custom" : `${activity.type}:${activity.application_id ?? activity.name}`;
             if (seenActivities.has(key)) continue;

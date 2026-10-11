@@ -34,6 +34,7 @@ import {
     emitSessionsReplace,
     sanitizeActivities,
     getClientPlatform,
+    getClientPlatforms,
     getConnectedSessions,
     getUserPresences,
     PRESENCE_STALE_AFTER_MS,
@@ -346,7 +347,8 @@ export async function onIdentify(this: WebSocket, data: Payload) {
                   } as Activity,
               ]
             : []);
-    this.session.client_status = this.session.status === "invisible" ? {} : { [this.session.client_info.platform!]: this.session.status };
+    this.session.client_status =
+        this.session.status === "invisible" ? {} : Object.fromEntries(getClientPlatforms(identify.properties).map((platform) => [platform, this.session!.status]));
     const sessionSavePromise = timePromise(
         () => (isNewSession ? Session.insert(this.session!) : Session.update({ session_id: this.session!.session_id }, this.session!)) as Promise<unknown>,
     );

@@ -19,6 +19,7 @@ import {
     Config,
     CUSTOM_CLAN_BADGE_PACK,
     CUSTOM_CLAN_BADGES,
+    DEFAULT_EMOJIS,
     DEFAULT_ICON_FILE,
     DEFAULT_FAVICON_FILE,
     helpUrl,
@@ -254,6 +255,7 @@ const buildHtml = () => {
         REGISTER_EMAIL_REQUIRED: ${json(Config.get().register.email.required === true)},
         CUSTOM_CLAN_BADGE_PACK: ${json(CUSTOM_CLAN_BADGE_PACK)},
         CUSTOM_CLAN_BADGES: ${json(CUSTOM_CLAN_BADGES.map((badge) => ({ ...badge, pack: clanBadgePack(badge), colors: clanBadgeColorCount(badge) })))},
+        DEFAULT_EMOJIS: ${json(DEFAULT_EMOJIS.map(({ id, name }) => ({ id, name })))},
     });
 })();
 </script>`;

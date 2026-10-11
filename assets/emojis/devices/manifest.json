@@ -1,0 +1,527 @@
+{
+  "source": "user-provided Happies (high-quality) and their Discord-compressed low-quality copies, plus instance-generated mood variants for the custom platforms",
+  "upstreamDirectory": "/mnt/c/Users/OpuaY/Documents/Happies",
+  "generatedFrom": "client platform SVG paths (toaster: custom front-view art; terminal/question-mark: Google Material Icons; toilet: Material Design Icons)",
+  "moodColors": {
+    "happy": "#45A366",
+    "angry": "#DA3E44",
+    "neutral": "#FFC04E",
+    "sad": "#84858D"
+  },
+  "emojiCount": 57,
+  "emojis": [
+    {
+      "name": "happybrowser",
+      "file": "emojis/devices/happybrowser.png",
+      "sha256": "03bd61266bd730824cab404e8fab69af182f0c3b1e5e54630e946477f143ca82",
+      "mood": "happy",
+      "device": "browser",
+      "quality": "high",
+      "id": "101000000000000000"
+    },
+    {
+      "name": "happybrowser_low",
+      "file": "emojis/devices/happybrowser_low.png",
+      "sha256": "4c7897c1133ac57aa838e5d77a6eaa5ae3f713f848471ae7c312edc1800b0517",
+      "mood": "happy",
+      "device": "browser",
+      "quality": "low",
+      "id": "101000000000000001"
+    },
+    {
+      "name": "happyconsole",
+      "file": "emojis/devices/happyconsole.png",
+      "sha256": "c653cb493c1c67c84c99cf9c1afc82a2389cc358b6b958ccbbcfbdfb39b7963c",
+      "mood": "happy",
+      "device": "console",
+      "quality": "high",
+      "id": "101000000000000002"
+    },
+    {
+      "name": "happyconsole_low",
+      "file": "emojis/devices/happyconsole_low.png",
+      "sha256": "0c1f8af80dcb38dd315d7ee205617e3b0c208c8c69f77bf630ec25de2c024a26",
+      "mood": "happy",
+      "device": "console",
+      "quality": "low",
+      "id": "101000000000000003"
+    },
+    {
+      "name": "happypc",
+      "file": "emojis/devices/happypc.png",
+      "sha256": "f78ae357852da2212d7bd4d97dc52e8b8e82ee77932f22f4ce05761524bf6c22",
+      "mood": "happy",
+      "device": "pc",
+      "quality": "high",
+      "id": "101000000000000004"
+    },
+    {
+      "name": "happypc_low",
+      "file": "emojis/devices/happypc_low.png",
+      "sha256": "62a378219b699729e0b87358476734a8513324740fa1e853a02f9fc0f0230293",
+      "mood": "happy",
+      "device": "pc",
+      "quality": "low",
+      "id": "101000000000000005"
+    },
+    {
+      "name": "happyphone",
+      "file": "emojis/devices/happyphone.png",
+      "sha256": "916a0703627d77c26022322c014aa26e3141dbbd14cb5de39daba60adda53bbf",
+      "mood": "happy",
+      "device": "phone",
+      "quality": "high",
+      "id": "101000000000000006"
+    },
+    {
+      "name": "happyphone_low",
+      "file": "emojis/devices/happyphone_low.png",
+      "sha256": "4069d80902821e6c5c41d380b648ee887ba02484b7b8e20a6356d9f8900e2499",
+      "mood": "happy",
+      "device": "phone",
+      "quality": "low",
+      "id": "101000000000000007"
+    },
+    {
+      "name": "happyvr",
+      "file": "emojis/devices/happyvr.png",
+      "sha256": "a234dbe614bcaaaced46e26ebb70fa4b1552dae9b3d03be0ccfe6f28d480d5a1",
+      "mood": "happy",
+      "device": "vr",
+      "quality": "high",
+      "id": "101000000000000008"
+    },
+    {
+      "name": "happyvr_low",
+      "file": "emojis/devices/happyvr_low.png",
+      "sha256": "41347f88131d14de6da502caa4a4b471e4a1d7957f82609c38001f74487181e5",
+      "mood": "happy",
+      "device": "vr",
+      "quality": "low",
+      "id": "101000000000000009"
+    },
+    {
+      "name": "happytoaster",
+      "file": "emojis/devices/happytoaster.png",
+      "sha256": "a79b0d70e59e37bb57186e156d2079a109e8c5972823432e2b76cb10fa86b731",
+      "mood": "happy",
+      "device": "toaster",
+      "quality": "high",
+      "id": "101000000000000010"
+    },
+    {
+      "name": "happyterminal",
+      "file": "emojis/devices/happyterminal.png",
+      "sha256": "8192927fb46aa88d7cbc00e467b49f0702b26c6843715551168118fe344e7d5f",
+      "mood": "happy",
+      "device": "terminal",
+      "quality": "high",
+      "id": "101000000000000011"
+    },
+    {
+      "name": "happytoilet",
+      "file": "emojis/devices/happytoilet.png",
+      "sha256": "da4ff67cd09d2b4979a2ac313b0b3df4fa83e2c004aab9150c39bf94a29bcb87",
+      "mood": "happy",
+      "device": "toilet",
+      "quality": "high",
+      "id": "101000000000000012"
+    },
+    {
+      "name": "happybed",
+      "file": "emojis/devices/happybed.png",
+      "sha256": "7226ca5309f3d33c658f3c3613dc4795c0b731fccd1aa22fbcaa06d39279d6b9",
+      "mood": "happy",
+      "device": "bed",
+      "quality": "high",
+      "id": "101000000000000013"
+    },
+    {
+      "name": "happyunknown",
+      "file": "emojis/devices/happyunknown.png",
+      "sha256": "00770fe7876ecc675e27960a5cf84d438f0d580a7bb970de059c6d2591c132d0",
+      "mood": "happy",
+      "device": "unknown",
+      "quality": "high",
+      "id": "101000000000000014"
+    },
+    {
+      "name": "angrybrowser",
+      "file": "emojis/devices/angrybrowser.png",
+      "sha256": "a20bab68a88a046dfd3f67d1a4acef6190133fec44e3bd79815a4572982505e5",
+      "mood": "angry",
+      "device": "browser",
+      "quality": "high",
+      "id": "101000000000000015"
+    },
+    {
+      "name": "angrybrowser_low",
+      "file": "emojis/devices/angrybrowser_low.png",
+      "sha256": "8bf191b6b88b0696b979d80453118aea92df2453d39d28a32a32979c1c0f8e42",
+      "mood": "angry",
+      "device": "browser",
+      "quality": "low",
+      "id": "101000000000000016"
+    },
+    {
+      "name": "angryconsole",
+      "file": "emojis/devices/angryconsole.png",
+      "sha256": "c8107ecc4d5b2a131d4dbe382e73ceac411a80cf20245de89e1bf366c13d1242",
+      "mood": "angry",
+      "device": "console",
+      "quality": "high",
+      "id": "101000000000000017"
+    },
+    {
+      "name": "angryconsole_low",
+      "file": "emojis/devices/angryconsole_low.png",
+      "sha256": "e203a72f42af24baade6c3719a1bc9a86dee99ba4be93bbef2305f2e2cebd587",
+      "mood": "angry",
+      "device": "console",
+      "quality": "low",
+      "id": "101000000000000018"
+    },
+    {
+      "name": "angrypc",
+      "file": "emojis/devices/angrypc.png",
+      "sha256": "4c4e8c94bcdf049d4be310a72c6c94e9b9100a1b8ce9b825aca6324d108dc3c1",
+      "mood": "angry",
+      "device": "pc",
+      "quality": "high",
+      "id": "101000000000000019"
+    },
+    {
+      "name": "angrypc_low",
+      "file": "emojis/devices/angrypc_low.png",
+      "sha256": "558cfdba497d8014f20aa3d8cac7c4f9fe7199c1b0d950b007d907b535eafddb",
+      "mood": "angry",
+      "device": "pc",
+      "quality": "low",
+      "id": "101000000000000020"
+    },
+    {
+      "name": "angryphone",
+      "file": "emojis/devices/angryphone.png",
+      "sha256": "17ea32f6cd16f5a08045f9768d9e4ab18ff4bdaa43e7b43027b69c8a0518d70b",
+      "mood": "angry",
+      "device": "phone",
+      "quality": "high",
+      "id": "101000000000000021"
+    },
+    {
+      "name": "angryphone_low",
+      "file": "emojis/devices/angryphone_low.png",
+      "sha256": "483b4918b288cbd50451bd218168064ccb8a4bc7afabf3be3ceda9df81214d42",
+      "mood": "angry",
+      "device": "phone",
+      "quality": "low",
+      "id": "101000000000000022"
+    },
+    {
+      "name": "angryvr",
+      "file": "emojis/devices/angryvr.png",
+      "sha256": "a4edcb7a7c2da5eca1c9b1823fa4429c6e74eea47cbb03b3cb3bc573b0da0552",
+      "mood": "angry",
+      "device": "vr",
+      "quality": "high",
+      "id": "101000000000000023"
+    },
+    {
+      "name": "angrytoaster",
+      "file": "emojis/devices/angrytoaster.png",
+      "sha256": "e46addf0c5ef2f697c89970272203cb2288119e98e46a621a4839a913eb25398",
+      "mood": "angry",
+      "device": "toaster",
+      "quality": "high",
+      "id": "101000000000000024"
+    },
+    {
+      "name": "angryterminal",
+      "file": "emojis/devices/angryterminal.png",
+      "sha256": "4d9f8d0405bc01cf0e838c2b996e16ead2aeef1d0af0d85cd467c46cc10b1821",
+      "mood": "angry",
+      "device": "terminal",
+      "quality": "high",
+      "id": "101000000000000025"
+    },
+    {
+      "name": "angrytoilet",
+      "file": "emojis/devices/angrytoilet.png",
+      "sha256": "65376cb4b191f143fe4ad57cfe2fb6ffef4d05fff8982f23c3e5ed4886d96d55",
+      "mood": "angry",
+      "device": "toilet",
+      "quality": "high",
+      "id": "101000000000000026"
+    },
+    {
+      "name": "angrybed",
+      "file": "emojis/devices/angrybed.png",
+      "sha256": "e450e7c9cebe3806fcf55c241a833fea9aa8795bee8d3421b97bc451e5ab9ec2",
+      "mood": "angry",
+      "device": "bed",
+      "quality": "high",
+      "id": "101000000000000027"
+    },
+    {
+      "name": "angryunknown",
+      "file": "emojis/devices/angryunknown.png",
+      "sha256": "8ade58c6833cdf40db58661d790268f28f29c986c87592ffaee27a17480974f2",
+      "mood": "angry",
+      "device": "unknown",
+      "quality": "high",
+      "id": "101000000000000028"
+    },
+    {
+      "name": "neutralbrowser",
+      "file": "emojis/devices/neutralbrowser.png",
+      "sha256": "1ee942a2eaf653aed4a99b754d437aa2a56534dff00d13bddb7b65de772955ab",
+      "mood": "neutral",
+      "device": "browser",
+      "quality": "high",
+      "id": "101000000000000029"
+    },
+    {
+      "name": "neutralbrowser_low",
+      "file": "emojis/devices/neutralbrowser_low.png",
+      "sha256": "00d439c6604edeb5e81da6be3027e87ab92cb4cee5c3cad42dbc6a7e83021816",
+      "mood": "neutral",
+      "device": "browser",
+      "quality": "low",
+      "id": "101000000000000030"
+    },
+    {
+      "name": "neutralconsole",
+      "file": "emojis/devices/neutralconsole.png",
+      "sha256": "84359a1680ee0d9609a455e9609bcdc471db3687115cf3b4cff2773763a88236",
+      "mood": "neutral",
+      "device": "console",
+      "quality": "high",
+      "id": "101000000000000031"
+    },
+    {
+      "name": "neutralconsole_low",
+      "file": "emojis/devices/neutralconsole_low.png",
+      "sha256": "eb99962fd9f8682dee3667e0d8d76f4a8f6af3085f24de300c3efffbdeeebaeb",
+      "mood": "neutral",
+      "device": "console",
+      "quality": "low",
+      "id": "101000000000000032"
+    },
+    {
+      "name": "neutralpc",
+      "file": "emojis/devices/neutralpc.png",
+      "sha256": "4fd6e84559791f2b8d5a0c32cfdd323286b6c588620dfeba90eb0b5d1e23a7af",
+      "mood": "neutral",
+      "device": "pc",
+      "quality": "high",
+      "id": "101000000000000033"
+    },
+    {
+      "name": "neutralpc_low",
+      "file": "emojis/devices/neutralpc_low.png",
+      "sha256": "436e5a867b0cb825991f645ff05956488abdcd12d10638220d70eb4cbef5e562",
+      "mood": "neutral",
+      "device": "pc",
+      "quality": "low",
+      "id": "101000000000000034"
+    },
+    {
+      "name": "neutralphone",
+      "file": "emojis/devices/neutralphone.png",
+      "sha256": "f9c38f7ab87865235fb6e04439dbcb2390a2e116d54a5ce65ddad776ff19842c",
+      "mood": "neutral",
+      "device": "phone",
+      "quality": "high",
+      "id": "101000000000000035"
+    },
+    {
+      "name": "neutralphone_low",
+      "file": "emojis/devices/neutralphone_low.png",
+      "sha256": "94a0f8c6ac5a2f5fd300ec650e5161607589e930f8a952fa2ddc6cf72f394bda",
+      "mood": "neutral",
+      "device": "phone",
+      "quality": "low",
+      "id": "101000000000000036"
+    },
+    {
+      "name": "neutralvr",
+      "file": "emojis/devices/neutralvr.png",
+      "sha256": "01b2ee1fddf0e2c1281e3b11943ee1f91f0232ee2e7f39050d20f9feed8a371c",
+      "mood": "neutral",
+      "device": "vr",
+      "quality": "high",
+      "id": "101000000000000037"
+    },
+    {
+      "name": "neutraltoaster",
+      "file": "emojis/devices/neutraltoaster.png",
+      "sha256": "1cbe864dbf8c778a75b6ecc348be2f3f191b39955284853623829d1579f498e8",
+      "mood": "neutral",
+      "device": "toaster",
+      "quality": "high",
+      "id": "101000000000000038"
+    },
+    {
+      "name": "neutralterminal",
+      "file": "emojis/devices/neutralterminal.png",
+      "sha256": "03ceca28c1f75c67722f088a7695bf938fc61560610fc3d650c90d1e4c85a415",
+      "mood": "neutral",
+      "device": "terminal",
+      "quality": "high",
+      "id": "101000000000000039"
+    },
+    {
+      "name": "neutraltoilet",
+      "file": "emojis/devices/neutraltoilet.png",
+      "sha256": "4ebfdab6686fa755b7a1562a407259cd6cad3e08cedaf341a5ddcbba1502a821",
+      "mood": "neutral",
+      "device": "toilet",
+      "quality": "high",
+      "id": "101000000000000040"
+    },
+    {
+      "name": "neutralbed",
+      "file": "emojis/devices/neutralbed.png",
+      "sha256": "1d1198243bbaec8d9d8efd569b0360527f7329c93864b7e987fdddf47aeddeab",
+      "mood": "neutral",
+      "device": "bed",
+      "quality": "high",
+      "id": "101000000000000041"
+    },
+    {
+      "name": "neutralunknown",
+      "file": "emojis/devices/neutralunknown.png",
+      "sha256": "6b56f6ae0caf5ba5e4c2630dacb460039e44180bc100f0ad9512adf9f05127e0",
+      "mood": "neutral",
+      "device": "unknown",
+      "quality": "high",
+      "id": "101000000000000042"
+    },
+    {
+      "name": "sadbrowser",
+      "file": "emojis/devices/sadbrowser.png",
+      "sha256": "fbec416a96ff166cd87edb5546e56966b658c019db9b843ff4321950496ec043",
+      "mood": "sad",
+      "device": "browser",
+      "quality": "high",
+      "id": "101000000000000043"
+    },
+    {
+      "name": "sadbrowser_low",
+      "file": "emojis/devices/sadbrowser_low.png",
+      "sha256": "c782d8398b6bc5a90cbd7ac2bf98a26bb3ee195465ea70b296e433e8f57c0e5f",
+      "mood": "sad",
+      "device": "browser",
+      "quality": "low",
+      "id": "101000000000000044"
+    },
+    {
+      "name": "sadconsole",
+      "file": "emojis/devices/sadconsole.png",
+      "sha256": "9d4f3393abbbb4e0653a38a6c9dbb6402492957bca33ff2ba35a6c72172b801c",
+      "mood": "sad",
+      "device": "console",
+      "quality": "high",
+      "id": "101000000000000045"
+    },
+    {
+      "name": "sadconsole_low",
+      "file": "emojis/devices/sadconsole_low.png",
+      "sha256": "68ff768049b6c1a67646e3406935f6a47d06159ead650ebd73da9df596e27f4a",
+      "mood": "sad",
+      "device": "console",
+      "quality": "low",
+      "id": "101000000000000046"
+    },
+    {
+      "name": "sadpc",
+      "file": "emojis/devices/sadpc.png",
+      "sha256": "e7c5d7a728eab65916a613c3374fdaeff7d015b98569706fe9e08ee4615ab0cb",
+      "mood": "sad",
+      "device": "pc",
+      "quality": "high",
+      "id": "101000000000000047"
+    },
+    {
+      "name": "sadpc_low",
+      "file": "emojis/devices/sadpc_low.png",
+      "sha256": "34ce1c303e1dcf4118353370d2819875555a2fc6c503d114b758a0ad066923e0",
+      "mood": "sad",
+      "device": "pc",
+      "quality": "low",
+      "id": "101000000000000048"
+    },
+    {
+      "name": "sadphone",
+      "file": "emojis/devices/sadphone.png",
+      "sha256": "98a29ee3053e0e47870aea81a104844b3e447dd98c10c9df88db7777a2452146",
+      "mood": "sad",
+      "device": "phone",
+      "quality": "high",
+      "id": "101000000000000049"
+    },
+    {
+      "name": "sadphone_low",
+      "file": "emojis/devices/sadphone_low.png",
+      "sha256": "1f8e41760577925cad038569c919ea234c5ad65b54ec8599ea5533335762b04d",
+      "mood": "sad",
+      "device": "phone",
+      "quality": "low",
+      "id": "101000000000000050"
+    },
+    {
+      "name": "sadvr",
+      "file": "emojis/devices/sadvr.png",
+      "sha256": "0b1581268ea3dfce63235afe35c006ce3193f0a53943cea7f29c4cb52ec21235",
+      "mood": "sad",
+      "device": "vr",
+      "quality": "high",
+      "id": "101000000000000051"
+    },
+    {
+      "name": "sadtoaster",
+      "file": "emojis/devices/sadtoaster.png",
+      "sha256": "712a34ca295477a0fcbaa8315837c696a1efa23a280cb45b2ec4efcc2e51b5d4",
+      "mood": "sad",
+      "device": "toaster",
+      "quality": "high",
+      "id": "101000000000000052"
+    },
+    {
+      "name": "sadterminal",
+      "file": "emojis/devices/sadterminal.png",
+      "sha256": "07dd802b5560ee4c17c163b5a458bbd317ee209730ff71e4ef7fd68ba0360c8e",
+      "mood": "sad",
+      "device": "terminal",
+      "quality": "high",
+      "id": "101000000000000053"
+    },
+    {
+      "name": "sadtoilet",
+      "file": "emojis/devices/sadtoilet.png",
+      "sha256": "924cf9ae57b99e04ee857dd6be027b95b934006b257cbcc9aed2c31d34c6c1a0",
+      "mood": "sad",
+      "device": "toilet",
+      "quality": "high",
+      "id": "101000000000000054"
+    },
+    {
+      "name": "sadbed",
+      "file": "emojis/devices/sadbed.png",
+      "sha256": "fb7840d76f9bae3efd4164cef5a6ddd205d6ea02f2eca82a032086a344fb7842",
+      "mood": "sad",
+      "device": "bed",
+      "quality": "high",
+      "id": "101000000000000055"
+    },
+    {
+      "name": "sadunknown",
+      "file": "emojis/devices/sadunknown.png",
+      "sha256": "0a1863bd1a6265b823318e5660086ed1a43105cea921f1540a82e04365b72217",
+      "mood": "sad",
+      "device": "unknown",
+      "quality": "high",
+      "id": "101000000000000056"
+    }
+  ]
+}

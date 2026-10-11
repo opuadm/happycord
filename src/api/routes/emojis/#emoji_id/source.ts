@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { Application, Emoji, Guild, Member } from "@spacebar/database";
-import { DiscordApiErrors } from "@spacebar/util";
+import { defaultEmojiById, DiscordApiErrors } from "@spacebar/util";
 import { APIErrorResponse, EmojiGuild, EmojiSourceResponse } from "@spacebar/schemas";
 import { In } from "typeorm";
 
@@ -75,6 +75,14 @@ router.get(
                 application: {
                     id: app.id,
                     name: app.name,
+                },
+            } satisfies EmojiSourceResponse);
+        } else if (defaultEmojiById(emoji_id)) {
+            res.json({
+                type: "APPLICATION",
+                application: {
+                    id: "devices",
+                    name: "Devices",
                 },
             } satisfies EmojiSourceResponse);
         } else throw new Error("Assertion failure: emoji is neither owned by a guild nor application...?");
