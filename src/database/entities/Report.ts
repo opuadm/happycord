@@ -17,6 +17,7 @@ export interface ReportSnapshot {
     embeds?: number;
     sent_at?: string;
     name?: string;
+    encrypted?: { verified: boolean; reason?: string; files?: string[] };
 }
 
 @Entity({

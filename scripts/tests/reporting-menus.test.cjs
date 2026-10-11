@@ -196,6 +196,8 @@ function reportUtility({ view = true, author = "target" } = {}) {
             getPermission: async () => ({ has: () => view }),
         },
         "../handlers/ApplicationWidgets": {},
+        "node:crypto": require("node:crypto"),
+        "./e2ee": { verifyEd25519: () => false },
         "./reportMenus": menus,
     });
     return { ...utility, saved };

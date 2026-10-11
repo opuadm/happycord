@@ -25,7 +25,7 @@ vm.runInNewContext(
                       },
                   }
                 : name === "@spacebar/schemas"
-                  ? { MessageComponentType: types }
+                  ? { MessageComponentType: types, EmbedType: { rich: "rich", video: "video" } }
                   : require(name),
     },
 );

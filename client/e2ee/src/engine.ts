@@ -315,6 +315,7 @@ export class Engine {
     private members = new Map<string, Promise<string[]>>();
     private profiles = new Map<string, Promise<ChannelMember>>();
     private plaintext = new Map<string, Payload>();
+    private contentKeys = new Map<string, string>();
     private listeners = new Set<() => void>();
     private unlockListeners = new Set<() => void>();
     private wipeListeners = new Set<() => void>();
@@ -1251,6 +1252,13 @@ export class Engine {
         return env ? (this.plaintext.get(`${message.id}:${env.sig}`) ?? this.plaintext.get(`${env.mid ?? ""}:${env.sig}`)) : undefined;
     }
 
+    async contentKey(message: RawMessage) {
+        const env = message.encrypted;
+        if (!env) return undefined;
+        if (!this.contentKeys.has(`${message.id}:${env.sig}`)) await this.decrypt(message, false).catch(() => undefined);
+        return this.contentKeys.get(`${message.id}:${env.sig}`);
+    }
+
     async decrypt(message: RawMessage, remember = true): Promise<Payload> {
         const env = message.encrypted;
         if (!env || env.v !== 1 || env.alg !== ALGORITHM || !Array.isArray(env.keys)) throw new E2eeError("BAD_ENVELOPE", "Unsupported envelope");
@@ -1301,6 +1309,7 @@ export class Engine {
             throw new E2eeError("NO_KEY", t("Sent before this browser was set up"));
         }
         const payload = parsePayload(JSON.parse(fromUtf8(await aesDecrypt(contentKey, fromB64u(env.iv), fromB64u(env.ct), aad))));
+        this.contentKeys.set(`${message.id}:${sig}`, toB64u(contentKey));
         if (mine && prekey && backupKey) {
             const covered =
                 !!backupEntry && !!(await hpkeOpen(backupKey.keyPair, backupEntry.enc, backupEntry.wrapped, BACKUP_INFO, `${aad}\nbackup:${this.userId}`).catch(() => null));

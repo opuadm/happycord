@@ -34,6 +34,7 @@ import {
     uploadFile,
 } from "@spacebar/util";
 import { assignComponentIds, handleComps, handleMessage, postHandleMessage } from "./Message";
+import { fillComponentMedia } from "../utility/EmbedHandlers";
 import { launchActivity } from "@spacebar/api/activities";
 
 import { COMPONENTS_V2, componentMessageErrors } from "./ComponentValidation";
@@ -398,6 +399,7 @@ export async function editInteractionMessage(
     if (!wasLoading) message.edited_timestamp = new Date();
     await message.save();
     await emitToAudience(message, "MESSAGE_UPDATE", interaction.userId);
+    if (data.components && !(message.flags & EPHEMERAL)) fillComponentMedia(message).catch((e) => console.error("[Interaction] component media unfurl failed", e));
     return message;
 }
 

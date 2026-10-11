@@ -22,6 +22,20 @@ export const outboundProxy = (): OutboundProxy | "direct" | null => {
     return { host: proxy.hostname.replace(/^\[|\]$/g, ""), port: Number(proxy.port || 1080) };
 };
 
+export type OutboundProxyStatus = { mode: "proxy" | "direct" | "unset" | "invalid"; proxy?: OutboundProxy; problem?: string };
+
+export const outboundProxyStatus = (): OutboundProxyStatus => {
+    const refused = "link previews, components media, webhook avatar_url images and the /external media proxy refuse every public URL";
+    try {
+        const proxy = outboundProxy();
+        if (proxy === "direct") return { mode: "direct", problem: "PUBLIC_FETCH_PROXY is direct, so fetches of user-chosen URLs leave from this server's own address" };
+        if (!proxy) return { mode: "unset", problem: `PUBLIC_FETCH_PROXY is not set, so ${refused}. Set it to a socks5:// URL` };
+        return { mode: "proxy", proxy };
+    } catch (error) {
+        return { mode: "invalid", problem: `${(error as Error).message}, so ${refused}` };
+    }
+};
+
 class SocketReader {
     private chunks: Buffer[] = [];
     private buffered = 0;

@@ -561,6 +561,112 @@ export interface AdminStoreItemUpdateSchema {
     art?: AdminStoreItemArt;
 }
 
+export interface AdminStickerPackCreateSchema {
+    /**
+     * @minLength 1
+     * @maxLength 100
+     */
+    name: string;
+    /**
+     * @maxLength 500
+     */
+    description?: string;
+    /**
+     * Packs with a lower number come first in the sticker picker
+     * @TJS-type integer
+     * @minimum -2147483648
+     * @maximum 2147483647
+     */
+    position?: number;
+    /**
+     * Keeps the pack out of the sticker picker; stickers already sent from it stay in their messages
+     */
+    hidden?: boolean;
+}
+
+export interface AdminStickerPackUpdateSchema {
+    /**
+     * @minLength 1
+     * @maxLength 100
+     */
+    name?: string;
+    /**
+     * @maxLength 500
+     */
+    description?: string;
+    /**
+     * @TJS-type integer
+     * @minimum -2147483648
+     * @maximum 2147483647
+     */
+    position?: number;
+    hidden?: boolean;
+    /**
+     * The sticker shown as the pack's icon in the picker, or null to use the pack's first sticker
+     * @pattern ^[0-9]{1,20}$
+     */
+    cover_sticker_id?: string | null;
+}
+
+export interface AdminStickerCreateSchema {
+    /**
+     * @minLength 2
+     * @maxLength 30
+     */
+    name: string;
+    /**
+     * @maxLength 100
+     */
+    description?: string;
+    /**
+     * Comma-separated words people find the sticker by
+     * @maxLength 200
+     */
+    tags?: string;
+    /**
+     * The artwork as a data: URI holding a PNG, APNG, GIF, WebP or Lottie JSON file
+     */
+    file_data: string;
+    /**
+     * Stickers with a lower number come first in their pack
+     * @TJS-type integer
+     * @minimum -2147483648
+     * @maximum 2147483647
+     */
+    sort_value?: number;
+}
+
+export interface AdminStickerUpdateSchema {
+    /**
+     * Moves the sticker to another pack
+     * @pattern ^[0-9]{1,20}$
+     */
+    pack_id?: string;
+    /**
+     * @minLength 2
+     * @maxLength 30
+     */
+    name?: string;
+    /**
+     * @maxLength 100
+     */
+    description?: string;
+    /**
+     * @maxLength 200
+     */
+    tags?: string;
+    /**
+     * Replacement artwork as a data: URI
+     */
+    file_data?: string;
+    /**
+     * @TJS-type integer
+     * @minimum -2147483648
+     * @maximum 2147483647
+     */
+    sort_value?: number;
+}
+
 export interface AdminCustomGameCreateSchema {
     /**
      * @minLength 1

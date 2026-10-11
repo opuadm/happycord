@@ -5,8 +5,20 @@ import { fetchPublicUrl, isTrustedCdnAsset } from "@spacebar/util/util/networkin
 import { FindOptionsWhere, In } from "typeorm";
 import { EmbedCache, Message } from "@spacebar/database";
 import { sleep, arrayDistinctBy, arrayGroupBy, normalizeUrl } from "@spacebar/extensions";
-import { Config, emitEvent, corsProxyUrl, isLocalMediaUrl, MessageFlags, MessageUpdateEvent, OrmUtils, readVideoDimensions } from "@spacebar/util";
-import { Embed, EmbedImage, EmbedType } from "@spacebar/schemas";
+import {
+    Config,
+    emitEvent,
+    corsProxyUrl,
+    guessMediaType,
+    isEmbedPlayerUrl,
+    isLocalMediaUrl,
+    MessageFlags,
+    MessageUpdateEvent,
+    OrmUtils,
+    readVideoDimensions,
+    videoFrameUrl,
+} from "@spacebar/util";
+import { BaseMessageComponents, Embed, EmbedImage, EmbedType, MessageComponentType, UnfurledMediaItem } from "@spacebar/schemas";
 
 export function getDefaultFetchOptions(): RequestInit {
     return {
@@ -88,14 +100,33 @@ export const getMetaDescriptions = (text: string) => {
         height: tryParseInt(getMeta($, "og:image:height")),
         url: getMeta($, "og:url"),
         youtube_embed: getMeta($, "og:video:secure_url"),
-        video: getMeta($, "og:video:secure_url") || getMeta($, "og:video"),
+        video: getMeta($, "og:video:secure_url") || getMeta($, "og:video:url") || getMeta($, "og:video"),
+        video_type: getMeta($, "og:video:type"),
         video_width: tryParseInt(getMeta($, "og:video:width")),
         video_height: tryParseInt(getMeta($, "og:video:height")),
+        refresh: $(`meta[http-equiv="refresh" i]`)
+            .attr("content")
+            ?.match(/url\s*=\s*['"]?([^'"\s]+)/i)?.[1],
         site_name: getMeta($, "og:site_name"),
         card: getMeta($, "twitter:card"),
         theme_color: getMeta($, "theme-color"),
 
         $,
+    };
+};
+
+export const pageVideo = (page: URL, metas: Pick<ReturnType<typeof getMetaDescriptions>, "video" | "video_type" | "video_width" | "video_height">): EmbedImage | undefined => {
+    if (!metas.video || !metas.video_width || !metas.video_height || !URL.canParse(metas.video, page)) return undefined;
+    const video = new URL(metas.video, page);
+    if (isEmbedPlayerUrl(video.href)) return { url: video.href, width: metas.video_width, height: metas.video_height };
+    const contentType = metas.video_type?.startsWith("video/") ? metas.video_type : guessMediaType(video.href);
+    if (!contentType?.startsWith("video/") || !/^https?:$/.test(video.protocol)) return undefined;
+    return {
+        url: video.href,
+        proxy_url: getProxyUrl(video, metas.video_width, metas.video_height),
+        width: metas.video_width,
+        height: metas.video_height,
+        content_type: contentType,
     };
 };
 
@@ -149,6 +180,7 @@ const genericVideoHandler = async (url: URL, head: Response): Promise<Embed | nu
     return {
         url: url.href,
         type: EmbedType.video,
+        thumbnail: { url: url.href, proxy_url: videoFrameUrl(url), width: dims.width, height: dims.height, content_type: "image/jpeg" },
         video: {
             url: url.href,
             proxy_url: getProxyUrl(url, dims.width, dims.height),
@@ -157,6 +189,17 @@ const genericVideoHandler = async (url: URL, head: Response): Promise<Embed | nu
             content_type: head.headers.get("content-type") ?? undefined,
         },
     };
+};
+
+const followMetaRefresh = async (url: URL, response: Response, load: (url: URL) => Promise<Response | null>) => {
+    const text = await response.text();
+    const target = getMetaDescriptions(text).refresh;
+    if (!target || !URL.canParse(target, url)) return { url, text };
+    const next = new URL(target, url);
+    if (next.hostname !== url.hostname || next.href === url.href) return { url, text };
+    const followed = await load(next);
+    if (!followed?.ok || !followed.headers.get("content-type")?.includes("html")) return { url, text };
+    return { url: next, text: await followed.text() };
 };
 
 const KLIPY_FETCH: RequestInit = {
@@ -177,17 +220,19 @@ const fetchKlipyPage = async (url: URL) => {
 const gifvHandler =
     (name: string, providerUrl: string, fetchOpts?: RequestInit, fetchPage?: (url: URL) => Promise<Response | null>) =>
     async (url: URL): Promise<Embed | null> => {
-        const response = await (fetchPage ? fetchPage(url) : doFetch(url, fetchOpts));
+        const load = (target: URL) => (fetchPage ? fetchPage(target) : doFetch(target, fetchOpts));
+        const response = await load(url);
         if (!response) return null;
         if (!response.headers.get("content-type")?.includes("html")) return genericImageHandler(url);
-        const metas = getMetaDescriptions(await response.text());
+        const page = await followMetaRefresh(url, response, load);
+        const metas = getMetaDescriptions(page.text);
         if (!metas.video || !metas.video_width || !metas.video_height) return genericImageHandler(url);
-        const video = new URL(metas.video, url);
+        const video = new URL(metas.video, page.url);
         return {
             url: url.href,
             type: EmbedType.gifv,
             provider: { name, url: providerUrl },
-            thumbnail: makeEmbedImage(metas.image && new URL(metas.image, url).href, metas.width ?? metas.video_width, metas.height ?? metas.video_height),
+            thumbnail: makeEmbedImage(metas.image && new URL(metas.image, page.url).href, metas.width ?? metas.video_width, metas.height ?? metas.video_height),
             video: {
                 url: video.href,
                 proxy_url: getProxyUrl(video, metas.video_width, metas.video_height),
@@ -205,7 +250,7 @@ const genericImageHandler = async (url: URL): Promise<Embed | null> => {
 
     let image;
 
-    if (type.headers.get("content-type")?.indexOf("image") !== -1) {
+    if (type.headers.get("content-type")?.startsWith("image/")) {
         const result = await probeEmbedImage(url.href);
         image = makeEmbedImage(url.href, result.width, result.height);
     } else if (type.headers.get("content-type")?.startsWith("video/")) {
@@ -268,6 +313,65 @@ const youtubeVideoEmbed = async (url: URL): Promise<Embed | null> => {
     }
 };
 
+type FxTwitterMedia = { type: string; url: string; thumbnail_url?: string; width: number; height: number; variants?: { url: string; bitrate?: number; content_type: string }[] };
+type FxTwitterStatus = {
+    url: string;
+    text: string;
+    created_timestamp: number;
+    likes: number;
+    retweets: number;
+    replies: number;
+    author: { name: string; screen_name: string; url: string; avatar_url?: string };
+    media?: { all?: FxTwitterMedia[] };
+};
+
+export const fxTwitterStatusEmbed = (tweet: FxTwitterStatus): Embed => {
+    const media = tweet.media?.all ?? [];
+    const photo = media.find((item) => item.type === "photo");
+    const clip = media.find((item) => item.type === "video" || item.type === "gif");
+    const playable = clip?.variants
+        ?.filter((variant) => variant.content_type === "video/mp4")
+        .toSorted((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))
+        .find((variant, index, all) => (variant.bitrate ?? 0) <= 2500000 || index === all.length - 1);
+    const video = clip && URL.canParse(playable?.url ?? clip.url) ? { ...clip, target: new URL(playable?.url ?? clip.url) } : undefined;
+    return {
+        type: EmbedType.rich,
+        url: tweet.url,
+        description: tweet.text,
+        color: 1942002,
+        timestamp: new Date(tweet.created_timestamp * 1000),
+        author: {
+            name: `${tweet.author.name} (@${tweet.author.screen_name})`,
+            url: tweet.author.url,
+            icon_url: tweet.author.avatar_url,
+        },
+        fields: [
+            { inline: true, name: "Replies", value: String(tweet.replies) },
+            { inline: true, name: "Reposts", value: String(tweet.retweets) },
+            { inline: true, name: "Likes", value: String(tweet.likes) },
+        ],
+        footer: { text: "X", icon_url: "https://abs.twimg.com/icons/apple-touch-icon-192x192.png" },
+        image: !video && photo ? makeEmbedImage(photo.url, photo.width, photo.height) : undefined,
+        thumbnail: video?.thumbnail_url ? makeEmbedImage(video.thumbnail_url, video.width, video.height) : undefined,
+        video: video && {
+            url: video.target.href,
+            proxy_url: getProxyUrl(video.target, video.width, video.height),
+            width: video.width,
+            height: video.height,
+            content_type: "video/mp4",
+        },
+    };
+};
+
+const fxTwitterEmbed = async (url: URL): Promise<Embed | null> => {
+    const id = url.pathname.match(/^\/[^/]+\/status(?:es)?\/(\d+)/)?.[1];
+    if (!id) return null;
+    const response = await fetchEmbedUrl(`https://api.fxtwitter.com/status/${id}`, getDefaultFetchOptions());
+    if (!response.ok) return null;
+    const { tweet } = (await response.json()) as { tweet?: FxTwitterStatus };
+    return tweet ? fxTwitterStatusEmbed(tweet) : null;
+};
+
 export const EmbedHandlers: {
     [key: string]: (url: URL) => Promise<Embed | Embed[] | null>;
 } = {
@@ -277,7 +381,7 @@ export const EmbedHandlers: {
             ...getDefaultFetchOptions(),
             method: "HEAD",
         });
-        if (type.headers.get("content-type")?.indexOf("image") !== -1) return await genericImageHandler(url);
+        if (type.headers.get("content-type")?.startsWith("image/")) return await genericImageHandler(url);
         if (type.headers.get("content-type")?.startsWith("video/")) return await genericVideoHandler(url, type);
 
         const response = await doFetch(url);
@@ -286,12 +390,10 @@ export const EmbedHandlers: {
         const text = await response.text();
         const metas = getMetaDescriptions(text);
 
-        // TODO: handle video
-
         if (!metas.image) metas.image = metas.image_fallback;
+        if (metas.image) metas.image = URL.canParse(metas.image, url) ? new URL(metas.image, url).href : undefined;
 
         if (metas.image && (!metas.width || !metas.height)) {
-            metas.image = new URL(metas.image, url).toString();
             const result = await probeEmbedImage(metas.image);
             metas.width = result.width;
             metas.height = result.height;
@@ -309,11 +411,12 @@ export const EmbedHandlers: {
 
         const image = makeEmbedImage(metas.image, metas.width, metas.height);
         const color = /^#[0-9a-f]{6}$/i.test(metas.theme_color ?? "") ? parseInt(metas.theme_color!.slice(1), 16) : undefined;
+        const video = image && pageVideo(url, metas);
         return {
             url: url.href,
-            type: embedType,
+            type: video ? EmbedType.video : embedType,
             title: metas.title,
-            ...(metas.card === "summary_large_image" ? { image } : { thumbnail: image }),
+            ...(video ? { thumbnail: image, video } : metas.card === "summary_large_image" ? { image } : { thumbnail: image }),
             color,
             description: metas.description,
             provider: metas.site_name
@@ -353,11 +456,15 @@ export const EmbedHandlers: {
         };
     },
 
+    "x.com": (url) => EmbedHandlers["www.twitter.com"](url),
+    "www.x.com": (url) => EmbedHandlers["www.twitter.com"](url),
+    "mobile.x.com": (url) => EmbedHandlers["www.twitter.com"](url),
+    "mobile.twitter.com": (url) => EmbedHandlers["www.twitter.com"](url),
     "twitter.com": (url) => EmbedHandlers["www.twitter.com"](url),
     "www.twitter.com": async (url: URL) => {
         if (!Config.get().externalRequests.thirdParty) return null;
         const token = Config.get().external.twitter;
-        if (!token) return null;
+        if (!token) return fxTwitterEmbed(url);
 
         if (!url.href.includes("/status/")) return null; // TODO;
         const id = url.pathname.split("/")[3]; // super bad lol
@@ -774,6 +881,72 @@ async function generateEmbedSingle(link: string, cb?: (url: string, embeds: Embe
         console.error(`[Embeds] Error while generating embed for ${link}`, e);
     }
     return null;
+}
+
+const UnfurledMediaLoadingState = { LOADED_SUCCESS: 2, LOADED_NOT_FOUND: 3 } as const;
+
+export async function unfurlComponentMedia(media: UnfurledMediaItem) {
+    try {
+        const url = new URL(media.url);
+        const head = await fetchEmbedUrl(url, { ...getDefaultFetchOptions(), method: "HEAD" });
+        const contentType = head.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+        if ([400, 401, 403, 404, 410, 451].includes(head.status)) {
+            media.loading_state = UnfurledMediaLoadingState.LOADED_NOT_FOUND;
+            return media;
+        }
+        if (!head.ok || !contentType) throw new Error("Component media answered without a usable type");
+        const size = contentType.startsWith("image/")
+            ? await probeEmbedImage(url).catch(() => undefined)
+            : contentType.startsWith("video/")
+              ? await probeVideo(url, Number(head.headers.get("content-length") ?? 0))
+              : undefined;
+        Object.assign(media, { content_type: contentType, ...(size && { width: size.width, height: size.height }) });
+    } catch {
+        media.content_type ??= guessMediaType(media.url);
+    }
+    media.loading_state = media.content_type ? UnfurledMediaLoadingState.LOADED_SUCCESS : UnfurledMediaLoadingState.LOADED_NOT_FOUND;
+    return media;
+}
+
+export async function fillComponentMedia(message: Message) {
+    const collect = (components: BaseMessageComponents[]): UnfurledMediaItem[] =>
+        components.flatMap((component) => {
+            if (component.type === MessageComponentType.Container) return collect(component.components);
+            if (component.type === MessageComponentType.Section && component.accessory.type === MessageComponentType.Thumbnail) return [component.accessory.media];
+            if (component.type === MessageComponentType.MediaGallery) return component.items.map((item) => item.media);
+            return [];
+        });
+    const pending = collect(message.components ?? []).filter(
+        (media) =>
+            !media.content_type && media.loading_state === undefined && URL.canParse(media.url) && /^https?:$/.test(new URL(media.url).protocol) && !isLocalMediaUrl(media.url),
+    );
+    if (!pending.length) return message;
+    const canonical = (value: unknown): string =>
+        Array.isArray(value)
+            ? `[${value.map(canonical).join(",")}]`
+            : value && typeof value === "object"
+              ? `{${Object.entries(value)
+                    .filter(([, entry]) => entry !== undefined)
+                    .sort(([a], [b]) => (a < b ? -1 : 1))
+                    .map(([key, entry]) => `${JSON.stringify(key)}:${canonical(entry)}`)
+                    .join(",")}}`
+              : JSON.stringify(value);
+    const sent = canonical(message.components);
+    const queue = pending.values();
+    await Promise.all(
+        Array.from({ length: Math.min(4, pending.length) }, async () => {
+            for (const media of queue) await unfurlComponentMedia(media);
+        }),
+    );
+    const stored = await Message.findOne({ where: { id: message.id, channel_id: message.channel_id }, select: { id: true, components: true } });
+    if (!stored || canonical(stored.components) !== sent) return message;
+    await Message.update({ id: message.id, channel_id: message.channel_id }, { components: message.components as never });
+    await emitEvent({
+        event: "MESSAGE_UPDATE",
+        channel_id: message.channel_id,
+        data: message.toJSON(),
+    } satisfies MessageUpdateEvent);
+    return message;
 }
 
 export async function fillMessageUrlEmbeds(message: Message) {

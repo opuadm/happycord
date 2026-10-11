@@ -54,6 +54,7 @@ export interface HookContext {
 }
 
 const AUTH_URL = /^\/auth\/(login|register)$/;
+const REPORT_URL = /^\/reporting\/(message|first_dm)$/;
 
 const MESSAGE_URL = /^\/channels\/(\d+)\/messages(?:\/(\d+))?$/;
 
@@ -356,6 +357,25 @@ export const createHooks = (ctx: HookContext) => {
                         () => {},
                     );
                     return result;
+                }
+                const reported = (opts.body ?? {}) as { channel_id?: unknown; message_id?: unknown };
+                if (
+                    method === "post" &&
+                    REPORT_URL.test(path) &&
+                    typeof reported.channel_id === "string" &&
+                    typeof reported.message_id === "string" &&
+                    engine.isEncrypted(reported.channel_id)
+                ) {
+                    const report = (async () => {
+                        const res = await originals
+                            .get({ url: `/channels/${reported.channel_id}/messages`, query: { around: reported.message_id, limit: 1 }, rejectWithError: false })
+                            .catch(() => null);
+                        const message = ((res?.ok ? res.body : []) as RawMessage[]).find((m) => m.id === reported.message_id);
+                        const key = message && (await engine.contentKey(message));
+                        return original({ ...opts, body: { ...(opts.body as object), ...(key && { e2ee_content_key: key }) } }, callback);
+                    })();
+                    report.catch(() => {});
+                    return report;
                 }
                 if (method === "put" && ctx.attachments.isUpload(url)) {
                     const upload = (async () => {

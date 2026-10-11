@@ -65,6 +65,26 @@ test("outboundProxy reads socks5 urls, direct and nothing", () => {
     }
 });
 
+test("outboundProxyStatus names the problem for every setting that is not a socks5 proxy without throwing", () => {
+    const previous = process.env.PUBLIC_FETCH_PROXY;
+    try {
+        process.env.PUBLIC_FETCH_PROXY = "socks5://warp:1080";
+        assert.deepEqual(transport.outboundProxyStatus(), { mode: "proxy", proxy: { host: "warp", port: 1080 } });
+        process.env.PUBLIC_FETCH_PROXY = "direct";
+        assert.equal(transport.outboundProxyStatus().mode, "direct");
+        assert.match(transport.outboundProxyStatus().problem, /own address/);
+        delete process.env.PUBLIC_FETCH_PROXY;
+        assert.equal(transport.outboundProxyStatus().mode, "unset");
+        assert.match(transport.outboundProxyStatus().problem, /link previews.*refuse every public URL/);
+        process.env.PUBLIC_FETCH_PROXY = "http://warp:1080";
+        assert.equal(transport.outboundProxyStatus().mode, "invalid");
+        assert.match(transport.outboundProxyStatus().problem, /socks5.*refuse every public URL/);
+    } finally {
+        if (previous === undefined) delete process.env.PUBLIC_FETCH_PROXY;
+        else process.env.PUBLIC_FETCH_PROXY = previous;
+    }
+});
+
 test("the proxy is asked for the checked address, not the host name", () =>
     withServers(
         (req, res) => res.end(`${req.method} ${req.url} ${req.headers.host} ${req.headers["user-agent"]}`),

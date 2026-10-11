@@ -1,9 +1,11 @@
 import { HTTPError } from "lambert-server/HTTPError";
 import { In, MoreThan } from "typeorm";
-import { Channel, Guild, Message, Report, ReportSnapshot, User } from "@spacebar/database";
-import { CreateReportSchema, ReportMenuType } from "@spacebar/schemas";
+import { createDecipheriv } from "node:crypto";
+import { Channel, E2eeDevice, Guild, Message, Recipient, Report, ReportSnapshot, User } from "@spacebar/database";
+import { ChannelType, CreateReportSchema, ReportMenuType } from "@spacebar/schemas";
 import { DiscordApiErrors, getPermission, getUrlSignature, NewUrlSignatureData } from "@spacebar/util";
 import { snapshotWidget } from "../handlers/ApplicationWidgets";
+import { verifyEd25519 } from "./e2ee";
 
 import { getReportingMenu } from "./reportMenus";
 
@@ -87,6 +89,53 @@ export async function createReport(type: string, body: CreateReportSchema, repor
             embeds: message.embeds?.length ?? 0,
             sent_at: message.timestamp?.toISOString(),
         };
+        const envelope = message.encrypted;
+        if (envelope) {
+            const opened = await (async (): Promise<{ verified: boolean; reason?: string; content?: string; files?: string[] }> => {
+                const key = typeof body.e2ee_content_key === "string" && /^[\w-]{43}$/.test(body.e2ee_content_key) ? Buffer.from(body.e2ee_content_key, "base64url") : null;
+                if (key?.length !== 32) return { verified: false, reason: "The reporter's client didn't share the key for this message." };
+                const device = await E2eeDevice.findOne({ where: { id: envelope.sender_device, user_id: message.author_id } });
+                if (!device) return { verified: false, reason: "The device that sent this message no longer exists." };
+                if (device.revoked_at && message.timestamp && message.timestamp >= device.revoked_at)
+                    return { verified: false, reason: "This message was sent from a removed device." };
+                const bind = envelope.mid ? `m:${envelope.mid}` : `n:${message.nonce ?? ""}`;
+                const signed = [
+                    "fosscord-e2ee/v1/sig",
+                    message.channel_id,
+                    message.author_id,
+                    bind,
+                    envelope.v,
+                    envelope.alg,
+                    envelope.sender_device,
+                    envelope.mid ?? null,
+                    envelope.iv,
+                    envelope.ct,
+                    [...envelope.keys].sort((a, b) => (a.device_id < b.device_id ? -1 : 1)).map((k) => [k.user_id, k.device_id, k.prekey_id, k.enc, k.wrapped]),
+                    ...(envelope.backup ? [[...envelope.backup].sort((a, b) => (a.user_id < b.user_id ? -1 : 1)).map((b) => [b.user_id, b.enc, b.wrapped])] : []),
+                ];
+                if (!verifyEd25519(device.signing_key, JSON.stringify(signed), envelope.sig))
+                    return { verified: false, reason: "The sender's signature on this message doesn't check out." };
+                try {
+                    const sealed = Buffer.from(envelope.ct, "base64url");
+                    const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(envelope.iv, "base64url"));
+                    decipher.setAAD(Buffer.from(`fosscord-e2ee/v1/msg\n${message.channel_id}\n${message.author_id}\n${envelope.sender_device}\n${bind}`));
+                    decipher.setAuthTag(sealed.subarray(-16));
+                    const payload = JSON.parse(Buffer.concat([decipher.update(sealed.subarray(0, -16)), decipher.final()]).toString("utf8"));
+                    return {
+                        verified: true,
+                        content: typeof payload?.content === "string" ? payload.content.slice(0, 4000) : "",
+                        files: Array.isArray(payload?.attachments)
+                            ? payload.attachments.flatMap((file: { filename?: unknown }) => (typeof file?.filename === "string" ? [file.filename.slice(0, 200)] : [])).slice(0, 10)
+                            : [],
+                    };
+                } catch {
+                    return { verified: false, reason: "The shared key doesn't open this message." };
+                }
+            })();
+            snapshot.content = opened.verified ? opened.content : (message.content ?? "");
+            snapshot.attachments = [];
+            snapshot.encrypted = { verified: opened.verified, ...(opened.reason && { reason: opened.reason }), ...(opened.files?.length && { files: opened.files }) };
+        }
     } else if (type === ReportMenuType.GUILD || type === ReportMenuType.GUILD_DISCOVERY) {
         const guild = report.guild_id
             ? await Guild.findOne({
@@ -160,6 +209,14 @@ export async function describeReports(reports: Report[], viewer: { ip?: string; 
             : [],
         messageIds.length ? Message.find({ where: { id: In(messageIds) }, select: { id: true } }) : [],
     ]);
+    const privateIds = channels.filter((c) => c.type === ChannelType.DM || c.type === ChannelType.GROUP_DM).map((c) => c.id);
+    const recipients = privateIds.length
+        ? await Recipient.find({
+              where: { channel_id: In(privateIds) },
+              relations: { user: true },
+              select: { channel_id: true, user: { id: true, username: true, global_name: true } },
+          })
+        : [];
     const user = (id?: string | null) => {
         if (!id) return null;
         const found = users.find((u) => u.id === id);
@@ -187,7 +244,20 @@ export async function describeReports(reports: Report[], viewer: { ip?: string; 
             reporter: user(r.reporter_id),
             reported_user: user(r.reported_user_id),
             guild: r.guild_id ? (guild ? { id: guild.id, name: guild.name, icon: guild.icon ?? null } : { id: r.guild_id }) : null,
-            channel: r.channel_id ? (channel ? { id: channel.id, name: channel.name ?? null, type: channel.type } : { id: r.channel_id }) : null,
+            channel: r.channel_id
+                ? channel
+                    ? {
+                          id: channel.id,
+                          name: channel.name ?? null,
+                          type: channel.type,
+                          ...(privateIds.includes(channel.id) && {
+                              recipients: recipients
+                                  .filter((x) => x.channel_id === channel.id && x.user)
+                                  .map((x) => ({ id: x.user.id, username: x.user.username, global_name: x.user.global_name ?? null })),
+                          }),
+                      }
+                    : { id: r.channel_id }
+                : null,
             message_id: r.message_id ?? null,
             message_exists: !!r.message_id && messages.some((m) => m.id === r.message_id),
             application_id: r.application_id ?? null,

@@ -49,6 +49,7 @@ function harness(validSignature = true) {
                 return Buffer.from(JSON.stringify(payload));
             },
             fromB64u: () => new Uint8Array(),
+            toB64u: (bytes) => Buffer.from(bytes).toString("base64url"),
             fromUtf8: (bytes) => Buffer.from(bytes).toString("utf8"),
             parsePayload: (value) => value,
         },
@@ -57,6 +58,7 @@ function harness(validSignature = true) {
     Object.assign(instance, {
         cached: () => payload,
         plaintext: new Map(),
+        contentKeys: new Map(),
         device: { deviceId: "receiving-device" },
         userId: "owner",
         linked: true,

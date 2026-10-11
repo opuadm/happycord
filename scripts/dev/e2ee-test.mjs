@@ -543,6 +543,30 @@ try {
             await waitDecrypted(b, first);
             await waitDecrypted(a, first);
             assert.equal(await a.page.locator('.fe2ee-lock[data-state="decrypted"]').count(), 0, "healthy messages have no encryption icons");
+
+            const menu = (await call("GET", "/reporting/menu/message", friend.token)).body;
+            const queue = [[menu.root_node_id]];
+            let breadcrumbs;
+            while (queue.length && !breadcrumbs) {
+                const path = queue.shift();
+                const node = menu.nodes[path.at(-1)];
+                if (node?.button?.type === "submit") breadcrumbs = path;
+                for (const child of node?.children ?? []) queue.push([...path, child[1]]);
+                if (node?.button?.type === "next" && node.button.target != null) queue.push([...path, node.button.target]);
+            }
+            const reported = (await call("GET", `/channels/${dm.id}/messages?limit=5`, friend.token)).body.find((m) => m.encrypted && m.author.id === tester.id);
+            const answer = await b.page.evaluate(
+                (body) =>
+                    window.Vencord.Webpack.Common.RestAPI.post({ url: "/reporting/message", body }).then(
+                        (res) => res.body,
+                        (error) => ({ error: String(error?.body ? JSON.stringify(error.body) : error) }),
+                    ),
+                { version: menu.version, variant: menu.variant, language: "en", breadcrumbs, elements: {}, name: menu.name, channel_id: dm.id, message_id: reported.id },
+            );
+            assert.ok(answer?.report_id, `the report was accepted: ${JSON.stringify(answer)}`);
+            const snapshot = JSON.parse(sql(`select snapshot::text from reports where id = '${answer.report_id}'`));
+            assert.equal(snapshot.encrypted?.verified, true, "a report from the client carries the content key and the server verifies it");
+            assert.equal(snapshot.content, first, "the verified report holds the text the sender sent");
             assert.equal(await b.page.locator('.fe2ee-lock[data-state="decrypted"]').count(), 0, "healthy peer messages have no encryption icons");
             await shot(b, "1-friend-reads-tester");
             assert.ok(a.sent.length >= 1, "tester sent a request");
@@ -1191,6 +1215,9 @@ try {
     });
 
     log("all e2ee checks passed");
+} catch (error) {
+    console.error("e2ee test failed:", error);
+    throw error;
 } finally {
     if (!restoredFixtureAccess) {
         try {

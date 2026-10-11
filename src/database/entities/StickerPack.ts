@@ -34,4 +34,10 @@ export class StickerPack extends BaseClass {
     @ManyToOne(() => Sticker, { nullable: true })
     @JoinColumn({ foreignKeyConstraintName: "FK_sticker_pack_cover_sticker_id" })
     cover_sticker?: Sticker;
+
+    @Column({ type: "int", default: 0 })
+    position: number = 0;
+
+    @Column({ default: false })
+    hidden: boolean = false;
 }

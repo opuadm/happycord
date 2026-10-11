@@ -673,7 +673,7 @@ export const DiscordApiErrors = {
         return new ApiError("Maximum number of pins reached for the channel ({})", 30003, undefined, ["50"]);
     },
     get MAXIMUM_NUMBER_OF_RECIPIENTS_REACHED() {
-        return new ApiError("Maximum number of recipients reached ({})", 30004, undefined, ["10"]);
+        return new ApiError("Maximum number of recipients reached ({})", 30004, undefined, ["25"]);
     },
     get MAXIMUM_ROLES() {
         return new ApiError("Maximum number of guild roles reached ({})", 30005, undefined, ["250"]);

@@ -1,5 +1,7 @@
 # Component media downloads
 
+Nothing calls the download path that `processMedia` implements, so remote component media is never copied into attachment storage. [link-embeds.md](../features/link-embeds.md#components-media) describes how the server reads the type and size of remote URLs instead and how clients load them. The checks below apply if the download path is connected again. `downloadRemoteMedia` connects from the server's own address and skips `PUBLIC_FETCH_PROXY`, so it has to move to `fetchPublicUrl` before anything calls it.
+
 Message component images and files can use public HTTP or HTTPS URLs, or `attachment://filename` references to the sender's upload in the current channel. Attachment references do not make a remote request.
 
 Remote component media resolves its destination before connecting. Every resolved address must be public, and the connection uses that validated address. Redirect destinations receive the same checks; three redirects are allowed. URLs containing credentials, private or reserved addresses, and mixed public/private DNS answers are rejected.

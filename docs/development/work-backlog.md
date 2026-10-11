@@ -62,13 +62,13 @@ Start with `src/api/routes/admin/store; assets/public/admin`.
 
 - [ ] **SHOP-004** Add clear preview and validation for artwork uploads. Refused frame replacements already keep the old layers; preview work remains.
 - [ ] **SHOP-006** Keep Discord decoration assets free in the local shop.
-- [ ] **SHOP-007** Add server-free sticker and emoji packs.
+- [ ] **SHOP-007** Add server-free sticker and emoji packs. Sticker packs are managed on the dashboard's Sticker packs page; emoji packs remain.
 - [ ] **SHOP-008** Define ownership, visibility and sharing for server-free expression packs.
 - [ ] **SHOP-009** Add import and export for local pack metadata.
 - [ ] **SHOP-010** Check shop rendering with thousands of items.
 - [ ] **SHOP-011** Bound item and pack administration responses.
 - [ ] **SHOP-014** Verify profile frames, effects and nameplates across profile layouts.
-- [ ] **STICKER-003** Support independent sticker and emoji packs that don't require a guild.
+- [ ] **STICKER-003** Support independent sticker and emoji packs that don't require a guild. Operators make guild-free sticker packs in the dashboard; emoji packs remain.
 
 ## Server administration (P1)
 

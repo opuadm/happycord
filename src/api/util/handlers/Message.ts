@@ -2,7 +2,7 @@ import { sqlArrayIncludes } from "@spacebar/database/Sql";
 import { HTTPError } from "lambert-server/HTTPError";
 import { In, Raw } from "typeorm";
 // noinspection ES6PreferShortImport -- Causes a circular reference...
-import { fillMessageUrlEmbeds } from "../utility/EmbedHandlers";
+import { fillComponentMedia, fillMessageUrlEmbeds } from "../utility/EmbedHandlers";
 import { resolveSoundmoji } from "../utility/Soundboard";
 import { getDatabase, Application, Attachment, Channel, CloudAttachment, Guild, Member, Message, ReadState, Role, Sticker, User, Webhook } from "@spacebar/database";
 import { Stopwatch, Random, normalizeLineEndings } from "@spacebar/extensions";
@@ -770,6 +770,7 @@ export async function postHandleMessage(message: Message, permission?: Permissio
         embed.type ||= EmbedType.rich;
     });
 
+    await fillComponentMedia(message);
     if (message.isWebhook || (permission ?? (await getPermission(message.author_id, message.channel.guild_id, message.channel_id))).has(Permissions.FLAGS.EMBED_LINKS))
         await fillMessageUrlEmbeds(message);
 }

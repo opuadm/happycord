@@ -65,8 +65,12 @@ export class Sticker extends BaseClass {
     @Column({ type: "int", nullable: true })
     sort_value?: number;
 
+    @Column({ default: false })
+    pack_upload: boolean = false;
+
     toJSON() {
         const json = super.toJSON();
+        delete json.pack_upload;
         return { ...json, user: this.user?.toPublicUser?.() ?? undefined };
     }
 }

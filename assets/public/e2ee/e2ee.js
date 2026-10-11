@@ -3730,6 +3730,7 @@ ${sig}`;
     members = new Map;
     profiles = new Map;
     plaintext = new Map;
+    contentKeys = new Map;
     listeners = new Set;
     unlockListeners = new Set;
     wipeListeners = new Set;
@@ -4630,6 +4631,16 @@ backup:${e.userId}`)
       const env = message.encrypted;
       return env ? this.plaintext.get(`${message.id}:${env.sig}`) ?? this.plaintext.get(`${env.mid ?? ""}:${env.sig}`) : undefined;
     }
+    async contentKey(message) {
+      const env = message.encrypted;
+      if (!env)
+        return;
+      if (!this.contentKeys.has(`${message.id}:${env.sig}`))
+        await this.decrypt(message, false).catch(() => {
+          return;
+        });
+      return this.contentKeys.get(`${message.id}:${env.sig}`);
+    }
     async decrypt(message, remember = true) {
       const env = message.encrypted;
       if (!env || env.v !== 1 || env.alg !== ALGORITHM || !Array.isArray(env.keys))
@@ -4692,6 +4703,7 @@ backup:${this.userId}`).catch(() => null);
         throw new E2eeError("NO_KEY", t("Sent before this browser was set up"));
       }
       const payload = parsePayload(JSON.parse(fromUtf8(await aesDecrypt(contentKey, fromB64u(env.iv), fromB64u(env.ct), aad))));
+      this.contentKeys.set(`${message.id}:${sig}`, toB64u(contentKey));
       if (mine && prekey && backupKey) {
         const covered = !!backupEntry && !!await hpkeOpen(backupKey.keyPair, backupEntry.enc, backupEntry.wrapped, BACKUP_INFO, `${aad}
 backup:${this.userId}`).catch(() => null);
@@ -4825,6 +4837,7 @@ backup:${this.userId}`).catch(() => null);
   var SEARCH_URL = /^\/channels\/(\d+)\/messages\/search(\/tabs)?$/;
   var SEARCH_PAGES = 10;
   var AUTH_URL = /^\/auth\/(login|register)$/;
+  var REPORT_URL = /^\/reporting\/(message|first_dm)$/;
   var MESSAGE_URL = /^\/channels\/(\d+)\/messages(?:\/(\d+))?$/;
   var CREATE_ATTACHMENTS_URL = /^\/channels\/(\d+)\/attachments$/;
   var isEncryptedMessage = (value) => {
@@ -5128,6 +5141,17 @@ backup:${this.userId}`).catch(() => null);
             const result = original(input, callback);
             result.then((res) => res?.ok && ctx.onCredentials(path, body, res.body), () => {});
             return result;
+          }
+          const reported = opts.body ?? {};
+          if (method === "post" && REPORT_URL.test(path) && typeof reported.channel_id === "string" && typeof reported.message_id === "string" && engine.isEncrypted(reported.channel_id)) {
+            const report = (async () => {
+              const res = await originals.get({ url: `/channels/${reported.channel_id}/messages`, query: { around: reported.message_id, limit: 1 }, rejectWithError: false }).catch(() => null);
+              const message = ((res?.ok) ? res.body : []).find((m) => m.id === reported.message_id);
+              const key = message && await engine.contentKey(message);
+              return original({ ...opts, body: { ...opts.body, ...key && { e2ee_content_key: key } } }, callback);
+            })();
+            report.catch(() => {});
+            return report;
           }
           if (method === "put" && ctx.attachments.isUpload(url)) {
             const upload = (async () => {

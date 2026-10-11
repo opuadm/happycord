@@ -1,6 +1,6 @@
 # Admin dashboard
 
-The dashboard is served at `/admin/` and needs an account with the operator right. [setup.md](../self-hosting/setup.md#operator-account) explains how to grant it. It has pages for profiles, servers, the shop, badges, games, announcements, reports, status, moderation, security, site settings and performance.
+The dashboard is served at `/admin/` and needs an account with the operator right. [setup.md](../self-hosting/setup.md#operator-account) explains how to grant it. It has pages for profiles, servers, the shop, sticker packs, badges, games, announcements, reports, status, moderation, security, site settings and performance.
 
 ## Navigation and editors
 
@@ -36,11 +36,31 @@ The catalog editors manage custom packs and items and local overrides for mirror
 - Frame uploads prepare every new layer before deleting an old one, and a refused upload removes the layers it already accepted.
 - Deleting a custom item or pack clears its avatar decoration, nameplate, profile effect and profile frame from global and server profiles in the same transaction. Deleted IDs are recorded in `store_item_deletions`, and PostgreSQL guards stop later profile writes from restoring them. Artwork removal starts only after the transaction commits.
 
+## Sticker packs
+
+The Sticker packs page manages the packs every account gets in the sticker picker, below the stickers of its servers. Packs imported from Discord and packs made on the instance are in one list and are edited the same way. [stickers.md](../self-hosting/stickers.md) covers importing Discord's catalog and its artwork. The routes are under `/api/v9/admin/sticker-packs` and need the operator right.
+
+- A pack has a name, a description, an order number, a cover sticker and a "Show in the picker" switch. Packs sort by order number, lowest first, then by ID, oldest first. A new pack gets 0, so it comes after the imported packs until it gets a lower number.
+- Hiding a pack takes it out of the picker. Messages that used its stickers keep them and the artwork stays served. Deleting a pack deletes its stickers and their artwork and removes those stickers from the messages that used them, so hide a pack to retire it.
+- A pack without stickers stays out of the picker.
+- "Add stickers" takes one or more PNG, APNG, GIF, WebP or Lottie JSON files of at most 4 MiB each, and each file becomes a sticker named after it. Other formats, such as JPEG, return 400. A Lottie file returns 400 when it names an address outside the file or an image it does not embed.
+- A sticker has a name of 2 to 30 characters, a description of up to 100 characters, search words of up to 200 characters and an order number inside its pack. It can move to another pack and keeps its ID and artwork. Its artwork can be replaced, and browsers that already loaded the old artwork keep it for up to 6 hours.
+- Moving or deleting the cover sticker of a pack resets the cover to the first sticker.
+- The checkboxes in the list hide, show or delete several packs at once.
+- A pack holds up to 200 stickers and an instance up to 500 packs.
+- Lottie stickers show a placeholder in the dashboard, because it has no Lottie player. The client plays them.
+- An open client fetches the packs again after an hour and picks up new and edited packs then. A hidden or deleted pack stays in an open client until it reloads.
+- While `externalRequests.discordStickerPacks` is on, an instance with no packs at all imports Discord's catalog again. Hide the imported packs instead of deleting every pack, or turn that setting off first.
+
 ## Slowmode
 
 Sends in a slowmode channel serialize per user and channel across processes with a PostgreSQL transaction advisory lock. The send rechecks the cooldown and saves the message, read state, member and channel pointers and a successful-send marker in one short transaction. A failed send rolls these back and uses no cooldown. The marker expires after six hours, the longest channel slowmode, and the current channel setting decides how much cooldown remains. Deleting the last message does not reset the cooldown.
 
 Slowmode applies to owners, administrators and members with Manage messages, Manage channels or Bypass slowmode. Turning on `limits.channel.allowSlowmodeBypass` in Site settings restores those permission exemptions. Edits and webhook messages do not use the cooldown. A rejected send returns HTTP 429 with code 20016 and `retry_after` in seconds, and the client shows its countdown and keeps the draft.
+
+## System
+
+The System page needs the operator right. It shows the bundled client and its patch check, link previews, voice and the Shop catalogue. The Link previews card reads `GET /admin/system/network`, which reports whether `PUBLIC_FETCH_PROXY` names a SOCKS5 proxy, says `direct`, is unset or is invalid, whether that proxy accepts a TCP connection within 2 seconds, and whether `externalRequests.thirdParty` is on. With the variable unset or invalid, link previews and components media fail, and the card says so.
 
 ## Performance
 

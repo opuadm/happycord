@@ -6835,7 +6835,6 @@
                 "type": "string"
             },
             "global_name": {
-                "maxLength": 32,
                 "type": [
                     "null",
                     "string"
@@ -10193,6 +10192,9 @@
             },
             "widget_id": {
                 "type": "string"
+            },
+            "e2ee_content_key": {
+                "type": "string"
             }
         },
         "additionalProperties": false,
@@ -10722,11 +10724,9 @@
             },
             "username": {
                 "minLength": 2,
-                "maxLength": 32,
                 "type": "string"
             },
             "pronouns": {
-                "maxLength": 40,
                 "type": "string"
             },
             "avatar": {
@@ -10765,7 +10765,6 @@
                 ]
             },
             "global_name": {
-                "maxLength": 32,
                 "type": [
                     "null",
                     "string"
@@ -11497,6 +11496,136 @@
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
     },
+    "AdminStickerPackCreateSchema": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "minLength": 1,
+                "maxLength": 100,
+                "type": "string"
+            },
+            "description": {
+                "maxLength": 500,
+                "type": "string"
+            },
+            "position": {
+                "description": "Packs with a lower number come first in the sticker picker",
+                "type": "integer",
+                "minimum": -2147483648,
+                "maximum": 2147483647
+            },
+            "hidden": {
+                "description": "Keeps the pack out of the sticker picker; stickers already sent from it stay in their messages",
+                "type": "boolean"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "name"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminStickerPackUpdateSchema": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "minLength": 1,
+                "maxLength": 100,
+                "type": "string"
+            },
+            "description": {
+                "maxLength": 500,
+                "type": "string"
+            },
+            "position": {
+                "type": "integer",
+                "minimum": -2147483648,
+                "maximum": 2147483647
+            },
+            "hidden": {
+                "type": "boolean"
+            },
+            "cover_sticker_id": {
+                "description": "The sticker shown as the pack's icon in the picker, or null to use the pack's first sticker",
+                "pattern": "^[0-9]{1,20}$",
+                "type": [
+                    "null",
+                    "string"
+                ]
+            }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminStickerCreateSchema": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "minLength": 2,
+                "maxLength": 30,
+                "type": "string"
+            },
+            "description": {
+                "maxLength": 100,
+                "type": "string"
+            },
+            "tags": {
+                "description": "Comma-separated words people find the sticker by",
+                "maxLength": 200,
+                "type": "string"
+            },
+            "file_data": {
+                "description": "The artwork as a data: URI holding a PNG, APNG, GIF, WebP or Lottie JSON file",
+                "type": "string"
+            },
+            "sort_value": {
+                "description": "Stickers with a lower number come first in their pack",
+                "type": "integer",
+                "minimum": -2147483648,
+                "maximum": 2147483647
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "file_data",
+            "name"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminStickerUpdateSchema": {
+        "type": "object",
+        "properties": {
+            "pack_id": {
+                "description": "Moves the sticker to another pack",
+                "pattern": "^[0-9]{1,20}$",
+                "type": "string"
+            },
+            "name": {
+                "minLength": 2,
+                "maxLength": 30,
+                "type": "string"
+            },
+            "description": {
+                "maxLength": 100,
+                "type": "string"
+            },
+            "tags": {
+                "maxLength": 200,
+                "type": "string"
+            },
+            "file_data": {
+                "description": "Replacement artwork as a data: URI",
+                "type": "string"
+            },
+            "sort_value": {
+                "type": "integer",
+                "minimum": -2147483648,
+                "maximum": 2147483647
+            }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
     "AdminCustomGameCreateSchema": {
         "type": "object",
         "properties": {
@@ -11579,9 +11708,8 @@
         "type": "object",
         "properties": {
             "body": {
-                "description": "Markdown, sent as the message's text",
+                "description": "Markdown, sent as the message's text. The message limit from the instance settings applies.",
                 "minLength": 1,
-                "maxLength": 4000,
                 "type": "string"
             },
             "audience": {
@@ -11840,11 +11968,9 @@
         "properties": {
             "name": {
                 "minLength": 1,
-                "maxLength": 100,
                 "type": "string"
             },
             "topic": {
-                "maxLength": 4096,
                 "type": [
                     "null",
                     "string"
@@ -11946,7 +12072,6 @@
                 "type": "integer"
             },
             "topic": {
-                "maxLength": 4096,
                 "type": [
                     "null",
                     "string"
@@ -17606,6 +17731,10 @@
             "sort_value": {
                 "type": "integer"
             },
+            "pack_upload": {
+                "type": "boolean",
+                "default": false
+            },
             "id": {
                 "type": "string"
             }
@@ -17616,6 +17745,7 @@
             "id",
             "name",
             "pack",
+            "pack_upload",
             "type",
             "version"
         ],
@@ -17648,14 +17778,24 @@
             "cover_sticker": {
                 "$ref": "#/definitions/Sticker"
             },
+            "position": {
+                "type": "integer",
+                "default": 0
+            },
+            "hidden": {
+                "type": "boolean",
+                "default": false
+            },
             "id": {
                 "type": "string"
             }
         },
         "additionalProperties": false,
         "required": [
+            "hidden",
             "id",
             "name",
+            "position",
             "stickers"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#"

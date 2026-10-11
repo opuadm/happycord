@@ -21,3 +21,12 @@ DOTENV_CONFIG_PATH=<isolated .env> bun scripts/dev/sticker-picker-smoke.mjs --tr
 ```
 
 It registers two disposable accounts through Cap, accepts their friendship, logs in through the native client, creates one temporary guild and PNG sticker, checks Lottie, APNG and custom PNG rendering, and removes only its own fixtures. `--send` also sends each tile and checks the recipient's message, its decrypted sticker format and its decoded artwork.
+
+
+## Editing packs
+
+Operators add, edit, reorder, hide and delete sticker packs on the Sticker packs page of the admin dashboard. [admin.md](../features/admin.md#sticker-packs) describes it. Imported packs are ordinary rows there, so they can be renamed, reordered, hidden or deleted like the instance's own packs.
+
+Stickers uploaded in the dashboard are marked in the `stickers.pack_upload` column. The provisioner skips them: it does not validate them, count them toward its limits or list them in its manifest. The CDN never asks Discord for their artwork. Uploaded artwork is stored in the same `stickers` storage directory as the provisioned artwork, so one backup covers both.
+
+Rerunning the provisioner with `--import-catalog` adds back official packs and stickers that were deleted. It leaves existing rows as they are, including a pack's name, order and hidden state, and it does not put stickers back on messages.

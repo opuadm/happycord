@@ -71,7 +71,7 @@ async function fetchStandardSticker(sticker_id: string, path: string) {
     if (!/^\d+$/.test(sticker_id)) return null;
     const find = () =>
         Sticker.findOne({
-            where: { id: sticker_id, type: StickerType.STANDARD },
+            where: { id: sticker_id, type: StickerType.STANDARD, pack_upload: false },
             select: { id: true, format_type: true },
         });
     let sticker = await find();

@@ -133,7 +133,7 @@ async function mirror(sticker) {
 try {
     await db.connect();
     if (process.argv.includes("--import-catalog")) await importCatalog();
-    const catalog = (await db.query("SELECT id,format_type FROM stickers WHERE type = 1 ORDER BY id")).rows;
+    const catalog = (await db.query("SELECT id,format_type FROM stickers WHERE type = 1 AND NOT pack_upload ORDER BY id")).rows;
     if (!catalog.length || catalog.length > 2000 || catalog.some((sticker) => !/^\d{1,20}$/.test(sticker.id) || ![1, 2, 3, 4].includes(sticker.format_type)))
         throw new Error("Provision a valid standard sticker catalog first with --import-catalog");
     await fs.mkdir(directory, { recursive: true });

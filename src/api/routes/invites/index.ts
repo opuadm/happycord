@@ -22,7 +22,8 @@ async function joinGroupDm(found: Invite, user_id: string) {
     let new_member = false;
     const existing = channel.recipients?.find((r) => r.user_id === user_id);
     if (!existing) {
-        if ((channel.recipients?.length ?? 0) >= 10) throw DiscordApiErrors.MAXIMUM_NUMBER_OF_RECIPIENTS_REACHED.withDefaultParams();
+        const { maxGroupDmRecipients } = Config.get().limits.channel;
+        if ((channel.recipients?.length ?? 0) >= maxGroupDmRecipients) throw DiscordApiErrors.MAXIMUM_NUMBER_OF_RECIPIENTS_REACHED.withParams(String(maxGroupDmRecipients));
         const recipient = await Recipient.create({ channel_id: channel.id, user_id }).save();
         channel.recipients = [...(channel.recipients ?? []), recipient];
         new_member = true;

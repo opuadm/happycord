@@ -1,6 +1,5 @@
 import { route } from "@spacebar/api/middlewares";
-import { ensureStandardStickerPacks } from "@spacebar/api/util";
-import { StickerPack } from "@spacebar/database";
+import { ensureStandardStickerPacks, findStickerPack } from "@spacebar/api/util";
 import { HTTPError } from "lambert-server/HTTPError";
 import { Request, Response, Router } from "express";
 
@@ -18,11 +17,7 @@ router.get(
     }),
     async (req: Request, res: Response) => {
         await ensureStandardStickerPacks();
-        const pack = await StickerPack.findOne({
-            where: { id: req.params.pack_id as string },
-            relations: { stickers: true },
-            order: { stickers: { sort_value: "ASC" } },
-        });
+        const pack = await findStickerPack(req.params.pack_id as string);
         if (!pack) throw new HTTPError("Unknown sticker pack", 404);
         res.json(pack);
     },

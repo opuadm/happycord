@@ -7,7 +7,7 @@
 - [setup.md](self-hosting/setup.md): native hosting entry point, Docker and development setup, and the first operator account.
 - [deploy.md](self-hosting/deploy.md): production with Docker Compose, backups, updates, reverse proxies and phones.
 - [external-services.md](self-hosting/external-services.md): every outside service the instance can contact and how each is turned on.
-- [stickers.md](self-hosting/stickers.md): provisioning the standard sticker artwork locally.
+- [stickers.md](self-hosting/stickers.md): provisioning the standard sticker artwork locally and editing sticker packs.
 
 ## Features
 
@@ -15,6 +15,7 @@
 - [activities.md](features/activities.md): embedded activities, their hosting and API.
 - [announcements.md](features/announcements.md): encrypted announcements from the official account.
 - [e2ee.md](features/e2ee.md): end-to-end encrypted DMs, key backup and recovery.
+- [link-embeds.md](features/link-embeds.md): link previews, video players and components media.
 - [homepage.md](features/homepage.md): the instance homepage at `/` and the settings that change it.
 - [identity-moderation.md](features/identity-moderation.md): blocked words in usernames, display names and nicknames.
 - [loading-screen.md](features/loading-screen.md): custom loading tips and loading animation.

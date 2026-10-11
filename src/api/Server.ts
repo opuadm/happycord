@@ -20,6 +20,7 @@ import {
     PUBLIC_ASSETS_FOLDER,
 } from "@spacebar/util";
 import { ProcessLifecycle, SystemdLifecycle } from "../util/util/ProcessLifecycle";
+import { outboundProxyStatus } from "../util/util/networking/SocksTransport";
 import { Monitoring } from "../util/monitoring/Monitoring";
 import { BcryptWorkerPool } from "../util/util/workers/bcrypt/BcryptWorkerPool";
 import { Authentication, CORS, ExternalProxy, ImageProxy, KlipyProxy, BodyParser, ErrorHandler, initRateLimits, initTranslation } from "./middlewares";
@@ -131,6 +132,8 @@ export class SpacebarServer extends Server {
 
         await ConnectionLoader.loadConnections();
 
+        const outbound = outboundProxyStatus();
+        if (outbound.problem) console.warn(red(`[Network] Warning: ${outbound.problem}. See docs/self-hosting/external-services.md#hiding-the-servers-address`));
         if (logRequests) console.log(red(`Warning: Request logging is enabled! This will spam your console!\nTo disable this, unset the 'LOG_REQUESTS' environment variable!`));
 
         await super.start();

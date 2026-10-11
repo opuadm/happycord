@@ -111,8 +111,8 @@ router.put(
                 throw DiscordApiErrors.INVALID_RECIPIENT; //TODO is this the right error?
             }
             if (await Relationship.isBlockedBetween(req.user_id, user_id)) throw DiscordApiErrors.CANNOT_MESSAGE_USER;
-            if ((channel.recipients?.length ?? 0) >= Config.get().limits.channel.maxGroupDmRecipients)
-                throw DiscordApiErrors.MAXIMUM_NUMBER_OF_RECIPIENTS_REACHED.withDefaultParams();
+            const { maxGroupDmRecipients } = Config.get().limits.channel;
+            if ((channel.recipients?.length ?? 0) >= maxGroupDmRecipients) throw DiscordApiErrors.MAXIMUM_NUMBER_OF_RECIPIENTS_REACHED.withParams(String(maxGroupDmRecipients));
 
             channel.recipients?.push(Recipient.create({ channel_id: channel_id, user_id: user_id }));
             await channel.save();

@@ -1056,6 +1056,66 @@ td {
   box-shadow: 0 0 0 2px var(--bg, #111);
 }
 
+/* sticker packs */
+.sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.sticker-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sticker-tile:hover {
+  background: var(--panel-2);
+}
+
+.sticker-tile > span:last-child {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sticker-thumb {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  object-fit: contain;
+  border-radius: 8px;
+  background: var(--panel-2);
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.sticker-thumb.small {
+  width: 32px;
+  height: 32px;
+  font-size: 8px;
+}
+
+.sticker-thumb.large {
+  width: 160px;
+  height: 160px;
+  font-size: 14px;
+}
+
 .skip-link {
   position: fixed;
   top: 8px;
