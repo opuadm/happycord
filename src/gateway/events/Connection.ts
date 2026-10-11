@@ -78,11 +78,6 @@ export async function Connection(this: WS.Server, socket: WebSocket, request: In
         return socket.close(CLOSECODES.Decode_error, "Gateway connection rejected: IP address is required.");
     }
 
-    if (!socket.userAgent && Config.get().security.cdnSignatureIncludeUserAgent) {
-        console.error("Gateway connection rejected: No User-Agent header found.");
-        return socket.close(CLOSECODES.Decode_error, "Gateway connection rejected: User-Agent header is required.");
-    }
-
     if (request.headers.cookie?.split("; ").find((x) => x.startsWith("__sb_sessid="))) {
         socket.fingerprint = request.headers.cookie
             .split("; ")

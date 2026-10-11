@@ -3,6 +3,7 @@ import { BlockList, isIP } from "node:net";
 import { request as requestHttp, IncomingMessage } from "node:http";
 import { request as requestHttps } from "node:https";
 import { Config } from "../Config";
+import { outboundProxy, RawExchange, socksExchange } from "./SocksTransport";
 
 const privateV4 = new BlockList();
 const privateV6 = new BlockList();
@@ -124,7 +125,7 @@ async function readPublicResponse(response: IncomingMessage, maxBytes: number, m
 export async function fetchPublicUrl(url: string, init: RequestInit = {}, redirects = 3, limits: PublicFetchLimits = {}): Promise<Response> {
     const maxBytes = limits.maxBytes ?? 5 * 1024 * 1024;
     const timeoutMs = limits.timeoutMs ?? 15000;
-    if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0 || maxBytes > 32 * 1024 * 1024 || !Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 30000)
+    if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0 || maxBytes > 64 * 1024 * 1024 || !Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 30000)
         throw new Error("Invalid public fetch limits");
     if (!Number.isSafeInteger(redirects) || redirects < 0 || redirects > 5) throw new Error("Invalid public redirect limit");
     if (init.body != null && typeof init.body !== "string" && !(init.body instanceof Uint8Array)) throw new Error("Unsupported public request body");
@@ -133,17 +134,9 @@ export async function fetchPublicUrl(url: string, init: RequestInit = {}, redire
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(new Error("Public URL request timed out")), timeoutMs);
     const signal = init.signal ? AbortSignal.any([init.signal, controller.signal]) : controller.signal;
-    const requestUrl = async (target: URL, remaining: number, method: string, headers: Headers, payload?: Buffer): Promise<Response> => {
-        if (limits.allowExternal === false && !isTrustedCdnAsset(target, limits.trustedCdnOrigin)) throw new Error("External public requests are disabled");
-        const address = await resolveFetchAddress(target, signal, limits.trustedCdnOrigin);
-        return new Promise<Response>((resolve, reject) => {
-            const outgoing = Object.fromEntries(headers.entries());
-            outgoing["accept-encoding"] = "identity";
-            delete outgoing.host;
-            delete outgoing.connection;
-            delete outgoing["transfer-encoding"];
-            delete outgoing["content-length"];
-            if (payload) outgoing["content-length"] = String(payload.length);
+    const proxy = outboundProxy();
+    const exchangeDirect = (target: URL, address: { address: string; family: number }, method: string, outgoing: Record<string, string>, payload?: Buffer) =>
+        new Promise<RawExchange>((resolve, reject) => {
             const request = (target.protocol === "https:" ? requestHttps : requestHttp)(
                 target,
                 {
@@ -155,73 +148,64 @@ export async function fetchPublicUrl(url: string, init: RequestInit = {}, redire
                     lookup: (_hostname, options, callback) => callback(null, options.all ? [address] : address.address, address.family),
                 },
                 (response) => {
-                    try {
-                        const status = response.statusCode ?? 0;
-                        if ([301, 302, 303, 307, 308].includes(status) && response.headers.location) {
-                            if (init.redirect === "error") {
-                                response.destroy();
-                                return reject(new Error("Public redirect refused"));
-                            }
-                            if (init.redirect !== "manual") {
-                                response.destroy();
-                                if (!remaining) return reject(new Error("Too many public redirects"));
-                                let next: URL;
-                                try {
-                                    next = new URL(response.headers.location, target);
-                                } catch {
-                                    return reject(new Error("Invalid public redirect"));
-                                }
-                                const nextHeaders = new Headers(headers);
-                                if (next.origin !== target.origin)
-                                    for (const name of [
-                                        "authorization",
-                                        "proxy-authorization",
-                                        "cookie",
-                                        "cookie2",
-                                        "x-api-key",
-                                        "x-auth-token",
-                                        "x-access-token",
-                                        "signature",
-                                        "referer",
-                                        "origin",
-                                    ])
-                                        nextHeaders.delete(name);
-                                const nextMethod = (status === 303 && method !== "HEAD") || ([301, 302].includes(status) && method === "POST") ? "GET" : method;
-                                if (nextMethod !== method) for (const name of ["content-type", "content-length", "content-encoding"]) nextHeaders.delete(name);
-                                requestUrl(next, remaining - 1, nextMethod, nextHeaders, nextMethod === method ? payload : undefined).then(resolve, reject);
-                                return;
-                            }
-                        }
-                        const responseHeaders = new Headers();
-                        for (const [name, values] of Object.entries(response.headers))
-                            for (const value of Array.isArray(values) ? values : values === undefined ? [] : [values]) responseHeaders.append(name, value);
-                        readPublicResponse(response, maxBytes, method).then(
-                            (data) => {
-                                try {
-                                    const result = new Response(data, { status, headers: responseHeaders });
-                                    Object.defineProperties(result, {
-                                        url: { value: target.href },
-                                        redirected: { value: target.href !== new URL(url).href },
-                                    });
-                                    resolve(result);
-                                } catch (error) {
-                                    reject(error);
-                                }
-                            },
-                            (error) => {
-                                response.destroy();
-                                reject(error);
-                            },
-                        );
-                    } catch (error) {
+                    const status = response.statusCode ?? 0;
+                    const headers = Object.entries(response.headers).flatMap(([name, values]) =>
+                        (Array.isArray(values) ? values : values === undefined ? [] : [values]).map((value): [string, string] => [name, value]),
+                    );
+                    if ([301, 302, 303, 307, 308].includes(status)) {
                         response.destroy();
-                        reject(error);
+                        return resolve({ status, headers, body: null });
                     }
+                    readPublicResponse(response, maxBytes, method).then(
+                        (body) => resolve({ status, headers, body }),
+                        (error) => {
+                            response.destroy();
+                            reject(error);
+                        },
+                    );
                 },
             );
             request.on("error", reject);
             request.end(payload);
         });
+    const requestUrl = async (target: URL, remaining: number, method: string, headers: Headers, payload?: Buffer): Promise<Response> => {
+        if (limits.allowExternal === false && !isTrustedCdnAsset(target, limits.trustedCdnOrigin)) throw new Error("External public requests are disabled");
+        const address = await resolveFetchAddress(target, signal, limits.trustedCdnOrigin);
+        const outgoing = Object.fromEntries(headers.entries());
+        outgoing["accept-encoding"] = "identity";
+        delete outgoing.host;
+        delete outgoing.connection;
+        delete outgoing["transfer-encoding"];
+        delete outgoing["content-length"];
+        if (payload) outgoing["content-length"] = String(payload.length);
+        const viaProxy = !isTrustedCdnAsset(target, limits.trustedCdnOrigin) && !isPrivateAddress(address.address) && proxy !== "direct";
+        if (viaProxy && !proxy) throw new Error("PUBLIC_FETCH_PROXY is not set, so requests to user-chosen URLs are refused");
+        const exchange =
+            viaProxy && proxy
+                ? await socksExchange(proxy, target, address.address, method, outgoing, payload, signal, maxBytes)
+                : await exchangeDirect(target, address, method, outgoing, payload);
+        const location = exchange.headers.find(([name]) => name === "location")?.[1];
+        if ([301, 302, 303, 307, 308].includes(exchange.status) && location && init.redirect !== "manual") {
+            if (init.redirect === "error") throw new Error("Public redirect refused");
+            if (!remaining) throw new Error("Too many public redirects");
+            if (!URL.canParse(location, target)) throw new Error("Invalid public redirect");
+            const next = new URL(location, target);
+            const nextHeaders = new Headers(headers);
+            if (next.origin !== target.origin)
+                for (const name of ["authorization", "proxy-authorization", "cookie", "cookie2", "x-api-key", "x-auth-token", "x-access-token", "signature", "referer", "origin"])
+                    nextHeaders.delete(name);
+            const nextMethod = (exchange.status === 303 && method !== "HEAD") || ([301, 302].includes(exchange.status) && method === "POST") ? "GET" : method;
+            if (nextMethod !== method) for (const name of ["content-type", "content-length", "content-encoding"]) nextHeaders.delete(name);
+            return requestUrl(next, remaining - 1, nextMethod, nextHeaders, nextMethod === method ? payload : undefined);
+        }
+        const responseHeaders = new Headers();
+        for (const [name, value] of exchange.headers) responseHeaders.append(name, value);
+        const result = new Response(exchange.body, { status: exchange.status, headers: responseHeaders });
+        Object.defineProperties(result, {
+            url: { value: target.href },
+            redirected: { value: target.href !== new URL(url).href },
+        });
+        return result;
     };
     try {
         return await requestUrl(new URL(url), redirects, (init.method ?? "GET").toUpperCase(), new Headers(init.headers), body);

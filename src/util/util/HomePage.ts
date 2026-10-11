@@ -4,10 +4,11 @@ import path from "node:path";
 import { Config } from "./Config";
 import { PUBLIC_ASSETS_FOLDER } from "./Constants";
 import { brandPage, instanceName } from "./Branding";
+import { instanceDescription, instancePage, openGraphTags } from "./OpenGraph";
 
 const escapeHtml = (text: string) => text.replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-export const homePage = () => {
+export const homePage = (origin?: string) => {
     const { general, register } = Config.get();
     const name = escapeHtml(instanceName());
     const closed = register.disabled || !register.allowNewRegistration;
@@ -56,11 +57,11 @@ export const homePage = () => {
         ],
     ];
 
-    const description = general.instanceDescription?.trim();
     const page = fs.readFileSync(path.join(PUBLIC_ASSETS_FOLDER, "index.html"), "utf8");
     return brandPage(
         page
-            .replaceAll("__TAGLINE__", description ? escapeHtml(description) : "Chat, voice and encrypted DMs with your friends. Every feature is free.")
+            .replace("__OPEN_GRAPH__", origin ? openGraphTags(origin, instancePage()) : "")
+            .replaceAll("__TAGLINE__", escapeHtml(instanceDescription()))
             .replace("__ACTIONS__", actions)
             .replace("__JOIN_NOTE__", joinNote)
             .replace(

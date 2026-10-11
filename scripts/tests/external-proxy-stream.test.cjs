@@ -5,7 +5,7 @@ const vm = require("node:vm");
 const ts = require("typescript");
 const http = require("node:http");
 
-const run = async (upstream, verify, deadline = 15000) => {
+const run = async (upstream, verify) => {
     const module = { exports: {} };
     const calls = [];
     vm.runInNewContext(
@@ -16,20 +16,18 @@ const run = async (upstream, verify, deadline = 15000) => {
             module,
             exports: module.exports,
             URL,
+            Buffer,
             AbortController,
-            AbortSignal,
-            setTimeout: (callback, delay) => setTimeout(callback, delay === 15000 ? deadline : delay),
-            clearTimeout,
-            fetch: async (url, options) => {
-                calls.push({ url, options });
-                return upstream(options);
-            },
             require: (name) =>
                 name === "@spacebar/util"
                     ? {
                           Config: { get: () => ({ embeds: {}, cdn: { proxyCacheHeaderSeconds: 60 } }) },
                           verifyExternalPath: () => true,
                           corsProxyUrl: (url) => `https://cors.estrogen.delivery/?url=${encodeURIComponent(url.href)}`,
+                          fetchPublicUrl: async (url, options, redirects, limits) => {
+                              calls.push({ url, options, redirects, limits });
+                              return upstream(options, limits);
+                          },
                       }
                     : require(name),
         },
@@ -56,80 +54,44 @@ const run = async (upstream, verify, deadline = 15000) => {
     }
 };
 
-test("legacy signed media uses the CORS service and cancels rejected upstream bodies", async () => {
-    let cancelled = false;
-    await run(
-        () =>
-            new Response(
-                new ReadableStream({
-                    cancel() {
-                        cancelled = true;
-                    },
-                }),
-                { headers: { "content-type": "text/html" } },
-            ),
+test("legacy signed media goes through the bounded public fetcher and rejects non-media", () =>
+    run(
+        () => new Response("<html>", { headers: { "content-type": "text/html" } }),
         async (url, calls) => {
             const response = await fetch(url);
             assert.equal(response.status, 415);
             await response.text();
             assert.equal(new URL(calls[0].url).searchParams.get("url"), "https://source.test/media");
             assert.equal(calls[0].options.redirect, "error");
+            assert.equal(calls[0].redirects, 0);
+            assert.equal(calls[0].limits.maxBytes, 50 * 1024 * 1024);
+            assert.equal(calls[0].limits.timeoutMs, 15000);
         },
-    );
-    assert.equal(cancelled, true);
-});
+    ));
 
-test("legacy signed media bounds chunked bytes without Content-Length", async () => {
-    let chunks = 0;
-    await run(
-        () =>
-            new Response(
-                new ReadableStream({
-                    pull(controller) {
-                        chunks++;
-                        controller.enqueue(new Uint8Array(1024 * 1024));
-                    },
-                }),
-                { headers: { "content-type": "image/png" } },
-            ),
+test("legacy signed media passes ranges and media headers through", () =>
+    run(
+        (options) =>
+            new Response("abc", {
+                status: 206,
+                headers: { "content-type": "video/mp4", "content-range": `bytes 0-2/10`, "accept-ranges": "bytes", "x-other": "no" },
+                ...(options.headers.range === "bytes=0-2" ? {} : { status: 500 }),
+            }),
         async (url) => {
-            let bytes = 0;
-            try {
-                const response = await fetch(url);
-                for await (const chunk of response.body) bytes += chunk.length;
-            } catch {}
-            assert.ok(bytes <= 50 * 1024 * 1024);
-            assert.ok(chunks < 65);
+            const response = await fetch(url, { headers: { range: "bytes=0-2" } });
+            assert.equal(response.status, 206);
+            assert.equal(await response.text(), "abc");
+            assert.equal(response.headers.get("content-range"), "bytes 0-2/10");
+            assert.equal(response.headers.get("content-length"), "3");
+            assert.equal(response.headers.get("x-other"), null);
         },
-    );
-});
+    ));
 
-test("legacy signed media keeps its deadline through a stalled response body", async () => {
-    let signal;
-    await run(
-        (options) => {
-            signal = options.signal;
-            return new Response(
-                new ReadableStream({
-                    start(controller) {
-                        controller.enqueue(new Uint8Array([1]));
-                    },
-                }),
-                { headers: { "content-type": "image/png" } },
-            );
-        },
-        async (url) => {
-            const started = Date.now();
-            await assert.rejects(async () => {
-                const response = await fetch(url);
-                await response.arrayBuffer();
-            });
-            assert.ok(Date.now() - started < 5000);
-            assert.equal(signal.aborted, true);
-        },
-        100,
-    );
-});
+test("an oversized upstream answers 413", () =>
+    run(
+        () => Promise.reject(new Error("Public response exceeds byte limit")),
+        async (url) => assert.equal((await fetch(url)).status, 413),
+    ));
 
 test("historical resizing uses bounded CORS downloads and limits decoder input and concurrency", async () => {
     const module = { exports: {} };

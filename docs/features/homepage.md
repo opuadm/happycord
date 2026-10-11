@@ -15,3 +15,13 @@ These settings change what the page says:
 | `general.correspondenceEmail`                         | Adds a Contact link to the footer and the address to the "Who runs" and closed-registration answers.                      |
 
 The FAQ has seven questions in `<details>` elements, so it works without JavaScript. With JavaScript the list shows four questions, fades the fifth and adds a Show more button that reveals the rest. Browsers that support `::details-content` animate the height when a question opens, unless the reader has reduced motion turned on. The footer links to `/terms`, `/privacy`, `/guidelines` and `/status`, and keeps the fixed Meowcord credit.
+
+## Link previews
+
+The homepage and every `/invite/<code>` page carry Open Graph and Twitter Card tags, so Discord, Slack, messaging apps and other sites show a card with a title, a description and an image instead of a bare URL. `src/util/util/OpenGraph.ts` writes the tags and `src/api/util/utility/invitePreview.ts` looks up the invite.
+
+The homepage card uses the instance name, `general.instanceDescription` and the 512px app icon. An invite card says "Join the <server> server on <instance>", uses the server description or a sentence with the member count, and shows the server icon at 256px when the server has one. A group DM invite gets a generic group DM card. An unknown or expired invite gets the homepage card, so the page doesn't reveal whether a code ever existed.
+
+`/api/v9/oembed?url=<page>` answers oEmbed requests for pages on the same host with the same title, provider and thumbnail. It returns 404 for any other host. The pages link to it with `<link rel="alternate" type="application/json+oembed">`.
+
+Inside the client, a link to an invite on the same instance renders Discord's invite card. A link to another Meowcord instance is unfurled from these tags like any other site when `externalRequests.thirdParty` is on, so it shows the instance name, the description and the icon.

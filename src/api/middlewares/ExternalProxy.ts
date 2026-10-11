@@ -1,7 +1,5 @@
-import { Config, corsProxyUrl, extractVideoFrame, verifyExternalPath } from "@spacebar/util";
+import { Config, corsProxyUrl, extractVideoFrame, fetchPublicUrl, verifyExternalPath } from "@spacebar/util";
 import { Request, Response } from "express";
-import { Readable, Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
 
 const MAX_SIZE = 50 * 1024 * 1024;
 const PASSTHROUGH_HEADERS = ["content-type", "content-length", "content-range", "accept-ranges", "last-modified", "etag"];
@@ -34,13 +32,10 @@ async function serveExternalProxy(req: Request, res: Response) {
         return res.status(400).send("Invalid media URL");
     }
     if (req.query.format) {
-        const head = await fetch(target, {
-            method: "HEAD",
-            redirect: "error",
-            signal: AbortSignal.timeout(10000),
-        }).catch(() => null);
+        const head = await fetchPublicUrl(target, { method: "HEAD", redirect: "error" }, 0, { timeoutMs: 10000 }).catch(() => null);
         if (head?.headers.get("content-type")?.startsWith("video/")) {
-            const frame = await extractVideoFrame(target);
+            const video = await fetchPublicUrl(target, { redirect: "error" }, 0, { maxBytes: MAX_SIZE, timeoutMs: 15000 }).catch(() => null);
+            const frame = video?.ok ? await extractVideoFrame(Buffer.from(await video.arrayBuffer())) : null;
             if (!frame) return res.status(415).send("Unable to render a preview frame");
             res.setHeader("content-type", "image/jpeg");
             res.setHeader("cache-control", `public, max-age=${Config.get().cdn.proxyCacheHeaderSeconds}`);
@@ -51,50 +46,43 @@ async function serveExternalProxy(req: Request, res: Response) {
     }
 
     const abort = new AbortController();
-    const timeout = setTimeout(() => abort.abort(), 15000);
     const disconnected = () => {
         if (!res.writableEnded) abort.abort();
     };
     res.once("close", disconnected);
-    let upstream: globalThis.Response | undefined;
     try {
-        upstream = await fetch(target, {
-            redirect: "error",
-            headers: {
-                "user-agent": Config.get().embeds.defaultUserAgent ?? "Mozilla/5.0",
-                ...(req.headers.range && { range: req.headers.range }),
+        const upstream = await fetchPublicUrl(
+            target,
+            {
+                redirect: "error",
+                headers: {
+                    "user-agent": Config.get().embeds.defaultUserAgent ?? "Mozilla/5.0",
+                    ...(req.headers.range && { range: req.headers.range }),
+                },
+                signal: abort.signal,
             },
-            signal: abort.signal,
-        });
-        if (!upstream.body) return res.status(502).send("Unable to reach media proxy");
+            0,
+            { maxBytes: MAX_SIZE, timeoutMs: 15000 },
+        );
         if (!upstream.ok) return res.status(upstream.status).send(`Media proxy responded with ${upstream.status}`);
-        const length = upstream.headers.get("content-length");
-        if (length && (!/^\d+$/.test(length) || !Number.isSafeInteger(Number(length)) || Number(length) > MAX_SIZE)) return res.status(413).send("Media response too large");
         const type = upstream.headers.get("content-type") ?? "";
         if (!/^(image|video|audio)\//.test(type)) return res.status(415).send("Unsupported media type");
+        const body = Buffer.from(await upstream.arrayBuffer());
         res.status(upstream.status);
         for (const header of PASSTHROUGH_HEADERS) {
             const value = upstream.headers.get(header);
             if (value) res.setHeader(header, value);
         }
+        res.setHeader("content-length", String(body.length));
         res.setHeader("cache-control", `public, max-age=${Config.get().cdn.proxyCacheHeaderSeconds}`);
         res.setHeader("access-control-allow-origin", "*");
         res.setHeader("cross-origin-resource-policy", "cross-origin");
-        let bytes = 0;
-        const bounded = new Transform({
-            transform(chunk, _encoding, callback) {
-                bytes += chunk.length;
-                callback(bytes > MAX_SIZE ? new Error("Media response exceeds byte limit") : null, chunk);
-            },
-        });
-        await pipeline(Readable.fromWeb(upstream.body as import("node:stream/web").ReadableStream), bounded, res, { signal: abort.signal });
-    } catch {
+        res.end(body);
+    } catch (error) {
         if (res.headersSent) res.destroy();
+        else if (/byte limit/.test(String(error))) res.status(413).send("Media response too large");
         else res.status(502).send("Unable to reach media proxy");
     } finally {
-        clearTimeout(timeout);
         res.off("close", disconnected);
-        abort.abort();
-        if (upstream?.body && !upstream.body.locked) await upstream.body.cancel().catch(() => {});
     }
 }

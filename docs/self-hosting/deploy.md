@@ -1,5 +1,7 @@
 # Deploying
 
+For hosting without Docker, follow [native.md](native.md). It runs the bundle and voice SFU under systemd as a dedicated `meowcord` user, with root-owned code, private state and local PostgreSQL. The Compose commands below apply only to Docker installations. Client assets, phone support and the runtime behavior described later also apply to native installations.
+
 ## Docker Compose
 
 `docker-compose.yml` and `Dockerfile` at the repository root run a complete public instance on one Linux host. There are five services:
@@ -69,6 +71,8 @@ Every variable lives in `.env`. `.env.example` lists all of them.
 | `SMTP_STARTTLS`                                      | no       | Without `SMTP_SECURE`, the connection requires STARTTLS unless this is `false`.                                                                                                                                                                                                                                                                      |
 | `SMTP_USERNAME`, `SMTP_PASSWORD`                     | no       | SMTP login.                                                                                                                                                                                                                                                                                                                                          |
 | `EMAIL_FROM`                                         | no       | Sender address. Defaults to `noreply@<DOMAIN>`.                                                                                                                                                                                                                                                                                                      |
+| `PUBLIC_FETCH_PROXY` | no | SOCKS5 proxy for fetches of user-chosen URLs, `socks5://warp:1080` by default, which is the bundled WARP container. See [external-services.md](external-services.md#hiding-the-servers-address). |
+| `WARP_LICENSE_KEY` | no | WARP+ key for the WARP container. |
 | `CLIENT_CONCURRENCY`                                 | no       | Parallel downloads when the client service fetches the web client, 8 by default.                                                                                                                                                                                                                                                                     |
 | `LOG_REQUESTS`                                       | no       | Status codes the server logs requests for, `500,501` by default.                                                                                                                                                                                                                                                                                     |
 | `REVISION`, `REVISION_TIME`                          | no       | Commit hash and commit time in Unix seconds, written to `.rev` in the image so the server reports which commit it runs. Fill them with `git rev-parse HEAD` and `git log -1 --format=%ct`.                                                                                                                                                           |
@@ -126,6 +130,20 @@ docker compose start server
 
 The restore helper verifies checksums, stops the target server and refuses a populated public database schema or nonempty file volumes. It restores the dump in one transaction and restores matching signing keys, recovery keys, managed sender keys, queued announcements and attachments. A failed restore leaves the server stopped. Inspect the restored files and database before starting it. Named volumes use `MEOWCORD_VOLUME_PREFIX`, independent of the Compose project name.
 
+### Shop catalogue
+
+The free Shop lists decorations, profile effects, nameplates and bundles from `assets/collectibles.json` and `assets/profile-effects.json`. Neither file is in the repository or the image, so a new instance has an empty Shop until you provide them. Both files hold the JSON arrays that Discord's `collectibles-categories` and profile effects endpoints return.
+
+With Docker, mount your copies read-only into the server service and restart it:
+
+```yaml
+    volumes:
+      - ./assets/collectibles.json:/app/assets/collectibles.json:ro
+      - ./assets/profile-effects.json:/app/assets/profile-effects.json:ro
+```
+
+To download them from a URL instead, set `COLLECTIBLES_EXTERNAL_REFRESH=true`, `COLLECTIBLES_CATALOG_URL` and `PROFILE_EFFECTS_CATALOG_URL`. The server then downloads both every 12 hours, or every `COLLECTIBLES_REFRESH_HOURS`, and keeps the last good copy when a download fails. The files must be writable for this, so don't mount them read-only. The Shop catalogue card in the admin dashboard shows where the files came from, when they last changed, and what went wrong with the last refresh.
+
 ### Updating
 
 ```sh
@@ -151,7 +169,7 @@ Migrations run when the server starts. The web client in the `client` volume sta
 )
 ```
 
-This fetches whatever build discord.com serves at that moment. Our Equicord plugins and `client/e2ee` find their targets in Discord's code by pattern, and `client/release.json` pins the build they were last checked against, see [client-patches.md](../development/client-patches.md#reviewed-client-releases). A newer build can break some of them. The client service fails when the mandatory encryption anchors are missing, including when it reuses a cached client. Server startup checks them again before accepting traffic. The update commands stop the server before modifying the shared cache and restart it only after validation succeeds. A failed download or anchor check leaves the server stopped. Retain the timestamped archive until the new client passes native browser and patch checks. To restore it, replace the archive name below with the file from that update:
+This fetches the build pinned in `client/release.json`, using the reviewed index from the matching GitHub release and the assets from discord.com. Run `git pull` and rebuild first to move to a newer pin. Our Equicord plugins and `client/e2ee` find their targets in Discord's code by pattern, and `client/release.json` pins the build they were last checked against, see [client-patches.md](../development/client-patches.md#reviewed-client-releases). A newer build can break some of them. The client service fails when the mandatory encryption anchors are missing, including when it reuses a cached client. Server startup checks them again before accepting traffic. The update commands stop the server before modifying the shared cache and restart it only after validation succeeds. A failed download or anchor check leaves the server stopped. Retain the timestamped archive until the new client passes native browser and patch checks. To restore it, replace the archive name below with the file from that update:
 
 ```sh
 (

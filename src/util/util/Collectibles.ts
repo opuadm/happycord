@@ -257,11 +257,17 @@ const refreshOnce = async () => {
     if (!EXTERNAL_REFRESH || !SOURCES.catalog.url) {
         const next = await load(false);
         if (generation === catalogGeneration) catalog = Promise.resolve(next);
+        const missing = !(await fs.stat(SOURCES.catalog.file).catch(() => undefined));
         lastRefresh = {
             at: new Date().toISOString(),
             ok: true,
             categories: next.categories.length,
             products: next.products.size,
+            ...(missing
+                ? {
+                      error: `There is no catalogue to load. Put a collectibles.json snapshot in the assets folder, or set COLLECTIBLES_EXTERNAL_REFRESH=true and COLLECTIBLES_CATALOG_URL to download one.`,
+                  }
+                : {}),
         };
         return lastRefresh;
     }

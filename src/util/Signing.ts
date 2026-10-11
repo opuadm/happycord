@@ -139,11 +139,7 @@ function calculateHash(request: UrlSignatureData): UrlSignResult {
 
     let userAgentData = new Int8Array();
     if (Config.get().security.cdnSignatureIncludeUserAgent) {
-        if (!request.userAgent)
-            console.log(
-                "[Signing] CDN Signature User-Agent is enabled but we couldn't find the user-agent header in the request. This may cause issues with signature validation. Please report this to the Spacebar team!",
-            );
-        else {
+        if (request.userAgent) {
             if (process.env["LOG_CDN_SIGNATURES"]) console.log("[Signing] CDN Signature User-Agent is enabled, adding User-Agent to hash:", request.userAgent);
             data.update(request.userAgent!);
             userAgentData = new Int8Array(new TextEncoder().encode(request.userAgent!));

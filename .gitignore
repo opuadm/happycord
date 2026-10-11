@@ -3,6 +3,11 @@ db/
 dist/
 node_modules
 database.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db-shm
+*.db-wal
 tsconfig.tsbuildinfo
 files/
 assets/cache
@@ -10,6 +15,7 @@ assets/cache_compressed
 .env
 .env.*
 !.env.example
+docker-compose.override.yml
 config.json
 assets/cacheMisses
 http-client.private.env.json

@@ -36,6 +36,12 @@ Custom plugin dependencies listed in `pluginDependencies` are linked from the ro
 
 For a new build, download into an empty staging directory with `CLIENT_CACHE_PATH=/tmp/meowcord-client-review CLIENT_RELEASE_REVIEW=1 bun scripts/client.js`. The review switch permits a staging download; it does not bypass server verification. Run `CLIENT_CACHE_PATH=/tmp/meowcord-client-review bun scripts/client-release.js --record` to prepare a candidate pin. Run the E2EE anchor check, the Equicord reporter and the full browser encryption test against a disposable server serving that exact staging cache before committing the pin. Keep the download, `release-manifest.json` and generated Equicord assets outside git. A changing upstream build fails the release gate until it has been reviewed.
 
+Discord keeps serving the hashed assets of older builds, but `/app` only returns the current index. So `scripts/client.js` downloads the reviewed index from the `client-<buildNumber>` GitHub release, at `https://github.com/meowcorded/meowcord/releases/download/client-<buildNumber>/index.html`, and fetches every asset it references from Discord. `CLIENT_INDEX_URL` points it at another copy. When that release is missing, it falls back to the current `/app`, which fails the gate if the build has moved on. With `CLIENT_RELEASE_REVIEW=1` it always uses `/app`. After committing a new pin, publish its index from the staging cache:
+
+```sh
+gh release create client-BUILD /tmp/meowcord-client-review/index.html --repo meowcorded/meowcord --title "Client BUILD" --notes "Reviewed Discord web client index for build BUILD." --prerelease --latest=false
+```
+
 ## Adding a patch
 
 Put it in the plugin that matches what it removes, or create `client/plugins/<name>/index.ts` with an AGPL header and `definePlugin({ name, description, authors: [FosscordAuthor], required: true, patches })`. Shared helpers are in `client/plugins/fosscordCore/shared.tsx`:

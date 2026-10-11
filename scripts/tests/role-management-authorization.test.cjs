@@ -139,7 +139,7 @@ test("reorder validates every entry before any mutation or event", async () => {
     for (const update of [
         { id: "400", position: 1 },
         { id: "200", position: 4 },
-        { id: "500", position: 2 },
+        { id: "500", position: 4 },
         { id: "600", position: 2 },
         { id: "100", position: 1 },
     ]) {
@@ -158,6 +158,14 @@ test("lower-role reorder and unchanged protected-role entries are permitted", as
         { id: "100", position: 0 },
     ]);
     assert.equal(h.roles.find((r) => r.id === "200").position, 2);
+});
+test("managed roles below the actor can be reordered", async () => {
+    const h = harness();
+    await h.invoke("patch", [
+        { id: "500", position: 2 },
+        { id: "200", position: 1 },
+    ]);
+    assert.equal(h.roles.find((r) => r.id === "500").position, 2);
 });
 test("administrator still cannot edit or delete higher or managed roles", async () => {
     for (const method of ["patch", "delete"])

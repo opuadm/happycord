@@ -71,6 +71,7 @@ const harness = async (reply = (_req, res) => res.end("ok"), resolve = async () 
         "node:http": require("node:http"),
         "node:https": require("node:https"),
         "../Config": { Config: { get: () => config } },
+        "./SocksTransport": { outboundProxy: () => "direct" },
     });
     const helper = load(
         "src/api/util/utility/applicationOutbound.ts",

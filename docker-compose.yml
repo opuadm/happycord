@@ -62,6 +62,32 @@ services:
       retries: 3
       start_period: 10s
 
+  warp:
+    image: docker.io/caomingjun/warp:2026.7.1377.0-2.12.0
+    restart: unless-stopped
+    device_cgroup_rules:
+      - "c 10:200 rwm"
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - MKNOD
+      - AUDIT_WRITE
+      - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+    environment:
+      WARP_SLEEP: 2
+      WARP_LICENSE_KEY: ${WARP_LICENSE_KEY:-}
+    volumes:
+      - warp:/var/lib/cloudflare-warp
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS --max-time 5 --socks5-hostname 127.0.0.1:1080 https://cloudflare.com/cdn-cgi/trace | grep -q warp=on"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   server:
     <<: *server
     restart: unless-stopped
@@ -71,11 +97,14 @@ services:
         condition: service_healthy
       sfu:
         condition: service_healthy
+      warp:
+        condition: service_healthy
       client:
         condition: service_completed_successfully
     environment:
       DATABASE: postgres://${POSTGRES_USER:-fosscord}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-fosscord}
       DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      PUBLIC_FETCH_PROXY: ${PUBLIC_FETCH_PROXY:-socks5://warp:1080}
       INSTANCE_NAME: ${INSTANCE_NAME:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       WRTC_PUBLIC_IP: ${WRTC_PUBLIC_IP}
@@ -94,6 +123,10 @@ services:
       E2EE_RECOVERY_KEY_FILE: ${E2EE_RECOVERY_KEY_FILE:-}
       E2EE_RECOVERY_MASTER_KEY: ${E2EE_RECOVERY_MASTER_KEY:-}
       LOG_REQUESTS: ${LOG_REQUESTS:-500,501}
+      COLLECTIBLES_EXTERNAL_REFRESH: ${COLLECTIBLES_EXTERNAL_REFRESH:-}
+      COLLECTIBLES_CATALOG_URL: ${COLLECTIBLES_CATALOG_URL:-}
+      PROFILE_EFFECTS_CATALOG_URL: ${PROFILE_EFFECTS_CATALOG_URL:-}
+      COLLECTIBLES_REFRESH_HOURS: ${COLLECTIBLES_REFRESH_HOURS:-}
     # only on the host's loopback, for a reverse proxy running outside compose instead of the caddy service
     ports:
       - "127.0.0.1:${SERVER_PORT:-3001}:3001"
@@ -152,6 +185,8 @@ volumes:
     name: ${MEOWCORD_VOLUME_PREFIX:-fosscord}_client
   sfu:
     name: ${MEOWCORD_VOLUME_PREFIX:-fosscord}_sfu
+  warp:
+    name: ${MEOWCORD_VOLUME_PREFIX:-fosscord}_warp
   caddy_data:
     name: ${MEOWCORD_VOLUME_PREFIX:-fosscord}_caddy_data
   caddy_config:

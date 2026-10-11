@@ -53,6 +53,7 @@ const harness = async (reply, dns = async () => [{ address: "93.184.216.34", fam
         "../Config": {
             Config: { get: () => ({ security: { allowPrivateNetworkRequests: privateOverride } }) },
         },
+        "./SocksTransport": { outboundProxy: () => "direct" },
     };
     vm.runInNewContext(
         ts.transpileModule(fs.readFileSync("src/util/util/networking/PublicNetwork.ts", "utf8"), {
@@ -245,7 +246,7 @@ test("caller abort and invalid limits do not create unbounded requests", () =>
             const c = new AbortController();
             c.abort();
             await assert.rejects(h.fetchPublicUrl("https://public.example/a", { signal: c.signal }));
-            for (const maxBytes of [0, Infinity, 33 * 1024 * 1024]) await assert.rejects(h.fetchPublicUrl("https://public.example/a", {}, 3, { maxBytes }));
+            for (const maxBytes of [0, Infinity, 65 * 1024 * 1024]) await assert.rejects(h.fetchPublicUrl("https://public.example/a", {}, 3, { maxBytes }));
             assert.equal(h.calls.hits.length, 0);
         },
     ));

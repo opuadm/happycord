@@ -77,7 +77,7 @@ The browser scripts use `playwright-core` from `~/.cache/fosscord-tools`. Instal
 
 ## Migrations
 
-- They live in `src/database/migration/postgres` and run on startup in timestamp order.
+- They live in `src/database/migration/postgres` and `src/database/migration/sqlite` and run on startup in timestamp order. A schema change needs an equivalent migration for both backends, and the SQLite baseline stays unchanged. See [docs/self-hosting/databases.md](docs/self-hosting/databases.md).
 - Each one is idempotent: `IF NOT EXISTS`, `IF EXISTS`, or a check before the change. A migration can run against a database that already has its change.
 - The timestamp is later than every existing migration and unique, with a random suffix such as `1791514025449`.
 - Never touch a table that a migration with a later timestamp creates, because a fresh database hasn't created it yet.

@@ -75,6 +75,7 @@ const references = (text) => {
     return new Set([...names, ...[...text.matchAll(WASM_MODULE)].map((match) => `${match[1]}.module.wasm`)]);
 };
 const checkOnly = process.argv.includes("--check");
+const reviewing = process.env.CLIENT_RELEASE_REVIEW === "1";
 const onlyMissing = checkOnly || process.argv.includes("--missing");
 const writeAtomic = async (file, body) => {
     const temporary = `${file}.${process.pid}.tmp`;
@@ -91,12 +92,18 @@ const main = async () => {
     if (checkOnly && !existsSync(indexFile)) throw new Error("Client index.html is missing; generate a snapshot before checking it");
     if (onlyMissing && existsSync(indexFile)) html = await fs.readFile(indexFile, "utf8");
     else {
-        const appRes = await fetch(`${BASE_URL}/app`, {
-            headers: { "user-agent": USER_AGENT },
-            signal: AbortSignal.timeout(30000),
-        });
-        if (!appRes.ok) throw new Error(`GET /app returned ${appRes.status}`);
-        html = await appRes.text();
+        const pinned = reviewing ? null : release.pinnedIndexUrl();
+        const pinnedRes = pinned && (await fetch(pinned, { redirect: "follow", signal: AbortSignal.timeout(30000) }).catch(() => null));
+        if (pinnedRes?.ok) html = await pinnedRes.text();
+        else {
+            if (pinned) console.warn(`The reviewed client index at ${pinned} returned ${pinnedRes?.status ?? "a network error"}, using the current ${BASE_URL}/app instead`);
+            const appRes = await fetch(`${BASE_URL}/app`, {
+                headers: { "user-agent": USER_AGENT },
+                signal: AbortSignal.timeout(30000),
+            });
+            if (!appRes.ok) throw new Error(`GET /app returned ${appRes.status}`);
+            html = await appRes.text();
+        }
     }
 
     const servedHtml = html.replace(/<!-- section:seometa -->[\s\S]*?<!-- endsection -->/, "");
@@ -178,7 +185,7 @@ const main = async () => {
     if (!checkOnly) await writeAtomic(path.join(CACHE_PATH, "..", "cacheFailures"), failed.join("\n"));
     if (!failed.length) {
         const actual = release.describe(CACHE_PATH, html, seen);
-        if (process.env.CLIENT_RELEASE_REVIEW !== "1") release.verify(actual);
+        if (!reviewing) release.verify(actual);
         if (!checkOnly) {
             await writeAtomic(path.join(CACHE_PATH, "release-manifest.json"), JSON.stringify({ ...actual, assets: [...seen].sort() }));
             if (!onlyMissing) await writeAtomic(indexFile, html);

@@ -4,6 +4,8 @@ This is the task queue for admin, app, compatibility, reliability and performanc
 
 P0 means a reported crash, trapped flow or broken core interaction. P1 means active completeness, reliability or measured performance work. P2 means polish and consolidation. Task IDs stay the same when priorities change.
 
+PostgreSQL and SQLite backend selection is implemented. Database schema changes must include equivalent migrations for both backends, with fresh-database verification.
+
 ## Modal layering and dismissal (P0)
 
 Start with `client/plugins; assets/public/admin`.
@@ -211,15 +213,15 @@ Start with `scripts/dev; scripts/tests`.
 
 ## Upstream and operations (P1)
 
-Start with `CONTRIBUTING.MD; docs/self-hosting/deploy.md; scripts/client.js`.
+Start with `CONTRIBUTING.MD; docs/self-hosting/native.md; docs/self-hosting/deploy.md; scripts/client.js`.
 
 - [ ] **OPS-001** Refresh upstream history and report whether new commits need integration.
 - [ ] **OPS-002** Keep normal pushes directly to main within the user-authorized workflow.
 - [ ] **OPS-003** Commit verified changes in small coherent batches.
 - [ ] **OPS-005** Keep localhost demo source synchronized with committed main.
 - [ ] **OPS-007** Document safe current commands for encryption fixtures.
-- [ ] **OPS-008** Publish complete versioned client asset snapshots.
-- [ ] **OPS-009** Verify deployment health and service restart behavior.
+- [ ] **OPS-008** Publish complete versioned client asset snapshots. The reviewed index for each pin is published as the `client-<buildNumber>` GitHub release and `scripts/client.js` downloads it, see [client-patches.md](client-patches.md#reviewed-client-releases). The assets still come from discord.com, so a build whose assets Discord deletes cannot be installed fresh.
+- [ ] **OPS-009** Verify deployment health and service restart behavior. [native.md](../self-hosting/native.md) documents the dedicated service account, systemd unit and health checks. A fresh-host installation, restart and restore exercise remains to be run.
 - [ ] **OPS-010** Keep private keys, credentials and test accounts out of Git. Runtime environment variants are ignored while `.env.example` stays public, and a regression covers environment files, recovery keys, generated account files and client caches. Arbitrary filenames and historical secret scanning remain open.
 - [ ] **OPS-011** Check rollback and asset-cache behavior after client updates.
 - [ ] **OPS-012** Document benchmark and browser limitations honestly.

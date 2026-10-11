@@ -5458,7 +5458,11 @@ function renderCollectiblesStatus(c) {
                 <button class="btn small" id="collectibles-refresh" type="button">Refresh catalogue</button>
             </div>
             <p class="muted" style="margin:0">
-                Decorations, effects, nameplates and bundles in the free Shop come from a public copy of Discord's catalogue, re-downloaded every ${c.refresh_interval_hours} hours.
+                ${
+                  c.catalog.external_refresh_enabled
+                    ? `Decorations, effects, nameplates and bundles in the free Shop come from a copy of Discord's catalogue at ${c.catalog.url}, downloaded again every ${c.refresh_interval_hours} hours.`
+                    : "Decorations, effects, nameplates and bundles in the free Shop come from the collectibles.json snapshot in the assets folder. Downloading is off. Set COLLECTIBLES_EXTERNAL_REFRESH=true and COLLECTIBLES_CATALOG_URL to download it from a URL."
+                }
             </p>
             <div class="list">
                 ${source("Catalogue", c.catalog)} ${source("Profile effects", c.effects)}
@@ -5489,11 +5493,12 @@ function renderCollectiblesStatus(c) {
       api("/admin/system/collectibles/refresh", { method: "POST" }),
     );
     if (!next) return;
+    const failed = !next.last_refresh?.ok || !next.last_refresh.products;
     toast(
-      next.last_refresh?.ok
-        ? `Catalogue refreshed: ${fmtNumber(next.last_refresh.products)} products`
-        : "Couldn't refresh the catalogue",
-      next.last_refresh?.ok ? "ok" : "error",
+      failed
+        ? (next.last_refresh?.error ?? "Couldn't refresh the catalogue")
+        : `Catalogue refreshed: ${fmtNumber(next.last_refresh.products)} products`,
+      failed ? "error" : "ok",
     );
     renderCollectiblesStatus(next);
   });

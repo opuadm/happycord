@@ -47,6 +47,7 @@ PORT=$port
 WRTC_WS_PORT=$((port + 1000))
 NODE_ENV=development
 CONFIG_PATH=$PWD/config.json
+PUBLIC_FETCH_PROXY=direct
 ENV
 sfu_bin=""
 if command -v go >/dev/null && (cd extra/pion-sfu && go build -o pion-sfu .); then

@@ -80,12 +80,12 @@ function connectionHarness() {
         },
         { setTimeout: () => ({ unref() {} }) },
     );
-    const connect = async (url = "/?v=10&encoding=json") => {
+    const connect = async (url = "/?v=10&encoding=json", remoteAddress = "127.0.0.1") => {
         const socket = new Socket();
         await Connection.call({ clients: new Set() }, socket, {
             url,
             headers: {},
-            socket: { remoteAddress: "127.0.0.1" },
+            socket: { remoteAddress },
         });
         return socket;
     };
@@ -137,8 +137,8 @@ test("standard v parameter accepts 8/9/10, preserves version alias, and rejects 
 
 test("security-rejected handshake is removed from shutdown registry", async () => {
     const h = connectionHarness();
-    h.config.security.cdnSignatureIncludeUserAgent = true;
-    const socket = await h.connect();
+    h.config.security.cdnSignatureIncludeIp = true;
+    const socket = await h.connect(undefined, "");
     assert.equal(socket.closed[0].code, CLOSECODES.Decode_error);
     assert.equal(h.openConnections.length, 0);
     await h.shutdown();
@@ -163,10 +163,10 @@ function messageHarness() {
         },
         "../opcodes": {
             default: undefined,
-            1: async function (data) {
+            1: async (data) => {
                 received.push(data);
             },
-            2: async function () {
+            2: async () => {
                 throw new Error("Handler failed");
             },
         },

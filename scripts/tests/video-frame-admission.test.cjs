@@ -37,31 +37,6 @@ const fs=require("node:fs"); fs.appendFileSync(${JSON.stringify(counter)}, "x");
     }
 });
 
-test("chunked video downloads stop at the byte cap without invoking ffmpeg", async () => {
-    const http = require("node:http");
-    let finished = false;
-    const server = http.createServer((_request, response) => {
-        let sent = 0;
-        const send = () => {
-            while (sent < 80) {
-                sent++;
-                if (!response.write(Buffer.alloc(1024 * 1024))) return response.once("drain", send);
-            }
-            finished = true;
-            response.end();
-        };
-        send();
-    });
-    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-    try {
-        assert.equal(await extractVideoFrame(`http://127.0.0.1:${server.address().port}/video`), null);
-        assert.equal(finished, false);
-    } finally {
-        server.closeAllConnections();
-        await new Promise((resolve) => server.close(resolve));
-    }
-});
-
 test("real ffmpeg preserves valid video preview extraction", async (context) => {
     const binary = spawnSync("which", ["ffmpeg"], { encoding: "utf8" }).stdout.trim();
     if (!binary) return context.skip("ffmpeg is not installed");
@@ -76,26 +51,5 @@ test("real ffmpeg preserves valid video preview extraction", async (context) => 
         assert.equal(await extractVideoFrame(Buffer.from(`ffconcat version 1.0\nfile '${file}'\n`)), null);
     } finally {
         fs.rmSync(directory, { recursive: true, force: true });
-    }
-});
-
-test("video preview redirects never connect to the destination", async () => {
-    const http = require("node:http");
-    let destinationRequests = 0;
-    const server = http.createServer((request, response) => {
-        if (request.url === "/redirect") {
-            response.writeHead(302, { location: "/destination" });
-            return response.end();
-        }
-        destinationRequests++;
-        response.end("private destination");
-    });
-    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-    try {
-        assert.equal(await extractVideoFrame(`http://127.0.0.1:${server.address().port}/redirect`), null);
-        assert.equal(destinationRequests, 0);
-    } finally {
-        server.closeAllConnections();
-        await new Promise((resolve) => server.close(resolve));
     }
 });

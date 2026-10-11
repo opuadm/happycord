@@ -70,40 +70,9 @@ const runFfmpeg = (file: string, timeoutMs: number) =>
         });
     });
 
-const downloadVideo = async (input: string, timeoutMs: number): Promise<Buffer | null> => {
-    const response = await fetch(input, {
-        redirect: "error",
-        signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (!response.ok || Number(response.headers.get("content-length")) > MAX_VIDEO_SIZE) {
-        await response.body?.cancel();
-        return null;
-    }
-    if (!response.body) return null;
-    const reader = response.body.getReader();
-    const chunks: Uint8Array[] = [];
-    let bytes = 0;
-    try {
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) return Buffer.concat(chunks, bytes);
-            bytes += value.length;
-            if (bytes > MAX_VIDEO_SIZE) {
-                await reader.cancel();
-                return null;
-            }
-            chunks.push(value);
-        }
-    } finally {
-        reader.releaseLock();
-    }
-};
-
-const createVideoFrame = async (input: string | Buffer, timeoutMs: number): Promise<Buffer | null> => {
+const createVideoFrame = async (data: Buffer, timeoutMs: number): Promise<Buffer | null> => {
     let file: string | undefined;
     try {
-        const data = typeof input === "string" ? await downloadVideo(input, timeoutMs) : input;
-        if (!data) return null;
         file = path.join(tmpdir(), `sb-frame-${randomBytes(16).toString("hex")}`);
         await writeFile(file, data, { flag: "wx", mode: 0o600 });
         return await runFfmpeg(file, timeoutMs);
@@ -114,11 +83,11 @@ const createVideoFrame = async (input: string | Buffer, timeoutMs: number): Prom
     }
 };
 
-export async function extractVideoFrame(input: string | Buffer, timeoutMs = MAX_TIMEOUT_MS): Promise<Buffer | null> {
-    if (ffmpegMissing || (typeof input !== "string" && input.length > MAX_VIDEO_SIZE)) return null;
+export async function extractVideoFrame(input: Buffer, timeoutMs = MAX_TIMEOUT_MS): Promise<Buffer | null> {
+    if (ffmpegMissing || input.length > MAX_VIDEO_SIZE) return null;
     const timeout = Number.isFinite(timeoutMs) ? Math.max(1, Math.min(MAX_TIMEOUT_MS, Math.floor(timeoutMs))) : MAX_TIMEOUT_MS;
     const digest = createHash("sha256").update(input).digest("hex");
-    const key = `${typeof input}:${digest}:${timeout}`;
+    const key = `${digest}:${timeout}`;
     const existing = previewJobs.get(key);
     if (existing) return existing;
     if (previewJobs.size >= MAX_PREVIEW_JOBS) return null;

@@ -28,9 +28,9 @@ export function assertRolePosition(authority: RoleAuthority, position: number, c
     if (!authority.owner && position >= authority.highest + (creating ? 1 : 0)) throw DiscordApiErrors.MISSING_PERMISSIONS;
 }
 
-export function assertRoleEditable(authority: RoleAuthority, role: Role, allowEveryone = false): void {
+export function assertRoleEditable(authority: RoleAuthority, role: Role, allowEveryone = false, allowManaged = false): void {
     if (role.guild_id !== authority.guildId) throw DiscordApiErrors.UNKNOWN_ROLE;
-    if (role.managed || (role.id === authority.guildId && !allowEveryone)) throw DiscordApiErrors.MISSING_PERMISSIONS;
+    if ((role.managed && !allowManaged) || (role.id === authority.guildId && !allowEveryone)) throw DiscordApiErrors.MISSING_PERMISSIONS;
     if (role.id !== authority.guildId && !authority.owner && role.position >= authority.highest) throw DiscordApiErrors.MISSING_PERMISSIONS;
 }
 
@@ -53,7 +53,7 @@ export async function authorizeRolePositions(actorId: string, guildId: string, u
         if (!role) throw DiscordApiErrors.UNKNOWN_ROLE;
         if (!Number.isSafeInteger(update.position)) throw DiscordApiErrors.MISSING_PERMISSIONS;
         if (update.position === role.position) continue;
-        assertRoleEditable(authority, role);
+        assertRoleEditable(authority, role, false, true);
         assertRolePosition(authority, update.position);
     }
 }

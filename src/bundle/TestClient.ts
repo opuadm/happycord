@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import { ClientAssetCompression, clientAssetVersion } from "./ClientAssetCompression";
 import { compressedStatic } from "../util/util/CompressedStatic";
+import { inviteCodeFromPath, invitePage } from "@spacebar/api/util";
 import {
     APP_THEME_COLOR,
     appIconPng,
@@ -24,6 +25,9 @@ import {
     DEFAULT_FAVICON_FILE,
     helpUrl,
     instanceIcon,
+    instancePage,
+    openGraphTags,
+    requestOrigin,
     instanceIconDataUri,
     placeholderAvatarSvg,
     qrLogoSvg,
@@ -332,8 +336,10 @@ const clientRoots = () => {
 const renderNotFound = () => brandPage(fs.readFileSync(path.join(ASSET_FOLDER_PATH, "public", "not-found.html"), "utf8"));
 
 const renderPage = () => {
-    const body = Buffer.from(buildHtml());
+    const html = buildHtml();
+    const body = Buffer.from(html);
     return {
+        html,
         body,
         etag: `"${createHash("sha1").update(body).digest("base64url")}"`,
         br: zlib.brotliCompressSync(body, {
@@ -401,6 +407,17 @@ export default function TestClient(app: Application) {
         if (sourceChanged) roots = clientRoots();
         if (sourceChanged || brand !== (brand = brandStamp())) page = renderPage();
         if (roots && !roots.has(req.path.split("/")[1].toLowerCase())) return res.status(404).set("Cache-Control", "no-cache").type("html").send(renderNotFound());
+        const inviteCode = inviteCodeFromPath(req.path);
+        if (inviteCode)
+            return void invitePage(inviteCode)
+                .then((preview) => {
+                    const body = Buffer.from(page.html.replace("</head>", `    ${openGraphTags(requestOrigin(req), preview ?? instancePage())}\n</head>`));
+                    res.set("Cache-Control", "no-cache").type("html");
+                    res.vary("Accept-Encoding");
+                    if (!acceptedEncodings(req.headers["accept-encoding"]).includes("gzip")) return res.send(body);
+                    res.set("Content-Encoding", "gzip").send(zlib.gzipSync(body));
+                })
+                .catch(next);
         res.set({ "Cache-Control": "no-cache", ETag: page.etag });
         res.vary("Accept-Encoding");
         res.type("html");
