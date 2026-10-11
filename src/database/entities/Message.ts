@@ -3,7 +3,23 @@ import { Member } from "./Member";
 import { Role } from "./Role";
 import { Channel } from "./Channel";
 import { Application } from "./Application";
-import { Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, FindOneOptions, Raw, Not, BaseEntity, In } from "typeorm";
+import {
+    Column,
+    CreateDateColumn,
+    Entity,
+    Index,
+    JoinColumn,
+    JoinTable,
+    ManyToMany,
+    ManyToOne,
+    OneToMany,
+    FindOneOptions,
+    FindOptionsSelect,
+    Raw,
+    Not,
+    BaseEntity,
+    In,
+} from "typeorm";
 import { BaseClass } from "./BaseClass";
 import { Guild } from "./Guild";
 import { Webhook } from "./Webhook";
@@ -315,6 +331,24 @@ export class Message extends BaseClass {
         });
     }
 
+    static authorPreviewSelect: FindOptionsSelect<User> = {
+        id: true,
+        username: true,
+        discriminator: true,
+        global_name: true,
+        avatar: true,
+        accent_color: true,
+        banner: true,
+        avatar_decoration_data: true,
+        display_name_styles: true,
+        collectibles: true,
+        primary_guild: true,
+        bot: true,
+        system: true,
+        public_flags: true,
+        avatar_decoration_id: true,
+    };
+
     static async fillReplies(messages: Message[]) {
         const ms = messages
             .filter((msg) => msg.message_reference && !msg.referenced_message?.id && msg.message_reference.message_id)
@@ -329,6 +363,7 @@ export class Message extends BaseClass {
                 },
                 relationLoadStrategy: "query",
                 relations: { author: true, mentions: true, mention_roles: true, mention_channels: true },
+                select: { author: Message.authorPreviewSelect },
             });
             newMessages.forEach((msg) => curMs.set(msg.id, msg));
         }
@@ -608,7 +643,7 @@ export class Message extends BaseClass {
     }
     static addDefault(options: FindOneOptions<Message>) {
         if (options.where) {
-            const arr = options.where instanceof Array ? options.where : [options.where];
+            const arr = Array.isArray(options.where) ? options.where : [options.where];
             for (const thing of arr) {
                 if (!("flags" in thing)) {
                     thing.flags = Not(Raw((alias) => `${alias} & ${MessageFlags.FLAGS.EPHEMERAL} = ${MessageFlags.FLAGS.EPHEMERAL}`));

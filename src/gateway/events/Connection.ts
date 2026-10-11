@@ -42,7 +42,10 @@ export async function Connection(this: WS.Server, socket: WebSocket, request: In
     socket.on("close", () => {
         shutdownConnections.delete(socket);
         const index = openConnections.indexOf(socket);
-        if (index !== -1) openConnections.splice(index, 1);
+        if (index !== -1) {
+            openConnections[index] = openConnections[openConnections.length - 1];
+            openConnections.pop();
+        }
         openConnectionCount.set(openConnections.length);
     });
 
@@ -78,19 +81,19 @@ export async function Connection(this: WS.Server, socket: WebSocket, request: In
         return socket.close(CLOSECODES.Decode_error, "Gateway connection rejected: IP address is required.");
     }
 
-    if (request.headers.cookie?.split("; ").find((x) => x.startsWith("__sb_sessid="))) {
-        socket.fingerprint = request.headers.cookie
-            .split("; ")
-            .find((x) => x.startsWith("__sb_sessid="))
-            ?.split("=")[1];
+    const cookie = request.headers.cookie;
+    if (cookie) {
+        const parts = cookie.split("; ");
+        const match = parts.find((x) => x.startsWith("__sb_sessid="));
+        if (match) socket.fingerprint = match.split("=")[1];
     }
 
     //Create session ID when the connection is opened. This allows gateway dump to group the initial websocket messages with the rest of the conversation.
-    socket.session_id = "TEMP_" + genSessionId(); //Set the session of the WebSocket object
+    socket.session_id = `TEMP_${genSessionId()}`; //Set the session of the WebSocket object
 
     try {
         socket.on("close", (code, reason) => Close.call(socket, code, reason).catch((error) => console.error("[Gateway] Connection cleanup failed", error)));
-        // @ts-ignore
+        // @ts-expect-error
         socket.on("message", Message);
 
         socket.on("error", (err) => console.error(`[Gateway/${socket.user_id ?? socket.ipAddress}]`, err));
@@ -112,7 +115,7 @@ export async function Connection(this: WS.Server, socket: WebSocket, request: In
             });
 
         const { searchParams } = new URL(`http://localhost${request.url}`);
-        // @ts-ignore
+        // @ts-expect-error
         socket.encoding = searchParams.get("encoding") || "json";
         if (!["json", "etf"].includes(socket.encoding)) {
             console.error(`[Gateway/${socket.ipAddress}] Unknown encoding: ${socket.encoding}`);
@@ -125,7 +128,7 @@ export async function Connection(this: WS.Server, socket: WebSocket, request: In
             return socket.close(CLOSECODES.Invalid_API_version);
         }
 
-        // @ts-ignore
+        // @ts-expect-error
         socket.compress = searchParams.get("compress") || "";
         if (socket.compress) {
             if (socket.compress === "zlib-stream") {

@@ -79,7 +79,7 @@ router.get("/:channel_id/:attachment_id/:filename", setCacheControl, async (req:
 
     const path = `attachments/${channel_id}/${attachment_id}/${filename}`;
 
-    const fullUrl = (req.headers["x-forwarded-proto"] ?? req.protocol) + "://" + (req.headers["x-forwarded-host"] ?? req.hostname) + req.originalUrl;
+    const fullUrl = `${req.headers["x-forwarded-proto"] ?? req.protocol}://${req.headers["x-forwarded-host"] ?? req.hostname}${req.originalUrl}`;
 
     let hasValidAuth = false;
     if (req.headers.signature) {
@@ -129,7 +129,7 @@ router.get("/:channel_id/:attachment_id/:filename", setCacheControl, async (req:
             try {
                 const chunks: Buffer[] = [];
                 for await (const chunk of inspected.stream) chunks.push(Buffer.from(chunk));
-                const frame = await extractVideoFrame(Buffer.concat(chunks, file.size));
+                const frame = await extractVideoFrame(Buffer.concat(chunks));
                 if (!frame) {
                     res.status(415).send("Unable to render a preview frame");
                     await finished(res);
@@ -230,7 +230,7 @@ router.put(
                         userFilename: filename,
                     },
                 });
-                if (!att || !att.userId) throw new HTTPError("Attachment not found", 404);
+                if (!att?.userId) throw new HTTPError("Attachment not found", 404);
                 if (buffer.length > declaredCloudUploadLimit(att)) throw new HTTPError("File too large", 413);
 
                 const path = `attachments/${channel_id}/${batch_id}/${attachment_id}/${filename}`;

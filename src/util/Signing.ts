@@ -1,9 +1,6 @@
 import { Config } from "@spacebar/util";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import ms, { StringValue } from "ms";
-import { TextDecoder } from "node:util";
-import { ConsoleUtils } from "./util/ConsoleUtils";
-import { ColorUtils } from "./util/ColorUtils";
 
 export class NewUrlUserSignatureData {
     ip?: string;
@@ -27,14 +24,14 @@ export class NewUrlSignatureData extends NewUrlUserSignatureData {
             throw new Error("Either path or url must be provided for URL signing");
         }
         if (this.path && this.url) {
-            if (process.env["LOG_CDN_SIGNATURES"]) console.warn("[Signing] Both path and url are provided, using path for signing", this, new Error().stack);
+            if (process.env.LOG_CDN_SIGNATURES) console.warn("[Signing] Both path and url are provided, using path for signing", this, new Error().stack);
         }
         if (this.url) {
             try {
                 const parsedUrl = new URL(this.url);
                 this.path = parsedUrl.pathname;
-            } catch (e) {
-                throw new Error("Invalid URL provided for signing: " + this.url);
+            } catch {
+                throw new Error(`Invalid URL provided for signing: ${this.url}`);
             }
         }
     }
@@ -76,10 +73,10 @@ export class UrlSignResult {
 
     static fromUrl(url: URL | string): UrlSignResult {
         if (typeof url === "string") {
-            if (process.env["LOG_CDN_SIGNATURES"]) console.debug("[Signing] Parsing URL from string:", url);
+            if (process.env.LOG_CDN_SIGNATURES) console.debug("[Signing] Parsing URL from string:", url);
             url = new URL(url);
         }
-        if (process.env["LOG_CDN_SIGNATURES"]) console.debug("[Signing] Parsing URL from URL object:", url.toString());
+        if (process.env.LOG_CDN_SIGNATURES) console.debug("[Signing] Parsing URL from URL object:", url.toString());
         const ex = url.searchParams.get("ex");
         const is = url.searchParams.get("is");
         const hm = url.searchParams.get("hm");
@@ -116,67 +113,44 @@ export const getUrlSignature = (data: NewUrlSignatureData): UrlSignResult => {
 };
 
 function calculateHash(request: UrlSignatureData): UrlSignResult {
-    const { cdnSignatureKey } = Config.get().security;
-    const newData = createHmac("sha256", cdnSignatureKey as string);
+    const security = Config.get().security;
+    const { cdnSignatureKey } = security;
     const data = createHmac("sha256", cdnSignatureKey as string)
         .update(request.path!)
         .update(request.issuedAt)
         .update(request.expiresAt);
 
-    let ipData = new Int8Array();
-
-    if (Config.get().security.cdnSignatureIncludeIp) {
+    if (security.cdnSignatureIncludeIp) {
         if (!request.ip)
             console.log(
                 "[Signing] CDN Signature IP is enabled but we couldn't find the IP field in the request. This may cause issues with signature validation. Please report this to the Spacebar team!",
             );
         else {
-            if (process.env["LOG_CDN_SIGNATURES"]) console.log("[Signing] CDN Signature IP is enabled, adding IP to hash:", request.ip);
+            if (process.env.LOG_CDN_SIGNATURES) console.log("[Signing] CDN Signature IP is enabled, adding IP to hash:", request.ip);
             data.update(request.ip!);
-            ipData = new Int8Array(new TextEncoder().encode(request.ip!));
         }
     }
 
-    let userAgentData = new Int8Array();
-    if (Config.get().security.cdnSignatureIncludeUserAgent) {
+    if (security.cdnSignatureIncludeUserAgent) {
         if (request.userAgent) {
-            if (process.env["LOG_CDN_SIGNATURES"]) console.log("[Signing] CDN Signature User-Agent is enabled, adding User-Agent to hash:", request.userAgent);
+            if (process.env.LOG_CDN_SIGNATURES) console.log("[Signing] CDN Signature User-Agent is enabled, adding User-Agent to hash:", request.userAgent);
             data.update(request.userAgent!);
-            userAgentData = new Int8Array(new TextEncoder().encode(request.userAgent!));
         }
     }
-
-    const rawData = new Int8Array([
-        ...new TextEncoder().encode(request.path!),
-        ...new TextEncoder().encode(request.issuedAt),
-        ...new TextEncoder().encode(request.expiresAt),
-        ...ipData,
-        ...userAgentData,
-    ]);
-    if (process.env["LOG_CDN_SIGNATURES"]) {
-        console.log("[Signing] Signature data for ", request.path!);
-        hexdump(rawData);
-    }
-    newData.update(rawData);
 
     const hash = data.digest("hex");
-    const newHash = newData.digest("hex");
-    if (process.env["LOG_CDN_SIGNATURES"]) {
-        console.log(hash);
-        console.log(newHash);
-    }
     const result = new UrlSignResult({
         path: request.path,
         issuedAt: request.issuedAt,
         expiresAt: request.expiresAt,
         hash,
     });
-    if (process.env["LOG_CDN_SIGNATURES"])
+    if (process.env.LOG_CDN_SIGNATURES)
         console.log(
             "[Signing]",
             {
                 path: request.path,
-                validity: request.issuedAt + " .. " + request.expiresAt,
+                validity: `${request.issuedAt} .. ${request.expiresAt}`,
                 ua: Config.get().security.cdnSignatureIncludeUserAgent ? request.userAgent : "[disabled]",
                 ip: Config.get().security.cdnSignatureIncludeIp ? request.ip : "[disabled]",
             },
@@ -192,7 +166,7 @@ export const isExpired = (data: UrlSignResult | UrlSignatureData) => {
     const expiresAt = parseInt(data.expiresAt, 16);
 
     if (Number.isNaN(issuedAt) || Number.isNaN(expiresAt)) {
-        if (process.env["LOG_CDN_SIGNATURES"]) console.debug("[Signing] Invalid timestamps in query");
+        if (process.env.LOG_CDN_SIGNATURES) console.debug("[Signing] Invalid timestamps in query");
         return true;
     }
 
@@ -200,13 +174,13 @@ export const isExpired = (data: UrlSignResult | UrlSignatureData) => {
 
     const isExpired = expiresAt < currentTime;
     if (isExpired) {
-        if (process.env["LOG_CDN_SIGNATURES"]) console.debug("[Signing] Signature expired");
+        if (process.env.LOG_CDN_SIGNATURES) console.debug("[Signing] Signature expired");
         return true;
     }
 
     const isValidIssuedAt = issuedAt < currentTime;
     if (!isValidIssuedAt) {
-        if (process.env["LOG_CDN_SIGNATURES"]) console.debug("[Signing] Signature issued in the future");
+        if (process.env.LOG_CDN_SIGNATURES) console.debug("[Signing] Signature issued in the future");
         return true;
     }
 
@@ -216,13 +190,13 @@ export const isExpired = (data: UrlSignResult | UrlSignatureData) => {
 export const hasValidSignature = (req: NewUrlUserSignatureData, sig: UrlSignResult) => {
     // if the required query parameters are not present, return false
     if (!sig.expiresAt || !sig.issuedAt || !sig.hash) {
-        if (process.env["LOG_CDN_SIGNATURES"]) console.warn("[Signing] Missing required query parameters for signature validation");
+        if (process.env.LOG_CDN_SIGNATURES) console.warn("[Signing] Missing required query parameters for signature validation");
         return false;
     }
 
     // check if the signature is expired
     if (isExpired(sig)) {
-        if (process.env["LOG_CDN_SIGNATURES"]) console.warn("[Signing] Signature is expired");
+        if (process.env.LOG_CDN_SIGNATURES) console.warn("[Signing] Signature is expired");
         return false;
     }
 
@@ -239,52 +213,28 @@ export const hasValidSignature = (req: NewUrlUserSignatureData, sig: UrlSignResu
     const calculated = Buffer.from(calcd);
     const received = Buffer.from(sig.hash as string);
 
-    console.assert(sig.issuedAt == calcResult.issuedAt, "[Signing] Mismatched issuedAt", {
-        is: sig.issuedAt,
-        calculated: calcResult.issuedAt,
-    });
+    if (process.env.LOG_CDN_SIGNATURES) {
+        console.assert(sig.issuedAt == calcResult.issuedAt, "[Signing] Mismatched issuedAt", {
+            is: sig.issuedAt,
+            calculated: calcResult.issuedAt,
+        });
 
-    console.assert(sig.expiresAt == calcResult.expiresAt, "[Signing] Mismatched expiresAt", {
-        ex: sig.expiresAt,
-        calculated: calcResult.expiresAt,
-    });
+        console.assert(sig.expiresAt == calcResult.expiresAt, "[Signing] Mismatched expiresAt", {
+            ex: sig.expiresAt,
+            calculated: calcResult.expiresAt,
+        });
 
-    console.assert(calculated.length === received.length, "[Signing] Mismatched hash length", {
-        calculated: calculated.length,
-        received: received.length,
-    });
+        console.assert(calculated.length === received.length, "[Signing] Mismatched hash length", {
+            calculated: calculated.length,
+            received: received.length,
+        });
+    }
 
     const isHashValid = calculated.length === received.length && timingSafeEqual(calculated, received);
 
     if (!isHashValid)
-        if (process.env["LOG_CDN_SIGNATURES"])
+        if (process.env.LOG_CDN_SIGNATURES)
             console.warn(`Signature validation for ${sig.path} (is=${sig.issuedAt}, ex=${sig.expiresAt}) failed: calculated: ${calcd}, received: ${sig.hash}`);
 
     return isHashValid;
 };
-
-// port of https://github.com/TheArcaneBrony/ArcaneLibs/blob/master/ArcaneLibs/Extensions/DictionaryExtensions.cs#L80
-function hexdump(arr: Int8Array, width: number = 32, colorize: boolean = true) {
-    const colorizeFunc = colorize ? (val: number, str: string) => ConsoleUtils.ColoredString(str, ColorUtils.cnv8To24(val)) : (val: number, str: string) => str;
-    for (let i = 0; i < arr.length; i += width) {
-        const end = Math.min(i + width, arr.length);
-        const section = arr.slice(i, end);
-        console.log(
-            Array.from(section)
-                .map((x) => colorizeFunc(x, x.toString(16).toUpperCase()))
-                .join(" ")
-                .padEnd(3 * section.length),
-            "|",
-            new TextDecoder("utf-8")
-                .decode(section)
-                .replaceAll("\n", ".")
-                .replaceAll("\r", ".")
-                .replaceAll("\0", ".")
-                .replaceAll("\t", ".")
-                .replaceAll("\v", ".")
-                .replaceAll("\b", ".")
-                .replaceAll("\x07", ".") // \a
-                .replaceAll("\f", "."),
-        );
-    }
-}

@@ -12,8 +12,20 @@ const cache = new ClientAssetCompression({
 });
 const compressible = /\.(?:js|css|json|svg|wasm)$/i;
 
+const realRoots = new Map<string, Promise<string>>();
+const realRoot = (root: string) => {
+    let cached = realRoots.get(root);
+    if (!cached) {
+        cached = fs.realpath(root);
+        realRoots.set(root, cached);
+        cached.catch(() => realRoots.delete(root));
+    }
+    return cached;
+};
+
 export function compressedStatic(directory: string): RequestHandler {
     const root = path.resolve(directory);
+    const rootPath = realRoot(root);
     return async (req, res, next) => {
         if (!["GET", "HEAD"].includes(req.method)) return next();
         let pathname: string;
@@ -28,8 +40,8 @@ export function compressedStatic(directory: string): RequestHandler {
         try {
             const stat = await fs.stat(source).catch(() => null);
             if (!stat?.isFile() || stat.size < 1024) return next();
-            const [realRoot, realSource] = await Promise.all([fs.realpath(root), fs.realpath(source)]);
-            if (!realSource.startsWith(`${realRoot}${path.sep}`)) return void res.sendStatus(403);
+            const [realRootPath, realSource] = await Promise.all([rootPath, fs.realpath(source)]);
+            if (!realSource.startsWith(`${realRootPath}${path.sep}`)) return void res.sendStatus(403);
             res.vary("Accept-Encoding");
             if (req.headers.range || !req.headers["accept-encoding"]) return next();
             const encoding = req.acceptsEncodings("br", "gzip", "identity");

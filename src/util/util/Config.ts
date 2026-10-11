@@ -4,7 +4,7 @@ import { OrmUtils } from "../imports";
 import { ConfigValue } from "../config";
 import { ConfigEntity } from "../../database/entities";
 import { JsonValue } from "@protobuf-ts/runtime";
-import { bold, red, redBright } from "picocolors";
+import { bold, redBright } from "picocolors";
 import { DEFAULT_INSTANCE_NAME } from "../config/types/ClientConfiguration";
 
 // TODO: yaml instead of json
@@ -73,7 +73,7 @@ export class Config {
     private static async readSecret(name: string) {
         process.stdout.write(`[Config] Reading secret ${name}...`);
         const res = (await fs.readFile(process.env[name]!, "utf-8")).trim();
-        if (process.env.LOG_SECRET_VALUES) process.stdout.write(" " + res);
+        if (process.env.LOG_SECRET_VALUES) process.stdout.write(` ${res}`);
         else process.stdout.write(" Done!");
         process.stdout.write("\n");
         return res;
@@ -168,7 +168,7 @@ function pairsToConfig(pairs: ConfigEntity[]) {
         let i = 0;
 
         for (const key of keys) {
-            if (!isNaN(Number(key)) && !prevObj[prev]?.length) prevObj[prev] = obj = [];
+            if (!Number.isNaN(Number(key)) && !prevObj[prev]?.length) prevObj[prev] = obj = [];
             if (i++ === keys.length - 1) obj[key] = p.value;
             else if (!obj[key]) obj[key] = {};
 
@@ -184,6 +184,13 @@ function pairsToConfig(pairs: ConfigEntity[]) {
 const validateConfig = async () => {
     let hasErrored = false;
     const totalStartTime = new Date();
+    try {
+        const config = await ConfigEntity.find();
+        console.log("[Config] Total config load time:", Date.now() - totalStartTime.getTime(), "ms");
+        return config;
+    } catch (e) {
+        console.error(`Config bulk load failed, falling back to per-key load to isolate the bad value: ${(e as Error)?.message}`);
+    }
     const config = await ConfigEntity.find({ select: { key: true } });
 
     for (const row in config) {
@@ -202,7 +209,7 @@ const validateConfig = async () => {
         }
     }
 
-    console.log("[Config] Total config load time:", new Date().getTime() - totalStartTime.getTime(), "ms");
+    console.log("[Config] Total config load time:", Date.now() - totalStartTime.getTime(), "ms");
 
     if (hasErrored) {
         console.error("[Config] Your config has invalid values. Fix them first https://docs.spacebar.chat/setup/server/configuration");

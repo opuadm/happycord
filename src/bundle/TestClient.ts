@@ -65,6 +65,12 @@ const compressor = (encoding: string) => {
 };
 
 const vencordCompression = new ClientAssetCompression();
+const hashedAssetCompression = new ClientAssetCompression({
+    bytes: 16 * 1024 * 1024,
+    entries: 24,
+    sourceBytes: 8 * 1024 * 1024,
+    inflight: 2,
+});
 
 const stat = (file: string) => fs.promises.stat(file).catch(() => null);
 
@@ -103,6 +109,10 @@ const serveAsset = async (req: Request, res: Response, next: NextFunction, root:
     if (req.method === "HEAD") return res.end();
     if (root === VENCORD_PATH) {
         const compressed = await vencordCompression.get(source, sourceStat, encodings[0]);
+        if (compressed) return res.send(compressed);
+    }
+    if (precompressed && HASHED.test(file)) {
+        const compressed = await hashedAssetCompression.get(source, sourceStat, encodings[0]);
         if (compressed) return res.send(compressed);
     }
     await pipeline(fs.createReadStream(source), compressor(encodings[0]), res).catch(() => res.destroy());
@@ -264,18 +274,9 @@ const buildHtml = () => {
 })();
 </script>`;
 
-    const patches = fs.existsSync(PATCH_PATH)
-        ? fs
-              .readdirSync(PATCH_PATH)
-              .filter((x) => x.endsWith(".js"))
-              .sort()
-              .map((x) => `<script>${fs.readFileSync(path.join(PATCH_PATH, x), "utf8")}</script>`)
-              .join("\n")
-        : "";
+    const patches = getPatchesHtml();
 
-    const vencord = fs.existsSync(VENCORD_SCRIPT)
-        ? `<script src="/assets/vencord/vencord.js?v=${createHash("sha256").update(fs.readFileSync(VENCORD_SCRIPT)).digest("hex").slice(0, 12)}"></script>`
-        : "";
+    const vencord = getVencordScriptTag();
     const title = client.instanceName.replace(/[<>&"]/g, (c) => `&#${c.charCodeAt(0)};`);
     const appMeta = [
         `<link rel="icon" href="/favicon.svg">`,
@@ -311,6 +312,35 @@ const buildHtml = () => {
 };
 
 const EXTRA_ROOTS = ["", "ra"];
+
+let cachedPatchesStamp = "";
+let cachedPatchesHtml = "";
+
+const getPatchesHtml = () => {
+    if (!fs.existsSync(PATCH_PATH)) return "";
+    const files = fs
+        .readdirSync(PATCH_PATH)
+        .filter((x) => x.endsWith(".js"))
+        .sort();
+    const stamp = files.map((x) => fs.statSync(path.join(PATCH_PATH, x), { throwIfNoEntry: false })?.mtimeMs ?? 0).join();
+    if (stamp === cachedPatchesStamp) return cachedPatchesHtml;
+    cachedPatchesStamp = stamp;
+    cachedPatchesHtml = files.map((x) => `<script>${fs.readFileSync(path.join(PATCH_PATH, x), "utf8")}</script>`).join("\n");
+    return cachedPatchesHtml;
+};
+
+let cachedVencordStamp = "";
+let cachedVencordTag = "";
+
+const getVencordScriptTag = () => {
+    const stat = fs.statSync(VENCORD_SCRIPT, { throwIfNoEntry: false });
+    if (!stat?.isFile()) return "";
+    const stamp = `${stat.size}:${stat.mtimeMs}`;
+    if (stamp === cachedVencordStamp) return cachedVencordTag;
+    cachedVencordStamp = stamp;
+    cachedVencordTag = `<script src="/assets/vencord/vencord.js?v=${createHash("sha256").update(fs.readFileSync(VENCORD_SCRIPT)).digest("hex").slice(0, 12)}"></script>`;
+    return cachedVencordTag;
+};
 
 const clientRoots = () => {
     const html = fs.readFileSync(path.join(CACHE_PATH, "index.html"), "utf8");

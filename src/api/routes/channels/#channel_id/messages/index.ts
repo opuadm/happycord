@@ -1,14 +1,12 @@
 import { assertCanSendDirectMessage, assertGuildVerification, assertNoHarmfulLinks, checkAutomod, publishUserMessage, recordGuildMemberDm } from "@spacebar/api/util";
 import { route } from "@spacebar/api/middlewares";
-import { Application, Attachment, Channel, GuildInsights, Member, Message, ReadState, Recipient, User, Webhook } from "@spacebar/database";
+import { Application, Attachment, Channel, GuildInsights, Message, ReadState, Recipient, User, Webhook } from "@spacebar/database";
 import {
     Config,
     DiscordApiErrors,
-    emitEvent,
     FieldErrors,
     getPermission,
     getUrlSignature,
-    MessageCreateEvent,
     NewUrlSignatureData,
     NewUrlUserSignatureData,
     Rights,
@@ -20,17 +18,7 @@ import { Request, Response, Router } from "express";
 import { HTTPError } from "lambert-server/HTTPError";
 import multer from "multer";
 import { FindManyOptions, FindOperator, In, LessThan, MoreThan, MoreThanOrEqual } from "typeorm";
-import {
-    AcknowledgeDeleteSchema,
-    isTextChannel,
-    MessageCreateSchema,
-    PartialUser,
-    PollAnswerCount,
-    PublicMessage,
-    PublicUser,
-    PublicUserProjection,
-    ReadStateType,
-} from "@spacebar/schemas";
+import { AcknowledgeDeleteSchema, isTextChannel, MessageCreateSchema, PartialUser, PublicMessage, PublicUser, PublicUserProjection, ReadStateType } from "@spacebar/schemas";
 
 const router: Router = Router({ mergeParams: true });
 
@@ -102,6 +90,9 @@ router.get(
                 mention_channels: true,
                 sticker_items: true,
                 attachments: true,
+            },
+            select: {
+                author: Message.authorPreviewSelect,
             },
         };
 
