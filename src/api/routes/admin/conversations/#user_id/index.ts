@@ -90,7 +90,7 @@ router.get(
             messages: messages.reverse(),
             has_more: found.length > 20,
             before: rows.at(-1)?.id ?? null,
-            max_characters: Math.min(4000, Config.get().limits.message.maxCharacters),
+            max_characters: Config.get().limits.message.maxCharacters,
         });
     },
 );
@@ -108,7 +108,7 @@ router.post(
         const user = await target(req.params.user_id as string);
         const body = req.body as AdminOfficialMessageCreateSchema;
         const content = typeof body.content === "string" ? body.content.trim() : "";
-        const max = Math.min(4000, Config.get().limits.message.maxCharacters);
+        const max = Config.get().limits.message.maxCharacters;
         if (!content || content.length > max) throw new HTTPError(`Enter a message between 1 and ${max} characters`, 400);
         const messageId = Snowflake.generate();
         const audit = await AuditLog.create({

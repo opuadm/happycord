@@ -20,10 +20,12 @@ import {
     Config,
     CUSTOM_CLAN_BADGE_PACK,
     CUSTOM_CLAN_BADGES,
+    DEFAULT_EMOJIS,
     DEFAULT_ICON_FILE,
     DEFAULT_FAVICON_FILE,
     helpUrl,
     instanceIcon,
+    instanceLimits,
     instancePage,
     openGraphTags,
     requestOrigin,
@@ -255,9 +257,11 @@ const buildHtml = () => {
         E2EE_TRUST_SERVER: ${json(Config.get().limits.e2ee.trustServerByDefault !== false)},
         PRIVATE_ENCRYPTION_DEFAULT: true,
         GROUP_DM_RECIPIENT_LIMIT: ${json(Config.get().limits.channel.maxGroupDmRecipients)},
+        INSTANCE_LIMITS: ${json(instanceLimits())},
         REGISTER_EMAIL_REQUIRED: ${json(Config.get().register.email.required === true)},
         CUSTOM_CLAN_BADGE_PACK: ${json(CUSTOM_CLAN_BADGE_PACK)},
         CUSTOM_CLAN_BADGES: ${json(CUSTOM_CLAN_BADGES.map((badge) => ({ ...badge, pack: clanBadgePack(badge), colors: clanBadgeColorCount(badge) })))},
+        DEFAULT_EMOJIS: ${json(DEFAULT_EMOJIS.map(({ id, name }) => ({ id, name })))},
     });
 })();
 </script>`;
@@ -363,6 +367,10 @@ export default function TestClient(app: Application) {
             Config.get().limits.channel.allowSlowmodeBypass,
             Config.get().limits.e2ee.trustServerByDefault,
             Config.get().register.email.required,
+            Config.get().limits.user,
+            Config.get().limits.guild,
+            Config.get().limits.message,
+            Config.get().limits.channel,
         ]);
     let brand = brandStamp();
     let page = renderPage();

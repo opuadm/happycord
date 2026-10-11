@@ -3,7 +3,19 @@ import { Request, Response, Router } from "express";
 import { HTTPError } from "lambert-server/HTTPError";
 import { route } from "@spacebar/api/middlewares";
 import { Badge, Guild, InstanceBan, Member, Session, User } from "@spacebar/database";
-import { broadcastUserUpdate, Collectibles, CollectibleItemType, emitEvent, emitRequiredAction, handleFile, Rights, UserUpdateEvent, Event } from "@spacebar/util";
+import {
+    broadcastUserUpdate,
+    Collectibles,
+    CollectibleItemType,
+    Config,
+    emitEvent,
+    emitRequiredAction,
+    FieldErrors,
+    handleFile,
+    Rights,
+    UserUpdateEvent,
+    Event,
+} from "@spacebar/util";
 import { AccountStandingState, AdminUserUpdateSchema, PrivateUserProjection } from "@spacebar/schemas";
 import { In, Not } from "typeorm";
 import { Pomelo, resolveProfileCollectibles, currentStanding, hasAdminPanelAccess, notifyStandingDrop, syncStaffBadge } from "@spacebar/api/util";
@@ -132,7 +144,14 @@ router.patch(
         }
         if (body.username !== undefined && body.username.trim() !== user.username) {
             const username = body.username.trim();
-            if (username.length < 2) throw new HTTPError("Username must contain at least two characters", 400);
+            const { maxUsername } = Config.get().limits.user;
+            if (username.length < 2 || username.length > maxUsername)
+                throw FieldErrors({
+                    username: {
+                        code: "BASE_TYPE_BAD_LENGTH",
+                        message: `Must be between 2 and ${maxUsername} in length.`,
+                    },
+                });
             if (!user.bot) User.assertUsernameAllowed(username);
             if (user.discriminator === "0") Pomelo.validate(username);
             if (
@@ -167,7 +186,17 @@ router.patch(
         }
         if (body.collectibles_sku_ids && body.collectibles_sku_ids.length > 2) throw new HTTPError("Choose at most one profile effect and one frame", 400);
         if (body.collectibles_sku_ids !== undefined) set("profile_collectibles", await resolveProfileCollectibles(user.profile_collectibles, body.collectibles_sku_ids));
-        if (body.pronouns !== undefined) set("pronouns", body.pronouns);
+        if (body.pronouns !== undefined) {
+            const { maxPronouns } = Config.get().limits.user;
+            if (body.pronouns && body.pronouns.length > maxPronouns)
+                throw FieldErrors({
+                    pronouns: {
+                        code: "PRONOUNS_INVALID",
+                        message: `Pronouns must be less than ${maxPronouns} in length`,
+                    },
+                });
+            set("pronouns", body.pronouns);
+        }
         if (body.accent_color !== undefined) set("accent_color", body.accent_color ?? undefined);
         if (body.theme_colors !== undefined) {
             if (body.theme_colors && (body.theme_colors.length !== 2 || body.theme_colors.some((color) => !Number.isInteger(color) || color < 0 || color > 16777215)))
@@ -178,9 +207,28 @@ router.patch(
             if (body[field] !== undefined) set(field, body[field] ? await handleFile(`/${field}s/${user.id}`, body[field]!) : undefined);
         }
         if (body.global_name !== undefined) {
-            set("global_name", body.global_name?.trim() || null);
+            const { maxUsername } = Config.get().limits.user;
+            const global_name = body.global_name?.trim() || null;
+            if (global_name && global_name.length > maxUsername)
+                throw FieldErrors({
+                    global_name: {
+                        code: "BASE_TYPE_BAD_LENGTH",
+                        message: `Must be ${maxUsername} or fewer in length.`,
+                    },
+                });
+            set("global_name", global_name);
         }
-        if (body.bio !== undefined) set("bio", body.bio);
+        if (body.bio !== undefined) {
+            const { maxBio } = Config.get().limits.user;
+            if (body.bio && body.bio.length > maxBio)
+                throw FieldErrors({
+                    bio: {
+                        code: "BIO_INVALID",
+                        message: `Bio must be less than ${maxBio} in length`,
+                    },
+                });
+            set("bio", body.bio);
+        }
         if (body.disabled !== undefined) set("disabled", body.disabled);
         if (body.verified !== undefined) set("verified", body.verified);
         if (body.premium_type !== undefined) {

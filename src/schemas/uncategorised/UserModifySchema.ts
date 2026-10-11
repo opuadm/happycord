@@ -6,9 +6,6 @@ export interface UserModifySchema {
      * @minLength 2
      */
     username?: string;
-    /**
-     * @maxLength 32
-     */
     global_name?: string | null;
     avatar?: string | null;
     avatar_description?: string | null;

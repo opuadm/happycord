@@ -153,10 +153,8 @@ export interface AdminUserUpdateSchema {
     nameplate_sku_id?: string | null;
     collectibles_sku_ids?: string[] | null;
 
-    /** @minLength 2
-     * @maxLength 32 */
+    /** @minLength 2 */
     username?: string;
-    /** @maxLength 40 */
     pronouns?: string;
     /** @pattern ^data:image/ */
     avatar?: string | null;
@@ -166,9 +164,6 @@ export interface AdminUserUpdateSchema {
      * @maximum 16777215 */
     accent_color?: number | null;
     theme_colors?: number[] | null;
-    /**
-     * @maxLength 32
-     */
     global_name?: string | null;
     bio?: string;
     disabled?: boolean;
@@ -717,9 +712,8 @@ export interface AdminOfficialAccountUpdateSchema {
 
 export interface AdminAnnouncementCreateSchema {
     /**
-     * Markdown, sent as the message's text
+     * Markdown, sent as the message's text. The message limit from the instance settings applies.
      * @minLength 1
-     * @maxLength 4000
      */
     body: string;
     /**
@@ -886,10 +880,8 @@ export interface AdminResourceLimitsSchema {
 }
 
 export interface AdminChannelUpdateSchema {
-    /** @minLength 1
-     * @maxLength 100 */
+    /** @minLength 1 */
     name?: string;
-    /** @maxLength 4096 */
     topic?: string | null;
     nsfw?: boolean;
     /** @minimum 0

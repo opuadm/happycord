@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { AuditLog, Channel } from "@spacebar/database";
 import { AdminChannelUpdateSchema, AuditLogEvents, ChannelType } from "@spacebar/schemas";
-import { ChannelUpdateEvent, emitEvent } from "@spacebar/util";
+import { ChannelUpdateEvent, Config, emitEvent } from "@spacebar/util";
 import { HTTPError } from "lambert-server/HTTPError";
 const router = Router({ mergeParams: true });
 router.patch(
@@ -19,7 +19,10 @@ router.patch(
             where: { id: req.params.channel_id as string, guild_id },
         });
         const body = req.body as AdminChannelUpdateSchema;
+        const { maxName, maxTopic } = Config.get().limits.channel;
         if (body.name !== undefined && !body.name.trim()) throw new HTTPError("Enter a channel name", 400);
+        if (body.name && body.name.trim().length > maxName) throw new HTTPError(`Enter a channel name between 1 and ${maxName} characters`, 400);
+        if (body.topic && body.topic.length > maxTopic) throw new HTTPError(`Topic cannot exceed ${maxTopic} characters`, 400);
         if (body.parent_id) {
             if (channel.type === ChannelType.GUILD_CATEGORY) throw new HTTPError("A category cannot have a parent", 400);
             await Channel.findOneOrFail({

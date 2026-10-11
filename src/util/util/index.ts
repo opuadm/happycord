@@ -11,6 +11,7 @@ export * from "./Constants";
 export * from "./email";
 export * from "./ipc/Event";
 export * from "./FieldError";
+export * from "./InstanceLimits";
 export * from "./Intents";
 export * from "./InvisibleCharacters";
 export * from "./JSON";

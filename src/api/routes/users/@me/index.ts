@@ -222,7 +222,16 @@ router.patch(
         }
 
         if (body.global_name !== undefined) {
-            user.global_name = body.global_name?.trim() || null;
+            const { maxUsername } = Config.get().limits.user;
+            const global_name = body.global_name?.trim() || null;
+            if (global_name && global_name.length > maxUsername)
+                throw FieldErrors({
+                    global_name: {
+                        code: "BASE_TYPE_BAD_LENGTH",
+                        message: `Must be ${maxUsername} or fewer in length.`,
+                    },
+                });
+            user.global_name = global_name;
         }
 
         if (body.bio !== undefined) {

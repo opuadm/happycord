@@ -1582,19 +1582,24 @@ async function openUser(id, reload) {
     `,
   );
   if (!body) return;
-  let u, badges, standing, catalog;
+  let u, badges, standing, catalog, settings;
   try {
-    [u, badges, standing, catalog] = await Promise.all([
+    [u, badges, standing, catalog, settings] = await Promise.all([
       api(`/admin/users/${id}`),
       api("/admin/badges"),
       api(`/admin/users/${id}/violations`),
       getProfileCatalog(),
+      api("/admin/settings").catch(() => null),
     ]);
   } catch (e) {
     if (!body.isConnected || $("#drawer").hidden || e.status === 401 || e.status === 499) return;
     return mount(body, html`<p class="form-error">${e.message}</p>`);
   }
   if (!body.isConnected || $("#drawer").hidden) return;
+  const userLimits = settings?.limits?.user ?? {};
+  const maxUsername = userLimits.maxUsername ?? 32;
+  const maxPronouns = userLimits.maxPronouns ?? 40;
+  const maxBio = userLimits.maxBio ?? 190;
   const cosmeticOf = (type) =>
     u.profile_collectibles?.find((item) => item.type === type)?.sku_id ?? "";
   const choicesFor = (type, selected, query = "") => {
@@ -1645,8 +1650,8 @@ async function openUser(id, reload) {
 
             <form id="user-form" class="card stack">
                 <h3>Profile & account</h3>
-                <label>Username<input name="username" value="${u.username}" minlength="2" maxlength="32" required /></label>
-                <label>Pronouns<input name="pronouns" value="${u.pronouns ?? ""}" maxlength="40" /></label>
+                <label>Username<input name="username" value="${u.username}" minlength="2" maxlength="${maxUsername}" required /></label>
+                <label>Pronouns<input name="pronouns" value="${u.pronouns ?? ""}" maxlength="${maxPronouns}" /></label>
                 <div class="form-grid">
                     ${imageField("avatar", "Avatar", u.avatar)} ${imageField("banner", "Profile banner", u.banner)}
                     <label>Accent color<input type="color" name="accent_color" value="${hexColor(u.accent_color)}" /></label>
@@ -1657,8 +1662,8 @@ async function openUser(id, reload) {
                     <label>Secondary profile color<input type="color" name="theme_secondary" value="${hexColor(u.theme_colors?.[1])}" /></label>
                     <label class="toggle"><input type="checkbox" name="theme_default" ${!u.theme_colors ? raw("checked") : ""} /><span>Use default profile theme</span></label>
                 </div>
-                <label>Display name<input name="global_name" value="${u.global_name ?? ""}" maxlength="32" placeholder="${u.username}" /></label>
-                <label>Bio<textarea name="bio" maxlength="1024">${u.bio ?? ""}</textarea></label>
+                <label>Display name<input name="global_name" value="${u.global_name ?? ""}" maxlength="${maxUsername}" placeholder="${u.username}" /></label>
+                <label>Bio<textarea name="bio" maxlength="${maxBio}">${u.bio ?? ""}</textarea></label>
                 <div class="form-grid">
                     ${cosmeticField(0, "avatar_decoration_sku_id", "Avatar decoration", u.avatar_decoration_sku_id)}
                     ${cosmeticField(2, "nameplate_sku_id", "Nameplate", u.nameplate_sku_id)} ${cosmeticField(1, "profile_effect_sku_id", "Profile effect", cosmeticOf(1))}
@@ -2815,7 +2820,11 @@ function announcementProgress(announcement) {
 }
 
 async function renderAnnouncements(view) {
-  const { official, announcements } = await api("/admin/announcements");
+  const [{ official, announcements }, settings] = await Promise.all([
+    api("/admin/announcements"),
+    api("/admin/settings").catch(() => null),
+  ]);
+  const maxMessage = settings?.limits?.message?.maxCharacters ?? 4000;
   mount(
     view,
     html`
@@ -2846,7 +2855,7 @@ async function renderAnnouncements(view) {
                     <h2>New announcement</h2>
                     <label
                         >Message<span class="hint">Markdown works: **bold**, *italics*, links, lists.</span
-                        ><textarea name="body" required maxlength="4000" rows="6" placeholder="We'll be upgrading the database at 23:00 UTC…"></textarea>
+                        ><textarea name="body" required maxlength="${maxMessage}" rows="6" placeholder="We'll be upgrading the database at 23:00 UTC…"></textarea>
                     </label>
                     <label
                         >Attachments<span class="hint">Optional. Images, videos or any other files, sent along with the message.</span><input name="files" type="file" multiple
@@ -6559,6 +6568,18 @@ function openAdminChannel(guildId, channel, channels) {
         </form>`,
   );
   if (!body) return;
+  api("/admin/settings")
+    .then((s) => {
+      if (!body.isConnected) return;
+      const channelLimits = s?.limits?.channel ?? {};
+      const setMax = (name, value) => {
+        const input = form.elements.namedItem(name);
+        if (input && typeof value === "number" && Number.isSafeInteger(value) && value > 0) input.maxLength = value;
+      };
+      setMax("name", channelLimits.maxName);
+      setMax("topic", channelLimits.maxTopic);
+    })
+    .catch(() => {});
   $("[data-return-server]", body).addEventListener("click", () =>
     openGuild(guildId, undefined, true),
   );

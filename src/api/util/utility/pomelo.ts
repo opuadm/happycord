@@ -1,11 +1,12 @@
 import { User } from "@spacebar/database";
-import { FieldErrors } from "@spacebar/util";
+import { Config, FieldErrors } from "@spacebar/util";
 
 export const Pomelo = {
     validate(username: string) {
-        if (username.length < 2 || username.length > 32)
+        const { maxUsername } = Config.get().limits.user;
+        if (username.length < 2 || username.length > maxUsername)
             throw FieldErrors({
-                username: { code: "BASE_TYPE_BAD_LENGTH", message: "Must be between 2 and 32 in length." },
+                username: { code: "BASE_TYPE_BAD_LENGTH", message: `Must be between 2 and ${maxUsername} in length.` },
             });
         if (!/^[a-z0-9_.]+$/.test(username) || username.includes(".."))
             throw FieldErrors({

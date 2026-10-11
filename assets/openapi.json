@@ -5711,7 +5711,6 @@
             "type": "string"
           },
           "global_name": {
-            "maxLength": 32,
             "type": "string",
             "nullable": true
           },
@@ -8861,11 +8860,9 @@
           },
           "username": {
             "minLength": 2,
-            "maxLength": 32,
             "type": "string"
           },
           "pronouns": {
-            "maxLength": 40,
             "type": "string"
           },
           "avatar": {
@@ -8898,7 +8895,6 @@
             ]
           },
           "global_name": {
-            "maxLength": 32,
             "type": "string",
             "nullable": true
           },
@@ -9561,9 +9557,8 @@
         "type": "object",
         "properties": {
           "body": {
-            "description": "Markdown, sent as the message's text",
+            "description": "Markdown, sent as the message's text. The message limit from the instance settings applies.",
             "minLength": 1,
-            "maxLength": 4000,
             "type": "string"
           },
           "audience": {
@@ -9799,11 +9794,9 @@
         "properties": {
           "name": {
             "minLength": 1,
-            "maxLength": 100,
             "type": "string"
           },
           "topic": {
-            "maxLength": 4096,
             "type": "string",
             "nullable": true
           },
@@ -9860,7 +9853,6 @@
         "properties": {
           "name": {
             "minLength": 1,
-            "maxLength": 100,
             "type": "string"
           },
           "type": {
@@ -9883,7 +9875,6 @@
             "type": "integer"
           },
           "topic": {
-            "maxLength": 4096,
             "type": "string",
             "nullable": true
           },
