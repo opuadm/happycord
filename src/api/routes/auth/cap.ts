@@ -3,7 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { RateLimit } from "@spacebar/database";
 import { route } from "@spacebar/api/middlewares";
-import { createRegistrationChallenge, redeemRegistrationChallenge } from "@spacebar/api/util/utility/localCap";
+import { createRegistrationChallenge, isCapContext, redeemRegistrationChallenge } from "@spacebar/api/util/utility/localCap";
 
 const router = Router();
 const widgetRoot = path.dirname(require.resolve("@cap.js/widget"));
@@ -24,9 +24,10 @@ router.get("/:asset", route({ authentication: "never" }), (req, res) => {
 });
 
 for (const action of ["challenge", "redeem"] as const) {
-    router.post(`/${action}`, route({ authentication: "never" }), async (req, res) => {
-        const ipKey = require("node:crypto")
-            .createHash("sha256")
+    router.post([`/${action}`, `/:context/${action}`], route({ authentication: "never" }), async (req, res) => {
+        const context = req.params.context ?? "register";
+        if (!isCapContext(context)) return res.status(404).json({ success: false, reason: "unknown_context" });
+        const ipKey = createHash("sha256")
             .update(req.ip || "unknown")
             .digest("hex");
         const limit = await RateLimit.hit(`cap-request:${action}:${ipKey}`, "cap", 30, 60);
@@ -35,7 +36,7 @@ for (const action of ["challenge", "redeem"] as const) {
             return res.status(429).json({ success: false, reason: "rate_limited" });
         }
         res.setHeader("Cache-Control", "no-store");
-        return res.json(action === "challenge" ? await createRegistrationChallenge() : await redeemRegistrationChallenge(req.body));
+        return res.json(action === "challenge" ? await createRegistrationChallenge(context) : await redeemRegistrationChallenge(req.body, context));
     });
 }
 

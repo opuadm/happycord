@@ -16,6 +16,11 @@ export interface RegisterSchema {
     fingerprint?: string;
     invite?: string;
     /**
+     * Instance invite code, needed when the instance is invite-only
+     * @maxLength 64
+     */
+    instance_invite?: string;
+    /**
      * @TJS-type string
      */
     date_of_birth?: Date; // "2000-04-03"
@@ -28,4 +33,9 @@ export interface RegisterSchema {
     unique_username_registration?: boolean;
     global_name?: string;
     pride_badges?: string[];
+    /**
+     * Why the person wants to join, when the instance asks for it
+     * @maxLength 4000
+     */
+    join_reason?: string;
 }

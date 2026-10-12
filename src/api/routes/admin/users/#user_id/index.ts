@@ -3,22 +3,20 @@ import { Request, Response, Router } from "express";
 import { HTTPError } from "lambert-server/HTTPError";
 import { route } from "@spacebar/api/middlewares";
 import { Badge, Guild, InstanceBan, Member, Session, User } from "@spacebar/database";
-import {
-    broadcastUserUpdate,
-    Collectibles,
-    CollectibleItemType,
-    Config,
-    emitEvent,
-    emitRequiredAction,
-    FieldErrors,
-    handleFile,
-    Rights,
-    UserUpdateEvent,
-    Event,
-} from "@spacebar/util";
+import { broadcastUserUpdate, Collectibles, CollectibleItemType, Config, emitEvent, emitRequiredAction, FieldErrors, handleFile, Rights, UserUpdateEvent } from "@spacebar/util";
 import { AccountStandingState, AdminUserUpdateSchema, PrivateUserProjection } from "@spacebar/schemas";
 import { In, Not } from "typeorm";
-import { Pomelo, resolveProfileCollectibles, currentStanding, hasAdminPanelAccess, notifyStandingDrop, syncStaffBadge } from "@spacebar/api/util";
+import {
+    Pomelo,
+    resolveProfileCollectibles,
+    currentStanding,
+    endUserSessions,
+    hasAdminPanelAccess,
+    listIps,
+    normalizeIp,
+    notifyStandingDrop,
+    syncStaffBadge,
+} from "@spacebar/api/util";
 import { ADMIN_USER_COLUMNS, applyUserTag, pickAdminUser } from "../index";
 
 const router = Router({ mergeParams: true });
@@ -63,7 +61,25 @@ router.get(
                   select: { id: true, name: true, icon: true, owner_id: true },
               })
             : [];
-        const [sessions, bans] = await Promise.all([Session.count({ where: { user_id: user.id } }), InstanceBan.find({ where: { user_id: user.id } })]);
+        const [sessions, bans, registration] = await Promise.all([
+            Session.find({ where: { user_id: user.id }, select: { session_id: true, last_seen_ip: true, last_seen: true, created_at: true } }),
+            InstanceBan.find({ where: { user_id: user.id } }),
+            User.findOne({ where: { id: user.id }, select: { id: true, registration_ip: true } }),
+        ]);
+        const registrationIp = normalizeIp(registration?.registration_ip);
+        const seen = new Map<string, { ip: string; sessions: number; last_seen: Date | null; registration: boolean }>();
+        if (registrationIp) seen.set(registrationIp, { ip: registrationIp, sessions: 0, last_seen: user.created_at ?? null, registration: true });
+        for (const session of sessions) {
+            const ip = normalizeIp(session.last_seen_ip);
+            if (!ip) continue;
+            const at = session.last_seen ?? session.created_at ?? null;
+            const entry = seen.get(ip) ?? { ip, sessions: 0, last_seen: null, registration: false };
+            entry.sessions++;
+            if (at && (!entry.last_seen || at > entry.last_seen)) entry.last_seen = at;
+            seen.set(ip, entry);
+        }
+        const accounts = await listIps({ ips: [...seen.keys()], limit: 100, offset: 0 });
+        const byIp = new Map(accounts.ips.map((row) => [row.ip, row]));
 
         res.json({
             ...pickAdminUser(user),
@@ -83,7 +99,15 @@ router.get(
                 icon: g.icon ?? null,
                 owner: g.owner_id === user.id,
             })),
-            session_count: sessions,
+            session_count: sessions.length,
+            registration_ip: registrationIp,
+            ips: [...seen.values()]
+                .sort((a, b) => (b.last_seen?.getTime() ?? 0) - (a.last_seen?.getTime() ?? 0))
+                .map((entry) => ({
+                    ...entry,
+                    accounts: byIp.get(entry.ip)?.accounts ?? 1,
+                    ban_id: byIp.get(entry.ip)?.ban_id ?? null,
+                })),
             instance_bans: bans.map((b) => ({ id: b.id, reason: b.reason, created_at: b.created_at })),
         });
     },
@@ -230,6 +254,12 @@ router.patch(
             set("bio", body.bio);
         }
         if (body.disabled !== undefined) set("disabled", body.disabled);
+        if (body.suspended_until !== undefined) {
+            const until = body.suspended_until === null ? null : new Date(body.suspended_until);
+            if (until && (Number.isNaN(until.getTime()) || isSelf)) throw new HTTPError("Choose a valid suspension end, and don't suspend yourself", 400);
+            set("suspended_until", until);
+        }
+        if (body.join_status !== undefined) set("join_status", body.join_status);
         if (body.verified !== undefined) set("verified", body.verified);
         if (body.premium_type !== undefined) {
             if (body.premium_type > 0 && !user.premium_type) set("premium_since", new Date());
@@ -244,22 +274,13 @@ router.patch(
 
         if (changed.size) await User.update({ id: user.id }, Object.fromEntries([...changed].map((key) => [key, user[key] ?? null])));
 
-        if (user.disabled || user.account_standing === AccountStandingState.SUSPENDED) {
-            const sessions = await Session.find({
-                where: { user_id: user.id },
-                select: { session_id: true },
-            });
-            await Session.delete({ user_id: user.id });
-            await Promise.all(
-                sessions.map((session) =>
-                    emitEvent({
-                        session_id: session.session_id,
-                        event: "SB_SESSION_REMOVE",
-                        origin: "Account suspended",
-                    } as Event),
-                ),
-            );
-        }
+        if (
+            user.disabled ||
+            user.account_standing === AccountStandingState.SUSPENDED ||
+            (user.suspended_until && new Date(user.suspended_until).getTime() > Date.now()) ||
+            user.join_status === "rejected"
+        )
+            await endUserSessions([user.id], "Account suspended");
 
         if (standingBefore !== null) await notifyStandingDrop(user.id, standingBefore, await currentStanding(user.id));
 

@@ -142,7 +142,7 @@
 `;
   document.documentElement.append(style);
 
-  let hiddenWidget = null;
+  const hiddenWidgets = new Map();
   window.fcCapChallenge = (onVerify, onError) => (slot) => {
     if (!slot || slot.firstChild) return;
     captchaConfig()
@@ -160,9 +160,11 @@
       .catch((e) => onError?.(e.message));
   };
 
-  const solve = async (captcha) => {
+  const solve = async (captcha, flow) => {
     await loadCap();
-    const target = (hiddenWidget ??= new window.Cap({ apiEndpoint: captcha.endpoint }).widget);
+    const endpoint = captcha.endpoints?.[flow] ?? captcha.endpoint;
+    if (!hiddenWidgets.has(endpoint)) hiddenWidgets.set(endpoint, new window.Cap({ apiEndpoint: endpoint }).widget);
+    const target = hiddenWidgets.get(endpoint);
     const token =
       target.token ||
       (await new Promise((resolve) => {
@@ -208,7 +210,7 @@
       captcha[flows[path]] &&
       !data.captcha_key
     )
-      data.captcha_key = (await solve(captcha).catch(() => null)) ?? undefined;
+      data.captcha_key = (await solve(captcha, flows[path]).catch(() => null)) ?? undefined;
     return JSON.stringify(data);
   };
 

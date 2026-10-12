@@ -78,8 +78,9 @@ router.patch(
             select: Object.fromEntries([...PrivateUserProjection, "data", "recent_avatars"].map((i) => [i, true])), //TODO: cleanup
         });
 
-        if (body.username !== undefined && body.username.trim() !== user.username) assertIdentityNameAllowed(body.username);
-        assertIdentityNameAllowed(body.global_name, "global_name");
+        if (body.username !== undefined && body.username.trim() !== user.username)
+            assertIdentityNameAllowed(body.username, "username", { user_id: user.id, username: user.username });
+        assertIdentityNameAllowed(body.global_name, "global_name", { user_id: user.id, username: user.username });
 
         const publicBefore = JSON.stringify(user.toPublicUser());
         let newToken: string | undefined;

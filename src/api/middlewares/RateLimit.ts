@@ -211,6 +211,7 @@ export async function initRateLimits(app: Router) {
     app.use("/channels/:channel_id", rateLimit(routes.channel));
     const userProfile = rateLimit({ bucket: "PATCH users/@me", ...routes.userProfile });
     app.patch("/users/:user_id", (req, res, next) => ([req.user_id, "@me"].includes(`${req.params.user_id}`) ? userProfile(req, res, next) : next()));
+    app.use("/users/@me/instance-invites", rateLimit({ bucket: "users/@me/instance-invites", ...routes.instanceInvite }));
     const userWrites = rateLimit({ onlyWrites: true, ...routes.user });
     app.use("/users/:user_id", (req, res, next) =>
         ![req.user_id, "@me"].includes(`${req.params.user_id}`) || req.path.startsWith("/e2ee/") ? next() : userWrites(req, res, next),
@@ -238,6 +239,7 @@ export async function initRateLimits(app: Router) {
     app.use(["/auth/mfa", "/mfa/finish", "/auth/conditional", "/auth/passwordless", "/auth/forgot", "/auth/reset", "/auth/verify"], rateLimit(routes.auth.login));
     app.use("/auth/register", rateLimit({ onlyIp: true, success: true, ...routes.auth.register }));
     app.get("/auth/pride-badges", rateLimit({ bucket: "auth/pride-badges", onlyIp: true, count: 30, window: 60 }));
+    app.get("/auth/instance-invite", rateLimit({ bucket: "auth/instance-invite", onlyIp: true, count: 30, window: 60 }));
 }
 
 function hitRoute(opts: { key: string; executor_id: string; bucket_id: string; max_hits: number; window: number }) {

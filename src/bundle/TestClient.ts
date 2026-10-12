@@ -127,6 +127,13 @@ const BRANDED_ASSETS: Record<string, { wordmark?: boolean; svg: (iconUri: string
     },
 };
 
+const joinReasonEnv = () => {
+    const { joinReason, requireApproval } = Config.get().register;
+    return joinReason.required || requireApproval
+        ? { required: joinReason.required, minLength: joinReason.required ? joinReason.minLength : 0, maxLength: joinReason.maxLength, approval: requireApproval }
+        : null;
+};
+
 export function TestClientAssets(app: Application) {
     const noCache = { setHeaders: (res: Response) => res.set("Cache-Control", "no-cache") };
     app.get(
@@ -259,6 +266,7 @@ const buildHtml = () => {
         GROUP_DM_RECIPIENT_LIMIT: ${json(Config.get().limits.channel.maxGroupDmRecipients)},
         INSTANCE_LIMITS: ${json(instanceLimits())},
         REGISTER_EMAIL_REQUIRED: ${json(Config.get().register.email.required === true)},
+        REGISTER_JOIN_REASON: ${json(joinReasonEnv())},
         CUSTOM_CLAN_BADGE_PACK: ${json(CUSTOM_CLAN_BADGE_PACK)},
         CUSTOM_CLAN_BADGES: ${json(CUSTOM_CLAN_BADGES.map((badge) => ({ ...badge, pack: clanBadgePack(badge), colors: clanBadgeColorCount(badge) })))},
         DEFAULT_EMOJIS: ${json(DEFAULT_EMOJIS.map(({ id, name }) => ({ id, name })))},
@@ -371,6 +379,8 @@ export default function TestClient(app: Application) {
             Config.get().limits.guild,
             Config.get().limits.message,
             Config.get().limits.channel,
+            Config.get().register.joinReason,
+            Config.get().register.requireApproval,
         ]);
     let brand = brandStamp();
     let page = renderPage();

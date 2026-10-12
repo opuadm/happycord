@@ -1,6 +1,6 @@
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
-import { captchaEnabled } from "@spacebar/api/util";
+import { capChallengeParameters, captchaEnabled, inviteSettings } from "@spacebar/api/util";
 import { Config } from "@spacebar/util";
 import { HTTPError } from "lambert-server/HTTPError";
 import { AdminSettingsUpdateSchema } from "@spacebar/schemas";
@@ -41,6 +41,7 @@ const pickSettings = () => {
             allowNewRegistration: register.allowNewRegistration,
             requireInvite: register.requireInvite,
             guestsRequireInvite: register.guestsRequireInvite,
+            instanceInvites: { ...inviteSettings() },
             requireCaptcha: register.requireCaptcha,
             allowMultipleAccounts: register.allowMultipleAccounts,
             incrementingDiscriminators: register.incrementingDiscriminators,
@@ -64,6 +65,13 @@ const pickSettings = () => {
             instance: captcha.instance,
             secret_set: !!captcha.secret,
             active: captchaEnabled(),
+            blockAutomatedBrowsers: captcha.blockAutomatedBrowsers !== false,
+            challenges: Object.fromEntries(
+                (["register", "login", "password_reset"] as const).map((context) => {
+                    const { challengeCount, challengeSize, challengeDifficulty } = capChallengeParameters(context);
+                    return [context === "password_reset" ? "passwordReset" : context, { count: challengeCount, size: challengeSize, difficulty: challengeDifficulty }];
+                }),
+            ),
         },
         rate: {
             enabled: limits.rate.enabled,
@@ -117,7 +125,7 @@ router.patch(
         right: "OPERATOR",
         spacebarOnly: true,
         requestBody: "AdminSettingsUpdateSchema",
-        description: "Update instance information, client branding, registration, captcha, rate limits and e2ee limits",
+        description: "Update instance information, client branding, registration, instance invites, captcha, rate limits and e2ee limits",
     }),
     async (req: Request, res: Response) => {
         const body = req.body as AdminSettingsUpdateSchema;

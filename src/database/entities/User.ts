@@ -30,6 +30,8 @@ import {
 } from "@spacebar/schemas";
 import { JsonNumber } from "@spacebar/util/util/Decorators";
 
+export type JoinStatus = "pending" | "approved" | "rejected";
+
 export interface AccountPreferences {
     consents?: Record<string, boolean>;
     email_categories?: Record<string, boolean>;
@@ -153,6 +155,15 @@ export class User extends BaseClass {
     @Column({ type: "int", nullable: true })
     account_standing?: number | null;
 
+    @Column({ type: "timestamptz", nullable: true, select: false })
+    suspended_until?: Date | null;
+
+    @Column({ type: "text", nullable: true, select: false })
+    join_reason?: string | null;
+
+    @Column({ type: "varchar", nullable: true, select: false })
+    join_status?: JoinStatus | null;
+
     @Column({ nullable: true, select: false })
     email?: string; // email of the user
 
@@ -214,6 +225,10 @@ export class User extends BaseClass {
 
     @Column({ type: "varchar", array: true, select: false })
     fingerprints: string[] = []; // array of fingerprints -> used to prevent multiple accounts
+
+    @Index("IDX_users_registration_ip")
+    @Column({ type: String, nullable: true, select: false })
+    registration_ip?: string | null;
 
     @OneToOne(() => UserSettings, {
         cascade: true,
@@ -473,7 +488,9 @@ export class User extends BaseClass {
         bot,
         global_name,
         pride_badges,
+        registration_ip,
     }: {
+        registration_ip?: string | null;
         username: string;
         global_name?: string;
         pride_badges?: string[];
@@ -546,6 +563,7 @@ export class User extends BaseClass {
             created_at: new Date(),
             bot: !!bot,
             pride_badges: [...new Set(pride_badges ?? [])],
+            registration_ip: registration_ip ?? null,
         });
 
         user.validate();

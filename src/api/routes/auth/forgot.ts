@@ -29,7 +29,7 @@ router.post(
 
         const config = Config.get();
 
-        const captcha = await checkCaptcha(config.passwordReset.requireCaptcha, captchaKeyFrom(req));
+        const captcha = await checkCaptcha(config.passwordReset.requireCaptcha, captchaKeyFrom(req), "password_reset");
         if (captcha) return res.status(400).json(captcha);
 
         const user = await User.findOne({

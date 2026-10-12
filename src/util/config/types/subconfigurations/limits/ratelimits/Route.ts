@@ -69,5 +69,10 @@ export class RouteRateLimit {
         count: 20,
         window: 10,
     };
+    instanceInvite: RateLimitOptions = {
+        count: 10,
+        GET: 60,
+        window: 60,
+    };
     auth: AuthRateLimit = new AuthRateLimit();
 }

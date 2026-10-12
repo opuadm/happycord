@@ -18,6 +18,20 @@ export interface ReportSnapshot {
     sent_at?: string;
     name?: string;
     encrypted?: { verified: boolean; reason?: string; files?: string[] };
+    guild_name?: string;
+    context?: ReportContextMessage[];
+}
+
+export interface ReportContextMessage {
+    id: string;
+    type?: number;
+    author?: ReportSnapshot["author"];
+    content: string;
+    sent_at?: string;
+    files: number;
+    embeds: number;
+    encrypted?: { verified: boolean };
+    after: boolean;
 }
 
 @Entity({

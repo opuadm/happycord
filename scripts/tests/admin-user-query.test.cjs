@@ -3,6 +3,21 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const ts = require("typescript");
+const accountIps = (() => {
+    const module = { exports: {} };
+    vm.runInNewContext(
+        ts.transpileModule(fs.readFileSync("src/api/util/utility/accountIps.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } })
+            .outputText,
+        {
+            module,
+            exports: module.exports,
+            require: (name) =>
+                ({ typeorm: { In: (value) => value }, "lambert-server/HTTPError": { HTTPError: Error }, "@spacebar/database": {}, "@spacebar/database/Sql": {} })[name] ??
+                require(name),
+        },
+    );
+    return module.exports;
+})();
 function harness(options = {}) {
     let handler;
     let response;
@@ -45,6 +60,7 @@ function harness(options = {}) {
                     },
                 };
             if (name === "@spacebar/api/middlewares") return { route: (options) => options };
+            if (name === "@spacebar/api/util") return accountIps;
             if (name === "@spacebar/database") return { User: { createQueryBuilder: () => query } };
             if (name === "@spacebar/util") return { Rights: class {} };
             if (name === "@spacebar/schemas")
@@ -91,6 +107,8 @@ test("admin pagination rejects malformed inputs before executing a query", async
         { filter: "unknown" },
         { filter: ["all", "bots"] },
         { q: "99999999999999999999" },
+        { ip: "not-an-address" },
+        { ip: ["203.0.113.7", "203.0.113.8"] },
     ]) {
         const h = harness();
         await assert.rejects(h.run(parameters), (error) => error.status === 400);
@@ -160,5 +178,17 @@ test("ordinary admin user projection excludes security material even when an ent
     for (const field of Object.keys(user).filter((field) => !h.exports.ADMIN_USER_COLUMNS.includes(field))) {
         assert.equal(h.calls.find(([name]) => name === "select")[1].includes(`user.${field}`), false, field);
         assert.equal(field in h.exports.pickAdminUser(user), false, field);
+    }
+});
+
+test("an address in q or ip finds accounts by registration and session address in both IPv4 spellings", async () => {
+    for (const parameters of [{ q: " 203.0.113.7 " }, { ip: "::ffff:203.0.113.7" }]) {
+        const h = harness();
+        await h.run(parameters);
+        const clauses = h.calls.filter(([name]) => name === "where" || name === "orWhere");
+        assert.equal(clauses.length, 2);
+        assert.equal(clauses[0][1], "user.registration_ip IN (:...ips)");
+        assert.match(clauses[1][1], /SELECT s\.user_id FROM sessions s WHERE s\.last_seen_ip IN \(:\.\.\.ips\)/);
+        for (const clause of clauses) assert.deepEqual([...clause[2].ips], ["203.0.113.7", "::ffff:203.0.113.7"]);
     }
 });

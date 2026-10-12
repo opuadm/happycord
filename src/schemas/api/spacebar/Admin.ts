@@ -47,6 +47,33 @@ export interface AdminSettingsUpdateSchema {
         allowNewRegistration?: boolean;
         requireInvite?: boolean;
         guestsRequireInvite?: boolean;
+        instanceInvites?: {
+            /**
+             * @TJS-type integer
+             * @minimum 0
+             * @maximum 10000
+             */
+            perUser?: number;
+            /**
+             * @TJS-type integer
+             * @minimum 0
+             * @maximum 3650
+             */
+            minAccountAgeDays?: number;
+            /**
+             * @TJS-type integer
+             * @minimum 1
+             * @maximum 1000
+             */
+            maxUsesPerInvite?: number;
+            /**
+             * 0 lets invites last forever
+             * @TJS-type integer
+             * @minimum 0
+             * @maximum 365
+             */
+            maxAgeDays?: number;
+        };
         requireCaptcha?: boolean;
         allowMultipleAccounts?: boolean;
         incrementingDiscriminators?: boolean;
@@ -98,6 +125,15 @@ export interface AdminSettingsUpdateSchema {
          * Base URL of a Cap Standalone server
          */
         instance?: string | null;
+        /**
+         * Refuse Cap core solves from headless and automated browsers
+         */
+        blockAutomatedBrowsers?: boolean;
+        challenges?: {
+            register?: AdminCapChallengeSchema;
+            login?: AdminCapChallengeSchema;
+            passwordReset?: AdminCapChallengeSchema;
+        };
     };
     rate?: {
         enabled?: boolean;
@@ -167,6 +203,14 @@ export interface AdminUserUpdateSchema {
     global_name?: string | null;
     bio?: string;
     disabled?: boolean;
+    /**
+     * Pass null to lift a timed suspension
+     */
+    suspended_until?: string | null;
+    /**
+     * Approve or reject an account waiting for approval
+     */
+    join_status?: "approved" | "rejected";
     verified?: boolean;
     /**
      * @minimum 0
@@ -739,6 +783,10 @@ export interface AdminReportUpdateSchema {
      * Also delete the reported message. Needs the MANAGE_MESSAGES right.
      */
     delete_message?: boolean;
+    /**
+     * Give every other open report on the same message, or against the same user when the report isn't about a message, the same outcome
+     */
+    include_related?: boolean;
 }
 
 export interface AdminPasswordResetSchema {
@@ -750,6 +798,39 @@ export interface AdminPasswordResetSchema {
      * Sign the user out of every session
      */
     revoke_sessions?: boolean;
+}
+
+export interface AdminUsersBulkSchema {
+    /**
+     * The accounts to act on, at most 500 per request
+     * @minItems 1
+     * @maxItems 500
+     */
+    user_ids: string[];
+    action: "delete" | "disable";
+    /**
+     * Also delete every message the accounts sent. Needs the MANAGE_MESSAGES right. Deleting an account always removes its messages.
+     */
+    delete_messages?: boolean;
+    /**
+     * When deleting, keep an instance ban on each account id, the same as the single-account delete
+     */
+    ban?: boolean;
+    /**
+     * @maxLength 512
+     */
+    reason?: string;
+}
+
+export interface AdminIpBanCreateSchema {
+    /**
+     * @maxLength 64
+     */
+    ip: string;
+    /**
+     * @maxLength 512
+     */
+    reason?: string;
 }
 
 export interface AdminSessionsRevokeSchema {
@@ -906,4 +987,73 @@ export interface AdminRoleUpdateSchema {
 
 export interface AdminOfficialMessageCreateSchema {
     content: string;
+}
+
+export interface AdminCapChallengeSchema {
+    /**
+     * Proofs a browser has to find
+     * @TJS-type integer
+     * @minimum 1
+     * @maximum 500
+     */
+    count?: number;
+    /**
+     * Length of each salt in characters
+     * @TJS-type integer
+     * @minimum 16
+     * @maximum 64
+     */
+    size?: number;
+    /**
+     * Leading hex characters each hash has to match. Every step multiplies the work by 16
+     * @TJS-type integer
+     * @minimum 1
+     * @maximum 8
+     */
+    difficulty?: number;
+}
+
+export interface AdminInstanceInviteCreateSchema {
+    /**
+     * 0 means unlimited
+     * @TJS-type integer
+     * @minimum 0
+     * @maximum 10000
+     */
+    max_uses?: number;
+    /**
+     * Seconds until the invite expires, 0 means never
+     * @TJS-type integer
+     * @minimum 0
+     * @maximum 31536000
+     */
+    max_age_seconds?: number;
+    /**
+     * @maxLength 200
+     */
+    note?: string | null;
+}
+
+export interface AdminInstanceInviteRevokeSchema {
+    /**
+     * none revokes only the code, joined also disables the accounts that used it, branch disables everyone below it in the invite tree
+     */
+    disable?: "none" | "joined" | "branch";
+}
+
+export interface AdminUserInvitesUpdateSchema {
+    /**
+     * Invites on top of the instance default, negative takes some away
+     * @TJS-type integer
+     * @minimum -1000
+     * @maximum 10000
+     */
+    bonus_invites: number;
+}
+
+export interface AdminUserInviteBranchSchema {
+    /**
+     * Also disable the account itself, not only the people it brought in
+     */
+    include_user?: boolean;
 }

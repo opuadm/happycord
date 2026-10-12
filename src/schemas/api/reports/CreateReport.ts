@@ -16,6 +16,7 @@ export interface CreateReportSchema {
     user_id?: string; // snowflake
     widget_id?: string; // snowflake
     e2ee_content_key?: string;
+    e2ee_context_keys?: { [message_id: string]: string };
 }
 
 export interface CreateReportResponse {

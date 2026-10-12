@@ -1,4 +1,5 @@
 import { isSqlite } from "@spacebar/database/Sql";
+import { enforceNameAutomod } from "../utility/instanceAutomod";
 import { ProcessLifecycle } from "../../../util/util/ProcessLifecycle";
 import { In } from "typeorm";
 import { Channel, Member, Message, ThreadMember, ThreadMemberFlags } from "@spacebar/database";
@@ -47,6 +48,7 @@ export async function createThread(opts: CreateThreadOptions) {
     if (opts.auto_archive_duration != null && !AUTO_ARCHIVE_DURATIONS.includes(Number(opts.auto_archive_duration)))
         throw FieldErrors({ auto_archive_duration: AUTO_ARCHIVE_DURATION_ERROR });
     for (const character of InvisibleCharacters) if (name === character) throw new HTTPError("Thread name cannot include invalid characters", 400);
+    await enforceNameAutomod({ user_id, name, field: "name", source: "thread_name", guild_id: parent.guild_id, channel_id: parent.id });
 
     if (parent.threadOnly()) {
         if (type !== ChannelType.GUILD_PUBLIC_THREAD) throw DiscordApiErrors.CANNOT_EXECUTE_ON_THIS_CHANNEL_TYPE;

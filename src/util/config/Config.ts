@@ -1,5 +1,6 @@
 import {
     ApiConfiguration,
+    AutomodConfiguration,
     CdnConfiguration,
     ClientConfiguration,
     ComponentConfiguration,
@@ -51,5 +52,6 @@ export class ConfigValue {
     components = new ComponentConfiguration();
     embeds = new EmbedConfiguration();
     integrations = new IntegrationConfiguration();
+    automod: AutomodConfiguration = new AutomodConfiguration();
     defaultsRevision: number = 0;
 }

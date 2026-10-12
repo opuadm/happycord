@@ -567,6 +567,9 @@ try {
             const snapshot = JSON.parse(sql(`select snapshot::text from reports where id = '${answer.report_id}'`));
             assert.equal(snapshot.encrypted?.verified, true, "a report from the client carries the content key and the server verifies it");
             assert.equal(snapshot.content, first, "the verified report holds the text the sender sent");
+            assert.ok(Array.isArray(snapshot.context), "the report saves the conversation around the message");
+            for (const entry of snapshot.context.filter((m) => m.encrypted))
+                assert.equal(entry.encrypted.verified, true, `the reporter's client shared the key for context message ${entry.id}`);
             assert.equal(await b.page.locator('.fe2ee-lock[data-state="decrypted"]').count(), 0, "healthy peer messages have no encryption icons");
             await shot(b, "1-friend-reads-tester");
             assert.ok(a.sent.length >= 1, "tester sent a request");

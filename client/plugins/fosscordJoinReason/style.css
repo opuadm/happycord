@@ -1,0 +1,82 @@
+.fosscord-join-reason {
+    display: grid;
+    gap: 8px;
+    margin-top: 20px;
+    color: var(--text-default);
+    font-size: 14px;
+    text-align: start;
+}
+.fosscord-join-reason p {
+    margin: 0;
+    line-height: 1.4;
+    text-wrap: pretty;
+}
+.fosscord-join-reason-label {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    color: var(--text-default);
+    font-size: 14px;
+    font-weight: 600;
+}
+.fosscord-join-reason-required {
+    color: var(--text-feedback-critical, var(--status-danger));
+}
+.fosscord-join-reason-optional {
+    margin-inline-start: 4px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 400;
+}
+.fosscord-join-reason-hint,
+.fosscord-join-reason-count {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+.fosscord-join-reason-count {
+    font-variant-numeric: tabular-nums;
+}
+.fosscord-join-reason-count[data-short] {
+    color: var(--text-default);
+}
+.fosscord-join-reason-input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 76px;
+    padding: 10px 12px;
+    border: 1px solid var(--input-border-default, var(--background-mod-strong));
+    border-radius: 8px;
+    background: var(--input-background-default, var(--background-base-lowest));
+    color: var(--text-default);
+    font: inherit;
+    font-family: var(--font-primary);
+    line-height: 1.4;
+    resize: vertical;
+    transition: border-color 150ms ease-out;
+}
+.fosscord-join-reason-input::placeholder {
+    color: var(--input-placeholder-text-default, var(--text-muted));
+}
+.fosscord-join-reason-input:focus {
+    outline: none;
+    border-color: var(--input-border-active, var(--border-focus, var(--focus-primary)));
+}
+.fosscord-join-reason-input[aria-invalid="true"] {
+    border-color: var(--text-feedback-critical, var(--status-danger));
+}
+.fosscord-join-reason-error {
+    color: var(--text-feedback-critical, var(--status-danger));
+    font-size: 12px;
+}
+.fosscord-join-reason-pending {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--background-mod-subtle, var(--background-base-low));
+    color: var(--text-default);
+    font-size: 13px;
+}
+@media (prefers-reduced-motion: reduce) {
+    .fosscord-join-reason-input {
+        transition: none;
+    }
+}

@@ -77,7 +77,7 @@ export async function notifyStandingDrop(user_id: string, before: AccountStandin
 export async function currentStanding(user_id: string) {
     const user = await User.findOneOrFail({
         where: { id: user_id },
-        select: { id: true, disabled: true, account_standing: true },
+        select: { id: true, disabled: true, account_standing: true, suspended_until: true },
     });
     return accountStanding(user, await getUserViolations(user_id));
 }

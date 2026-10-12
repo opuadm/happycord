@@ -1,4 +1,5 @@
 import { Request, Response, Router } from "express";
+import { IsNull } from "typeorm";
 import { HTTPError } from "lambert-server/HTTPError";
 import { route } from "@spacebar/api/middlewares";
 import { Channel, Message, Report } from "@spacebar/database";
@@ -60,13 +61,23 @@ router.patch(
             }
         }
 
-        if (body.resolution_note !== undefined) report.resolution_note = body.resolution_note?.trim() || null;
-        if (body.status !== undefined && body.status !== report.status) {
-            report.status = body.status;
-            report.resolved_by = body.status === "open" ? null : req.user_id;
-            report.resolved_at = body.status === "open" ? null : new Date();
+        const related =
+            body.include_related && body.status && body.status !== "open" && (report.message_id || report.reported_user_id)
+                ? await Report.find({
+                      where: report.message_id
+                          ? { message_id: report.message_id, status: "open" }
+                          : { reported_user_id: report.reported_user_id!, message_id: IsNull(), status: "open" },
+                  })
+                : [];
+        for (const entry of [report, ...related.filter((r) => r.id !== report.id)]) {
+            if (body.resolution_note !== undefined) entry.resolution_note = body.resolution_note?.trim() || null;
+            if (body.status !== undefined && body.status !== entry.status) {
+                entry.status = body.status;
+                entry.resolved_by = body.status === "open" ? null : req.user_id;
+                entry.resolved_at = body.status === "open" ? null : new Date();
+            }
+            await entry.save();
         }
-        await report.save();
 
         const [described] = await describeReports([report], {
             ip: req.ip,

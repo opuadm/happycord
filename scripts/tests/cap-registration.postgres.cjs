@@ -78,7 +78,7 @@ const redeem = async (body) => {
 test("production challenges retain normal proof difficulty and browser instrumentation", options, async () => {
     const before = Date.now();
     const result = await cap.createRegistrationChallenge();
-    assert.deepEqual(result.challenge, { c: 50, s: 32, d: 4 });
+    assert.deepEqual(result.challenge, { c: 64, s: 32, d: 5 });
     assert.equal(typeof result.instrumentation, "string");
     assert.ok(result.instrumentation.length > 0);
     assert.ok(result.expires >= before + 299000 && result.expires <= Date.now() + 300000);

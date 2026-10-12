@@ -37,7 +37,7 @@ function fixture(scan) {
                             GUILD_PRIVATE_THREAD: 12,
                         },
                     };
-                if (["typeorm", "@spacebar/util", "lambert-server/HTTPError"].includes(name)) return {};
+                if (["typeorm", "@spacebar/util", "lambert-server/HTTPError", "../utility/instanceAutomod"].includes(name)) return {};
                 throw Error(name);
             },
         },

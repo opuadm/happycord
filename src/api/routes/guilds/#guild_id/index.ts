@@ -4,7 +4,7 @@ import { route } from "@spacebar/api/middlewares";
 import { AuditLog, Channel, Guild, Member } from "@spacebar/database";
 import { ApiError, DiscordApiErrors, FieldErrors, GuildUpdateEvent, Permissions, emitEvent, getPermission, getRights, handleFile } from "@spacebar/util";
 import { AuditLogEvents, GuildCreateResponse, GuildUpdateSchema } from "@spacebar/schemas";
-import { bulkActionJoinRequests, isApplyGuild } from "@spacebar/api/util";
+import { bulkActionJoinRequests, enforceNameAutomod, isApplyGuild } from "@spacebar/api/util";
 
 const router = Router({ mergeParams: true });
 
@@ -64,6 +64,7 @@ router.patch(
         const permission = await getPermission(req.user_id, guild_id);
 
         if (!rights.has("MANAGE_GUILDS") && !permission.has("MANAGE_GUILD")) throw DiscordApiErrors.MISSING_PERMISSIONS.withParams("MANAGE_GUILDS");
+        if (body.name !== undefined) await enforceNameAutomod({ user_id: req.user_id, name: body.name, field: "name", source: "guild_name", guild_id });
 
         const guild = await Guild.findOneOrFail({
             where: { id: guild_id },

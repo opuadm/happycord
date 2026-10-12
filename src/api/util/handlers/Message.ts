@@ -4,6 +4,7 @@ import { In, Raw } from "typeorm";
 // noinspection ES6PreferShortImport -- Causes a circular reference...
 import { fillComponentMedia, fillMessageUrlEmbeds } from "../utility/EmbedHandlers";
 import { resolveSoundmoji } from "../utility/Soundboard";
+import { enforceMessageAutomod } from "../utility/instanceAutomod";
 import { getDatabase, Application, Attachment, Channel, CloudAttachment, Guild, Member, Message, ReadState, Role, Sticker, User, Webhook } from "@spacebar/database";
 import { Stopwatch, Random, normalizeLineEndings } from "@spacebar/extensions";
 import {
@@ -469,6 +470,16 @@ export async function handleMessage(
                   relations: { recipients: true },
               });
     if (!channel || !opts.channel_id) throw new HTTPError("Channel not found", 404);
+
+    if (opts.author_id && !opts.webhook_id && !opts.interaction_metadata && !opts.encrypted && [MessageType.DEFAULT, MessageType.REPLY].includes(opts.type ?? MessageType.DEFAULT))
+        await enforceMessageAutomod({
+            user_id: opts.author_id,
+            text: [opts.content, opts.poll?.question?.text, ...(opts.poll?.answers ?? []).map((answer) => answer.poll_media?.text)].filter(Boolean).join("\n"),
+            edit: !!opts.edited_timestamp,
+            guild_id: channel.guild_id,
+            channel_id: channel.id,
+            message_id: opts.id,
+        });
 
     const authorPermission = opts.author_id && !opts.webhook_id && !opts.interaction_metadata ? known.permission : undefined;
     let permission: null | Permissions = null;

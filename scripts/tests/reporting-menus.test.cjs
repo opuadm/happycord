@@ -163,6 +163,7 @@ function reportUtility({ view = true, author = "target" } = {}) {
     const entities = {
         Report: {
             count: async () => 0,
+            findOne: async () => null,
             create: (data) => ({
                 ...data,
                 save: async function () {
@@ -181,16 +182,17 @@ function reportUtility({ view = true, author = "target" } = {}) {
                 attachments: [],
                 timestamp: new Date(0),
             }),
+            find: async () => [],
         },
         User: { exists: async () => true },
         Channel: {},
-        Guild: {},
+        Guild: { findOne: async () => ({ id: "100", name: "the server" }) },
     };
     const utility = load("src/api/util/utility/reports.ts", {
         "@spacebar/database": entities,
         "@spacebar/schemas": schemas,
         "lambert-server/HTTPError": { HTTPError },
-        typeorm: { In: (value) => value, MoreThan: (value) => value },
+        typeorm: { In: (value) => value, MoreThan: (value) => value, LessThan: (value) => value, IsNull: () => null },
         "@spacebar/util": {
             DiscordApiErrors: { UNKNOWN_MESSAGE: new Error("Unknown message") },
             getPermission: async () => ({ has: () => view }),
@@ -199,6 +201,7 @@ function reportUtility({ view = true, author = "target" } = {}) {
         "node:crypto": require("node:crypto"),
         "./e2ee": { verifyEd25519: () => false },
         "./reportMenus": menus,
+        "./instanceAutomod": { automodVerifiedReport: async () => undefined },
     });
     return { ...utility, saved };
 }

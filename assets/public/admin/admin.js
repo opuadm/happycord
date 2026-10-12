@@ -572,7 +572,14 @@ $("#logout").addEventListener("click", () => {
 
 /* ---------- router ---------- */
 
+const CAP_CONTEXTS = [
+  ["register", "Registration"],
+  ["login", "Sign-in"],
+  ["passwordReset", "Password reset"],
+];
+
 const TABS = {
+  invites: renderInstanceInvites,
   overview: renderOverview,
   settings: renderSettings,
   users: renderUsers,
@@ -704,7 +711,7 @@ function filterNavigation() {
 $("#nav-search").addEventListener("input", filterNavigation);
 function markFormDirty(event) {
   const form = event.target.closest("form");
-  if (form && form.id !== "login-form") {
+  if (form && form.id !== "login-form" && !form.hasAttribute("data-action-form")) {
     const control = event.target;
     const value =
       control.type === "file"
@@ -1094,7 +1101,7 @@ async function renderSettings(view) {
                     <div class="stack">
                         ${toggle("register.disabled", "Disable registration entirely", "Nobody can create an account, including with an invite.")}
                         ${toggle("register.allowNewRegistration", "Allow new registrations", "Turn off to stop new sign-ups while keeping invite-based registration rules.")}
-                        ${toggle("register.requireInvite", "Require an invite to register", "New accounts must join through an invite link.")}
+                        ${toggle("register.requireInvite", "Make the instance invite-only", "New accounts need an instance invite from a member or from Instance invites. Guild invites don't count.")}
                         ${toggle("register.guestsRequireInvite", "Require an invite for guest accounts", "Guest accounts are created without a password.")}
                         ${toggle("register.email.required", "Require an email address", "Off lets people sign up with only a username and password.")}
                         ${invertedToggle("defaults.user.verified", "Verify email addresses", "Sends each new account a link to confirm its address. Off marks new accounts as verified without checking. Needs email delivery.")}
@@ -1119,6 +1126,14 @@ ${(s.register.blacklistedUsernames ?? []).join("\n")}</textarea>
                         ${number("register.dateOfBirth.minimum", "Minimum age", "Years. Set to 0 to accept any date of birth.")}
                         ${number("register.password.minLength", "Minimum password length", "", 1)} ${number("register.password.minNumbers", "Digits a password needs")}
                         ${number("register.password.minUpperCase", "Capital letters a password needs")} ${number("register.password.minSymbols", "Symbols a password needs")}
+                    </div>
+                    <h3 style="margin-top:16px">Instance invites</h3>
+                    <p class="muted">Every member gets invites to bring people in. Each person who joins uses one. Give someone more from their page in Users & profiles.</p>
+                    <div class="form-grid">
+                        ${number("register.instanceInvites.perUser", "Invites per member", "Raising it gives every member more right away.")}
+                        ${number("register.instanceInvites.minAccountAgeDays", "Days before a new account gets invites", "0 gives them right away. Extra invites you grant work at any age.")}
+                        ${number("register.instanceInvites.maxUsesPerInvite", "People one member invite can let in", "", 1)}
+                        ${number("register.instanceInvites.maxAgeDays", "Longest a member invite can last", "Days. 0 lets member invites last until they're used.")}
                     </div>
                 </div>
                 <div class="card">
@@ -1152,6 +1167,23 @@ ${(s.register.blacklistedUsernames ?? []).join("\n")}</textarea>
                         ${toggle("register.requireCaptcha", "Require Cap to create an account", "Always displays the selected Cap widget before an account can be created. Cap core is the default.")}
                         ${toggle("login.requireCaptcha", "Ask for a captcha when signing in", "")}
                         ${toggle("passwordReset.requireCaptcha", "Ask for a captcha when requesting a password reset", "")}
+                        <div data-cap-core class="stack">
+                            ${toggle("captcha.blockAutomatedBrowsers", "Refuse headless and automated browsers", "Checks signals like navigator.webdriver, HeadlessChrome and software WebGL inside the challenge. It stops cheap bots, not a determined attacker with a real browser. The dev setup turns it off so its scripts can solve Cap.")}
+                            <p class="muted">
+                                Proof-of-work cost for each place Cap is used. A browser finds one hash per proof, and every difficulty step makes each proof 16 times harder.
+                                Registration at 64 proofs and difficulty 5 took 3 to 6 seconds in desktop Brave on an Apple M3. Phones take longer.
+                            </p>
+                            <div class="form-grid">
+                                ${CAP_CONTEXTS.map(
+                                  ([key, label]) =>
+                                    html`<fieldset class="stack" style="gap:6px;border:0;padding:0;margin:0">
+                                            <legend><strong style="font-size:13px">${label}</strong></legend>
+                                            ${number(`captcha.challenges.${key}.count`, "Proofs", "", 1)} ${number(`captcha.challenges.${key}.difficulty`, "Difficulty", "1 to 8", 1)}
+                                            ${number(`captcha.challenges.${key}.size`, "Salt length", "16 to 64", 16)}
+                                        </fieldset>`,
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="card">
@@ -1215,7 +1247,7 @@ ${(s.register.blacklistedUsernames ?? []).join("\n")}</textarea>
         input.required = standalone && (input.name !== "captcha.secret" || !s.captcha.secret_set);
       }
     }
-    $("[data-cap-core]", view).hidden = standalone;
+    for (const core of $$("[data-cap-core]", view)) core.hidden = standalone;
   };
   $("#captcha-provider", view).addEventListener("change", syncCaptchaProvider);
   syncCaptchaProvider();
@@ -1360,21 +1392,101 @@ function latestList(view, results, status) {
 
 /* ---------- users ---------- */
 
-const usersState = { q: "", filter: "all", offset: 0, limit: 50 };
+const usersState = { q: "", filter: "all", offset: 0, limit: 50, selected: new Set() };
+const ipsState = { q: "", offset: 0, limit: 50 };
+const BULK_CHUNK = 100;
+
+const plural = (count, one, many = `${one}s`) => `${fmtNumber(count)} ${count === 1 ? one : many}`;
+
+async function runBulkRemoval(ids, { action, deleteMessages, ban, reason }, progress) {
+  const totals = { processed: 0, skipped: 0, messages: 0 };
+  for (let start = 0; start < ids.length; start += BULK_CHUNK) {
+    progress?.(start, ids.length);
+    const result = await api("/admin/users/bulk", {
+      method: "POST",
+      body: {
+        user_ids: ids.slice(start, start + BULK_CHUNK),
+        action,
+        delete_messages: deleteMessages,
+        ban,
+        ...(reason ? { reason } : {}),
+      },
+    });
+    totals.processed += result.processed.length;
+    totals.skipped += result.skipped.length;
+    totals.messages += result.messages_deleted;
+  }
+  progress?.(ids.length, ids.length);
+  return totals;
+}
+
+const describeRemoval = ({ action, deleteMessages }, count) =>
+  action === "delete"
+    ? `Permanently delete ${plural(count, "account")} and every message they sent? This can't be undone.`
+    : `Disable ${plural(count, "account")}${deleteMessages ? " and delete every message they sent" : ""}? They're signed out everywhere.${deleteMessages ? " Deleted messages can't be restored." : ""}`;
+
+const removalSummary = (action, totals) =>
+  [
+    `${plural(totals.processed, "account")} ${action === "delete" ? "deleted" : "disabled"}`,
+    totals.messages ? `${plural(totals.messages, "message")} deleted` : "",
+    totals.skipped ? `${fmtNumber(totals.skipped)} skipped` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+const removalOptions = (prefix) => html`
+  <label
+    >Action<select name="action" id="${prefix}-action">
+      ${options(
+        [
+          ["disable", "Disable accounts"],
+          ["delete", "Delete accounts"],
+        ],
+        "disable",
+      )}
+    </select></label
+  >
+  ${
+    state.overview.access.messages
+      ? html`<label class="toggle"
+          ><input type="checkbox" name="delete_messages" id="${prefix}-messages" /><span
+            >Delete every message they sent<span class="hint">Deleting an account always removes its messages.</span></span
+          ></label
+        >`
+      : ""
+  }
+`;
+
+const readRemovalOptions = (root) => {
+  const action = $("[name=action]", root).value;
+  return {
+    action,
+    deleteMessages: action === "delete" || !!$("[name=delete_messages]", root)?.checked,
+    ban: false,
+  };
+};
 
 async function renderUsers(view) {
+  const [, , sub] = location.hash.split("/");
+  const tabs = html`<div class="row view-switch" role="navigation" aria-label="Users views">
+    <a class="btn small ${sub === "ips" ? "" : "primary"}" href="#/users" ${sub === "ips" ? "" : raw('aria-current="page"')}>Accounts</a>
+    <a class="btn small ${sub === "ips" ? "primary" : ""}" href="#/users/ips" ${sub === "ips" ? raw('aria-current="page"') : ""}>IP addresses</a>
+  </div>`;
+  if (sub === "ips") return renderIps(view, tabs);
+
   mount(
     view,
     html`
             <div class="page-head">
                 <div>
                     <h1>Users</h1>
-                    <p class="muted">Search by name, email or ID. Click a user to edit or ban them.</p>
+                    <p class="muted">Search by name, email, ID or IP address. Click a user to edit or ban them.</p>
                 </div>
             </div>
+            ${tabs}
             <div class="row" style="margin-bottom:12px">
                 <label class="grow list-search"
-                    >Find users<input id="user-search" type="search" placeholder="Search names, emails or IDs" value="${usersState.q}" aria-controls="user-results"
+                    >Find users<input id="user-search" type="search" placeholder="Search names, emails, IDs or IPs" value="${usersState.q}" aria-controls="user-results"
                 /></label>
                 <label class="list-filter"
                     ><span id="user-filter-label">Filter users</span
@@ -1386,29 +1498,67 @@ async function renderUsers(view) {
                             ["verified", "Verified email"],
                             ["unverified", "Unverified email"],
                             ["bots", "Bots"],
+                            ["suspended", "Suspended now"],
+                            ["pending", "Waiting for approval"],
+                            ["with_reason", "Gave a join reason"],
                           ],
                           usersState.filter,
                         )}
                     </select></label
                 >
             </div>
+            <form class="card bulk-bar" id="user-bulk" data-action-form hidden>
+                <div class="row bulk-summary">
+                    <strong id="user-bulk-count" role="status" aria-live="polite"></strong>
+                    <button class="btn small" type="button" id="user-bulk-matching" hidden></button>
+                    <button class="btn small ghost" type="button" id="user-bulk-clear">Clear selection</button>
+                </div>
+                <div class="row bulk-controls">
+                    ${removalOptions("user-bulk")}
+                    <button class="btn danger" type="submit" id="user-bulk-run">Apply to selected</button>
+                </div>
+            </form>
             <div class="list-status muted" id="user-status" role="status" aria-live="polite" hidden></div>
             <div id="user-results"><div class="spinner">Loading…</div></div>
         `,
   );
 
   const results = $("#user-results", view);
+  const bulk = $("#user-bulk", view);
   const requests = latestList(view, results, $("#user-status", view));
+  let lastTotal = 0;
+  const query = () => ({ q: usersState.q, filter: usersState.filter });
+  const syncBulk = () => {
+    const count = usersState.selected.size;
+    bulk.hidden = !count;
+    $("#user-bulk-count", view).textContent = `${plural(count, "account")} selected`;
+    const boxes = $$("[data-select-user]", results);
+    const checked = boxes.filter((box) => usersState.selected.has(box.dataset.selectUser)).length;
+    for (const box of boxes) box.checked = usersState.selected.has(box.dataset.selectUser);
+    const all = $("#user-select-page", results);
+    if (all) {
+      all.checked = boxes.length > 0 && checked === boxes.length;
+      all.indeterminate = checked > 0 && checked < boxes.length;
+    }
+    const matching = $("#user-bulk-matching", view);
+    matching.hidden = !(lastTotal > count && boxes.length && checked === boxes.length);
+    matching.textContent = `Select all ${plural(lastTotal, "matching account")}`;
+  };
+  const clearSelection = () => {
+    usersState.selected.clear();
+    syncBulk();
+  };
+
   const load = async () => {
     const params = new URLSearchParams({
-      q: usersState.q,
-      filter: usersState.filter,
+      ...query(),
       limit: usersState.limit,
       offset: usersState.offset,
     });
     await requests.load(
       `/admin/users?${params}`,
       ({ users, total }) => {
+        lastTotal = total;
         mount(
           results,
           users.length
@@ -1417,6 +1567,7 @@ async function renderUsers(view) {
                                   <table>
                                       <thead>
                                           <tr>
+                                              <th style="width:1%"><input type="checkbox" id="user-select-page" aria-label="Select every user on this page" /></th>
                                               <th>User</th>
                                               <th class="hide-sm">Email</th>
                                               <th class="hide-sm">Joined</th>
@@ -1427,6 +1578,7 @@ async function renderUsers(view) {
                                           ${users.map(
                                             (u) => html`
                                                   <tr data-id="${u.id}">
+                                                      <td data-select><input type="checkbox" data-select-user="${u.id}" aria-label="Select ${userName(u)}" /></td>
                                                       <td>
                                                           <div class="ident">
                                                               ${avatar(u)}
@@ -1454,26 +1606,360 @@ async function renderUsers(view) {
               `,
         );
         for (const row of $$("tbody tr", results))
-          row.addEventListener("click", () => openUser(row.dataset.id, load));
+          row.addEventListener("click", (event) => {
+            if (!event.target.closest("[data-select]")) openUser(row.dataset.id, load);
+          });
+        for (const box of $$("[data-select-user]", results))
+          box.addEventListener("change", () => {
+            if (box.checked) usersState.selected.add(box.dataset.selectUser);
+            else usersState.selected.delete(box.dataset.selectUser);
+            syncBulk();
+          });
+        $("#user-select-page", results)?.addEventListener("change", (event) => {
+          for (const box of $$("[data-select-user]", results)) {
+            if (event.target.checked) usersState.selected.add(box.dataset.selectUser);
+            else usersState.selected.delete(box.dataset.selectUser);
+          }
+          syncBulk();
+        });
         bindPager(results, total, usersState, load);
+        syncBulk();
       },
       load,
     );
   };
+
+  $("#user-bulk-clear", view).addEventListener("click", clearSelection);
+  $("#user-bulk-matching", view).addEventListener("click", async (event) => {
+    const selection = await act(event.currentTarget, () =>
+      api(`/admin/users/bulk?${new URLSearchParams(query())}`),
+    );
+    if (!selection) return;
+    for (const id of selection.ids) usersState.selected.add(id);
+    syncBulk();
+    if (selection.truncated)
+      toast(`Selected the newest ${plural(selection.ids.length, "account")} of ${fmtNumber(selection.total)}. Run the action again for the rest.`);
+  });
+  const actionSelect = $("[name=action]", bulk);
+  const syncAction = () => {
+    const box = $("[name=delete_messages]", bulk);
+    if (!box) return;
+    box.disabled = actionSelect.value === "delete";
+    if (box.disabled) box.checked = true;
+  };
+  actionSelect.addEventListener("change", syncAction);
+  bulk.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const ids = [...usersState.selected];
+    const choice = readRemovalOptions(bulk);
+    const self = ids.includes(state.me.id) ? " Your own account is skipped." : "";
+    if (!ids.length || !confirm(`${describeRemoval(choice, ids.length)}${self}`)) return;
+    const button = $("#user-bulk-run", bulk);
+    const label = button.textContent;
+    const totals = await act(button, () =>
+      runBulkRemoval(ids, choice, (done, total) => {
+        button.textContent = `Working… ${fmtNumber(done)} of ${fmtNumber(total)}`;
+      }),
+    );
+    button.textContent = label;
+    if (!totals) return;
+    toast(removalSummary(choice.action, totals));
+    clearSelection();
+    load();
+  });
 
   const search = debounce(load);
   $("#user-search", view).addEventListener("input", (e) => {
     requests.cancel();
     usersState.q = e.target.value.trim();
     usersState.offset = 0;
+    usersState.selected.clear();
     search();
   });
   $("#user-filter").addEventListener("change", (e) => {
     usersState.filter = e.target.value;
     usersState.offset = 0;
+    usersState.selected.clear();
     load();
   });
+  syncAction();
   await load();
+}
+
+async function renderIps(view, tabs) {
+  mount(
+    view,
+    html`
+      <div class="page-head">
+        <div>
+          <h1>Users</h1>
+          <p class="muted">
+            Addresses accounts registered on or signed in from, with the most accounts first. Session addresses go away when a session ends, registration addresses stay.
+          </p>
+        </div>
+      </div>
+      ${tabs}
+      <div class="row" style="margin-bottom:12px">
+        <label class="grow list-search"
+          >Find addresses<input id="ip-search" type="search" inputmode="text" placeholder="Start of an address, like 203.0.113." value="${ipsState.q}" aria-controls="ip-results"
+        /></label>
+      </div>
+      <div class="list-status muted" id="ip-status" role="status" aria-live="polite" hidden></div>
+      <div id="ip-results"><div class="spinner">Loading…</div></div>
+      <section class="card stack" id="ip-bans" style="margin-top:24px"></section>
+    `,
+  );
+  const results = $("#ip-results", view);
+  const requests = latestList(view, results, $("#ip-status", view));
+  const reload = () => {
+    load();
+    renderIpBans($("#ip-bans", view), reload);
+  };
+  const load = async () => {
+    const params = new URLSearchParams({ q: ipsState.q, limit: ipsState.limit, offset: ipsState.offset });
+    await requests.load(
+      `/admin/ips?${params}`,
+      ({ ips, total }) => {
+        mount(
+          results,
+          ips.length
+            ? html`<div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Address</th>
+                        <th>Accounts</th>
+                        <th class="hide-sm">Registered here</th>
+                        <th class="hide-sm">Last seen</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${ips.map(
+                        (row) => html`<tr data-ip="${row.ip}">
+                          <td><code>${row.ip}</code></td>
+                          <td class="num">${fmtNumber(row.accounts)}</td>
+                          <td class="hide-sm num">${fmtNumber(row.registrations)}</td>
+                          <td class="hide-sm">${fmtDate(row.last_seen)}</td>
+                          <td>${row.ban_id ? html`<span class="badge danger">Banned</span>` : html`<span class="muted">Allowed</span>`}</td>
+                        </tr>`,
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                ${pager(total, ipsState)}`
+            : html`<div class="card empty">${ipsState.q ? "No addresses match." : "No addresses recorded yet. They appear when people register or sign in."}</div>`,
+        );
+        for (const row of $$("tr[data-ip]", results)) row.addEventListener("click", () => openIp(row.dataset.ip, reload));
+        bindPager(results, total, ipsState, load);
+      },
+      load,
+    );
+  };
+  const search = debounce(load);
+  $("#ip-search", view).addEventListener("input", (e) => {
+    requests.cancel();
+    ipsState.q = e.target.value.trim();
+    ipsState.offset = 0;
+    search();
+  });
+  renderIpBans($("#ip-bans", view), reload);
+  await load();
+}
+
+async function renderIpBans(card, reload) {
+  if (!card?.isConnected) return;
+  let data;
+  try {
+    data = await api("/admin/ips/bans?limit=100");
+  } catch (e) {
+    if (e.status === 401 || e.status === 499) return;
+    return mount(card, html`<h2>Banned addresses</h2><p class="form-error">${e.message}</p>`);
+  }
+  if (!card.isConnected) return;
+  mount(
+    card,
+    html`
+      <h2>Banned addresses</h2>
+      <p class="muted" style="margin:0">
+        Registration and sign-in from a banned address are refused, and tokens used from it stop working. An account that uses a token from a banned address gets banned too, and lifting the address ban lifts those bans as well.
+      </p>
+      <form class="row" id="ip-ban-form" style="align-items:flex-end">
+        <label class="grow">Address<input name="ip" required maxlength="64" inputmode="text" autocomplete="off" placeholder="203.0.113.7" /></label>
+        <label class="grow">Reason<input name="reason" maxlength="512" placeholder="Optional" /></label>
+        <button class="btn danger" type="submit">Ban address</button>
+      </form>
+      ${
+        data.bans.length
+          ? html`<div class="list">
+              ${data.bans.map(
+                (ban) => html`<div class="list-item">
+                  <div class="grow">
+                    <code>${ban.ip}</code>
+                    <div class="muted">${ban.reason} · ${fmtDate(ban.created_at)}</div>
+                  </div>
+                  <button class="btn small" type="button" data-lift="${ban.id}" data-ip="${ban.ip}">Lift ban</button>
+                </div>`,
+              )}
+            </div>
+            ${data.total > data.bans.length ? html`<p class="muted">Showing the newest ${fmtNumber(data.bans.length)} of ${fmtNumber(data.total)}.</p>` : ""}`
+          : html`<p class="muted" style="margin:0">No addresses are banned.</p>`
+      }
+    `,
+  );
+  $("#ip-ban-form", card).addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const ip = form.ip.value.trim();
+    if (!confirm(`Ban ${ip}? Nobody can register or sign in from it.`)) return;
+    const done = await act($("button[type=submit]", form), () =>
+      api("/admin/ips/bans", { method: "POST", body: { ip, ...(form.reason.value.trim() ? { reason: form.reason.value.trim() } : {}) } }),
+      `${ip} is banned`,
+    );
+    if (done) reload();
+  });
+  for (const button of $$("[data-lift]", card))
+    button.addEventListener("click", async () => {
+      if (!confirm(`Lift the ban on ${button.dataset.ip}?`)) return;
+      const done = await act(button, () => api(`/admin/ips/bans/${button.dataset.lift}`, { method: "DELETE" }), `The ban on ${button.dataset.ip} is lifted`);
+      if (done !== undefined) reload();
+    });
+}
+
+async function openIp(ip, reload) {
+  const body = openDrawer(
+    ip,
+    html`
+      <div class="spinner">Loading…</div>
+    `,
+  );
+  if (!body) return;
+  let accounts, info;
+  const refresh = async () => {
+    [accounts, info] = await Promise.all([
+      api(`/admin/users?${new URLSearchParams({ ip, limit: 100 })}`),
+      api(`/admin/ips?${new URLSearchParams({ q: ip, limit: 100 })}`),
+    ]);
+  };
+  try {
+    await refresh();
+  } catch (e) {
+    if (!body.isConnected || $("#drawer").hidden || e.status === 401 || e.status === 499) return;
+    return mount(body, html`<p class="form-error">${e.message}</p>`);
+  }
+  if (!body.isConnected || $("#drawer").hidden) return;
+  const row = info.ips.find((entry) => entry.ip === ip);
+  const total = accounts.total;
+  mount(
+    body,
+    html`
+      <div class="card">
+        <div class="list">
+          <div class="list-item"><span class="grow muted">Address</span><code>${ip}</code></div>
+          <div class="list-item"><span class="grow muted">Accounts seen here</span><span class="num">${fmtNumber(total)}</span></div>
+          <div class="list-item"><span class="grow muted">Registered here</span><span class="num">${fmtNumber(row?.registrations ?? 0)}</span></div>
+          <div class="list-item"><span class="grow muted">Last seen</span><span>${fmtDate(row?.last_seen)}</span></div>
+          <div class="list-item"><span class="grow muted">Status</span>${row?.ban_id ? html`<span class="badge danger">Banned</span>` : html`<span>Allowed</span>`}</div>
+        </div>
+      </div>
+      ${
+        total
+          ? html`<form class="card stack" id="ip-remove" data-action-form>
+              <h3>Remove every account on this address</h3>
+              ${removalOptions("ip-remove")}
+              ${row?.ban_id ? "" : html`<label class="toggle"><input type="checkbox" name="ban_ip" checked /><span>Ban this address<span class="hint">Nobody can register or sign in from it afterwards.</span></span></label>`}
+              <div class="form-actions"><button class="btn danger" type="submit">Remove ${plural(total, "account")}</button></div>
+            </form>`
+          : ""
+      }
+      <div class="row">
+        ${
+          row?.ban_id
+            ? html`<button class="btn" type="button" id="ip-lift">Lift the ban on this address</button>`
+            : html`<button class="btn danger" type="button" id="ip-ban">Ban this address</button>`
+        }
+        <a class="btn ghost" href="#/users" id="ip-accounts">Show these accounts in Users</a>
+      </div>
+      <section class="card stack">
+        <h3>Accounts (${fmtNumber(total)})</h3>
+        ${
+          accounts.users.length
+            ? html`<div class="list">
+                ${accounts.users.map(
+                  (u) => html`<div class="list-item">
+                    ${avatar(u)}
+                    <div class="grow"><strong>${userName(u)}</strong> <span class="muted">${userTag(u)} · joined ${fmtDay(u.created_at)}</span></div>
+                    ${userBadges(u)}
+                  </div>`,
+                )}
+              </div>
+              ${total > accounts.users.length ? html`<p class="muted">Showing the newest ${fmtNumber(accounts.users.length)} of ${fmtNumber(total)}.</p>` : ""}`
+            : html`<p class="muted" style="margin:0">No accounts use this address anymore.</p>`
+        }
+      </section>
+    `,
+  );
+  const reopen = () => {
+    reload?.();
+    closeDrawer({ discard: true });
+    openIp(ip, reload);
+  };
+  $("#ip-accounts", body).addEventListener("click", (event) => {
+    event.preventDefault();
+    usersState.q = ip;
+    usersState.offset = 0;
+    usersState.selected.clear();
+    closeDrawer({ discard: true });
+    if (location.hash === "#/users") route();
+    else location.hash = "#/users";
+  });
+  const removeForm = $("#ip-remove", body);
+  if (removeForm) {
+    const actionSelect = $("[name=action]", removeForm);
+    const syncAction = () => {
+      const box = $("[name=delete_messages]", removeForm);
+      if (!box) return;
+      box.disabled = actionSelect.value === "delete";
+      if (box.disabled) box.checked = true;
+    };
+    actionSelect.addEventListener("change", syncAction);
+    syncAction();
+    removeForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const button = $("button[type=submit]", removeForm);
+      const banIp = !!removeForm.ban_ip?.checked;
+      const choice = readRemovalOptions(removeForm);
+      const selection = await act(button, () => api(`/admin/users/bulk?${new URLSearchParams({ ip })}`));
+      if (!selection) return;
+      const ids = selection.ids.filter((id) => id !== state.me.id);
+      const skippedSelf = ids.length < selection.ids.length ? " Your own account is on this address and is skipped." : "";
+      if (!ids.length && !banIp) return toast("Only your own account is on this address.", "error");
+      if (!confirm(`${describeRemoval(choice, ids.length)}${banIp ? ` ${ip} is banned too.` : ""}${skippedSelf}`)) return;
+      const label = button.textContent;
+      const totals = await act(button, async () => {
+        if (banIp) await api("/admin/ips/bans", { method: "POST", body: { ip } });
+        return ids.length
+          ? await runBulkRemoval(ids, choice, (done, all) => {
+              button.textContent = `Working… ${fmtNumber(done)} of ${fmtNumber(all)}`;
+            })
+          : { processed: 0, skipped: 0, messages: 0 };
+      });
+      button.textContent = label;
+      if (!totals) return;
+      toast(`${removalSummary(choice.action, totals)}${banIp ? `, ${ip} banned` : ""}`);
+      reopen();
+    });
+  }
+  $("#ip-ban", body)?.addEventListener("click", async (event) => {
+    if (!confirm(`Ban ${ip}? Nobody can register or sign in from it.`)) return;
+    const done = await act(event.currentTarget, () => api("/admin/ips/bans", { method: "POST", body: { ip } }), `${ip} is banned`);
+    if (done) reopen();
+  });
+  $("#ip-lift", body)?.addEventListener("click", async (event) => {
+    if (!confirm(`Lift the ban on ${ip}?`)) return;
+    const done = await act(event.currentTarget, () => api(`/admin/ips/bans/${row.ban_id}`, { method: "DELETE" }), `The ban on ${ip} is lifted`);
+    if (done !== undefined) reopen();
+  });
 }
 
 function userBadges(u) {
@@ -1508,6 +1994,10 @@ function userBadges(u) {
         <span class="badge info">Bot</span>
       `,
     );
+  if (u.suspended_until && new Date(u.suspended_until) > new Date())
+    badges.push(html`<span class="badge danger" title="Until ${fmtDate(u.suspended_until)}">Suspended</span>`);
+  if (u.join_status === "pending") badges.push(html`<span class="badge warn">Waiting for approval</span>`);
+  if (u.join_status === "rejected") badges.push(html`<span class="badge danger">Rejected</span>`);
   if (u.tag && u.tag !== "none") badges.push(nameTag(u.tag, u.bot));
   if (!u.verified && !u.bot)
     badges.push(
@@ -1645,8 +2135,62 @@ async function openUser(id, reload) {
                     <div class="list-item"><span class="grow muted">Email</span><span>${u.email || "—"}</span></div>
                     <div class="list-item"><span class="grow muted">Registered</span><span>${fmtDate(u.created_at)}</span></div>
                     <div class="list-item"><span class="grow muted">Active sessions</span><span>${fmtNumber(u.session_count)}</span></div>
+                    <div class="list-item"><span class="grow muted">Registration IP</span>${u.registration_ip ? html`<code>${u.registration_ip}</code>` : html`<span class="muted">Not recorded</span>`}</div>
                 </div>
             </div>
+            <section class="card stack" id="ips-card">
+                <h3>IP addresses (${fmtNumber(u.ips?.length ?? 0)})</h3>
+                ${
+                  u.ips?.length
+                    ? html`<div class="list">
+                          ${u.ips.map(
+                            (entry) => html`<div class="list-item">
+                                <div class="grow">
+                                    <code>${entry.ip}</code>
+                                    ${entry.ban_id ? html` <span class="badge danger">Banned</span>` : ""}
+                                    <div class="muted">
+                                        ${[
+                                          entry.registration ? "Registered here" : "",
+                                          entry.sessions ? plural(entry.sessions, "session") : "",
+                                          `last seen ${fmtDate(entry.last_seen)}`,
+                                          plural(entry.accounts, "account"),
+                                        ]
+                                          .filter(Boolean)
+                                          .join(" · ")}
+                                    </div>
+                                </div>
+                                <button class="btn small" type="button" data-open-ip="${entry.ip}">Open address</button>
+                            </div>`,
+                          )}
+                      </div>`
+                    : html`<p class="muted" style="margin:0">No addresses recorded. Accounts made before addresses were recorded only show the addresses of their current sessions.</p>`
+                }
+            </section>
+            ${
+              u.join_reason || u.join_status
+                ? html`<div class="card stack" id="user-join">
+                      <h3>Why they want to join</h3>
+                      ${u.join_reason ? html`<p class="automod-reason" style="margin:0;white-space:pre-wrap">${u.join_reason}</p>` : html`<p class="muted" style="margin:0">No reason given.</p>`}
+                      ${
+                        u.join_status === "pending" || u.join_status === "rejected"
+                          ? html`<div class="row">
+                                <button class="btn small primary" type="button" data-join="approved">Approve account</button>
+                                ${u.join_status === "pending" ? html`<button class="btn small danger" type="button" data-join="rejected">Reject account</button>` : ""}
+                            </div>`
+                          : ""
+                      }
+                  </div>`
+                : ""
+            }
+            ${
+              u.suspended_until && new Date(u.suspended_until) > new Date()
+                ? html`<div class="card stack" id="user-suspension">
+                      <h3>Suspended</h3>
+                      <p class="muted" style="margin:0">Can't sign in until ${fmtDate(u.suspended_until)}. The suspension lifts by itself then.</p>
+                      <div class="row"><button class="btn small" type="button" data-lift ${isSelf ? raw("disabled") : ""}>Lift suspension now</button></div>
+                  </div>`
+                : ""
+            }
 
             <form id="user-form" class="card stack">
                 <h3>Profile & account</h3>
@@ -1747,6 +2291,7 @@ async function openUser(id, reload) {
             <div class="card stack" id="standing-card"></div>
             <div class="card stack" id="security-card"></div>
             <div class="card stack" id="sessions-card"></div>
+            <div class="card stack" id="invites-card"></div>
 
             ${
               u.guilds.length
@@ -1810,6 +2355,29 @@ async function openUser(id, reload) {
       if (body.isConnected && !$("#drawer").hidden) mountUserCustomization(body, u, { api, toast });
     })
     .catch(() => toast("Could not load account customization", "err"));
+  for (const button of $$("[data-join]", body))
+    button.addEventListener("click", async () => {
+      const join_status = button.dataset.join;
+      if (join_status === "rejected" && !confirm("Reject this account? It won't be able to sign in.")) return;
+      const done = await act(
+        button,
+        () => api(`/admin/users/${u.id}`, { method: "PATCH", body: { join_status } }),
+        join_status === "approved" ? "Account approved" : "Account rejected",
+      );
+      if (done === undefined) return;
+      reload?.();
+      openUser(u.id, reload);
+    });
+  $("[data-lift]", body)?.addEventListener("click", async (e) => {
+    const done = await act(
+      e.currentTarget,
+      () => api(`/admin/users/${u.id}`, { method: "PATCH", body: { suspended_until: null } }),
+      "Suspension lifted",
+    );
+    if (done === undefined) return;
+    reload?.();
+    openUser(u.id, reload);
+  });
   $("#user-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -2101,6 +2669,8 @@ async function openUser(id, reload) {
   renderStanding();
   renderUserSecurity(u);
   renderUserSessions(u);
+  for (const button of $$("[data-open-ip]", body)) button.addEventListener("click", () => openIp(button.dataset.openIp, reload));
+  renderUserInvites(u);
 
   $("#ban-persist")?.addEventListener("change", (e) => {
     $("#ban-user").textContent = e.target.checked ? "Delete & ban user" : "Delete user";
@@ -2275,6 +2845,388 @@ async function renderUserSecurity(u) {
   });
 }
 
+const invitesState = { state: "all", q: "", offset: 0, limit: 50 };
+const INVITE_STATES = {
+  active: html`<span class="badge ok">Working</span>`,
+  revoked: html`<span class="badge danger">Revoked</span>`,
+  expired: html`<span class="badge">Expired</span>`,
+  used_up: html`<span class="badge">Used up</span>`,
+};
+const INVITE_DURATIONS = [
+  [0, "Never"],
+  [3600, "1 hour"],
+  [86400, "1 day"],
+  [604800, "7 days"],
+  [2592000, "30 days"],
+  [7776000, "90 days"],
+];
+const inviteLink = (code) => `${location.origin}/register?instance_invite=${encodeURIComponent(code)}`;
+const inviteUses = (invite) =>
+  `${fmtNumber(invite.uses)} of ${invite.max_uses ? fmtNumber(invite.max_uses) : "unlimited"}`;
+const inviteUserLink = (u) =>
+  u?.username
+    ? html`<button class="btn small ghost" type="button" data-open-user="${u.id}">${userName(u)}</button>${u.disabled ? html` <span class="badge danger">Disabled</span>` : ""}`
+    : html`<span class="muted">${u?.id ?? "Deleted account"}</span>`;
+const bindUserLinks = (root) => {
+  for (const button of $$("[data-open-user]", root))
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openUser(button.dataset.openUser);
+    });
+};
+
+async function renderInstanceInvites(view) {
+  mount(
+    view,
+    html`
+            <div class="page-head">
+                <div>
+                    <h1>Instance invites</h1>
+                    <p class="muted" id="invites-intro">Codes that let people make an account. Members make their own from User Settings, and staff invites don't count against anyone.</p>
+                </div>
+                <button class="btn primary" id="new-instance-invite" type="button">Create invite</button>
+            </div>
+            <div class="row" style="margin-bottom:12px">
+                <label class="grow list-search">Find invites<input id="invite-search" type="search" placeholder="Exact code or note text" value="${invitesState.q}" aria-controls="invite-results" /></label>
+                <label class="list-filter"
+                    >Show<select id="invite-state">
+                        ${options(
+                          [
+                            ["all", "All invites"],
+                            ["active", "Working"],
+                            ["inactive", "Revoked, expired or used up"],
+                          ],
+                          invitesState.state,
+                        )}
+                    </select></label
+                >
+            </div>
+            <div class="list-status muted" id="invite-status" role="status" aria-live="polite" hidden></div>
+            <div id="invite-results"><div class="spinner">Loading…</div></div>
+        `,
+  );
+  const results = $("#invite-results", view);
+  const requests = latestList(view, results, $("#invite-status", view));
+  const load = async () => {
+    const params = new URLSearchParams({
+      state: invitesState.state,
+      q: invitesState.q,
+      offset: invitesState.offset,
+      limit: invitesState.limit,
+    });
+    await requests.load(
+      `/admin/instance-invites?${params}`,
+      ({ invites, total, invite_only }) => {
+        $("#invites-intro", view).textContent = invite_only
+          ? "The instance is invite-only, so every new account needs one of these codes. Members make their own from User Settings, and staff invites don't count against anyone."
+          : "Registration is open, so these codes only record who brought each person in. Turn on invite-only in Settings to require them.";
+        mount(
+          results,
+          invites.length
+            ? html`<div class="table-wrap">
+                      <table>
+                          <thead>
+                              <tr>
+                                  <th>Code</th>
+                                  <th>Made by</th>
+                                  <th>Uses</th>
+                                  <th class="hide-sm">Expires</th>
+                                  <th>State</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              ${invites.map(
+                                (invite) =>
+                                  html`<tr data-invite="${invite.code}">
+                                          <td>
+                                              <strong>${invite.code}</strong>
+                                              ${invite.note ? html`<div class="muted">${invite.note}</div>` : ""}
+                                          </td>
+                                          <td>${invite.staff ? html`<span class="badge accent">Staff</span> ` : ""}${inviteUserLink(invite.creator)}</td>
+                                          <td class="num">${inviteUses(invite)}</td>
+                                          <td class="hide-sm">${invite.expires_at ? fmtDate(invite.expires_at) : "Never"}</td>
+                                          <td>${INVITE_STATES[invite.state]}</td>
+                                      </tr>`,
+                              )}
+                          </tbody>
+                      </table>
+                  </div>
+                  ${pager(total, invitesState)}`
+            : html`<div class="card empty">No invites match. Create one to let someone sign up.</div>`,
+        );
+        bindUserLinks(results);
+        for (const row of $$("tr[data-invite]", results))
+          row.addEventListener("click", () => openInstanceInvite(row.dataset.invite, load));
+        bindPager(results, total, invitesState, load);
+      },
+      load,
+    );
+  };
+  const search = debounce(load);
+  $("#invite-search", view).addEventListener("input", (event) => {
+    requests.cancel();
+    invitesState.q = event.target.value.trim();
+    invitesState.offset = 0;
+    search();
+  });
+  $("#invite-state", view).addEventListener("change", (event) => {
+    invitesState.state = event.target.value;
+    invitesState.offset = 0;
+    load();
+  });
+  $("#new-instance-invite", view).addEventListener("click", () => openNewInstanceInvite(load));
+  await load();
+}
+
+function openNewInstanceInvite(reload) {
+  const body = openDrawer(
+    "Create invite",
+    html`
+            <form id="instance-invite-form" class="stack">
+                <label>People who can join<span class="hint">0 means no limit.</span><input name="max_uses" type="number" inputmode="numeric" min="0" max="10000" step="1" value="1" required /></label>
+                <label
+                    >Expires after<select name="max_age_seconds">
+                        ${options(INVITE_DURATIONS, 604800)}
+                    </select></label
+                >
+                <label>Note<span class="hint">Only staff see it, for example who the invite is for.</span><input name="note" maxlength="200" /></label>
+                <div class="form-actions"><button class="btn primary" type="submit">Create invite</button></div>
+            </form>
+        `,
+  );
+  if (!body) return;
+  const form = $("#instance-invite-form", body);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const created = await act(
+      $("button[type=submit]", form),
+      () =>
+        api("/admin/instance-invites", {
+          method: "POST",
+          body: {
+            max_uses: Number(form.max_uses.value),
+            max_age_seconds: Number(form.max_age_seconds.value),
+            note: form.note.value.trim() || undefined,
+          },
+        }),
+      "Invite created",
+    );
+    if (!created) return;
+    closeDrawer({ discard: true });
+    reload?.();
+    openInstanceInvite(created.code, reload);
+  });
+}
+
+async function openInstanceInvite(code, reload) {
+  const body = openDrawer("Invite", html`<div class="spinner">Loading…</div>`);
+  if (!body) return;
+  let invite;
+  try {
+    invite = await api(`/admin/instance-invites/${encodeURIComponent(code)}`);
+  } catch (e) {
+    if (body.isConnected) mount(body, html`<p class="form-error">${e.message}</p>`);
+    return;
+  }
+  if (!body.isConnected || $("#drawer").hidden) return;
+  const joinedCount = invite.joined_users.length;
+  mount(
+    body,
+    html`
+            <div class="stack">
+                <div class="row" style="justify-content:space-between">
+                    <h2 style="margin:0">${invite.code}</h2>
+                    ${INVITE_STATES[invite.state]}
+                </div>
+                <div class="row" style="align-items:flex-end">
+                    <label class="grow">Invite link<input id="invite-link" readonly value="${inviteLink(invite.code)}" /></label>
+                    <button class="btn" id="invite-copy" type="button">Copy link</button>
+                </div>
+                <div class="list">
+                    <div class="list-item"><span class="grow muted">Made by</span><span>${invite.staff ? "Staff, " : ""}${inviteUserLink(invite.creator)}</span></div>
+                    <div class="list-item"><span class="grow muted">Created</span><span>${fmtDate(invite.created_at)}</span></div>
+                    <div class="list-item"><span class="grow muted">Expires</span><span>${invite.expires_at ? fmtDate(invite.expires_at) : "Never"}</span></div>
+                    <div class="list-item"><span class="grow muted">Uses</span><span>${inviteUses(invite)}</span></div>
+                    <div class="list-item"><span class="grow muted">Accounts below it in the invite tree</span><span>${fmtNumber(invite.branch_size)}</span></div>
+                    ${invite.note ? html`<div class="list-item"><span class="grow muted">Note</span><span>${invite.note}</span></div>` : ""}
+                </div>
+                <h3>Joined with this invite</h3>
+                ${
+                  joinedCount
+                    ? html`<div class="list">
+                              ${invite.joined_users.map(
+                                (row) =>
+                                  html`<div class="list-item">
+                                          <span class="grow">${inviteUserLink(row.user)}</span><span class="muted">${fmtDay(row.joined_at)}</span>
+                                      </div>`,
+                              )}
+                          </div>`
+                    : html`<p class="muted" style="margin:0">Nobody has joined with it yet.</p>`
+                }
+                <form id="invite-revoke" class="card stack">
+                    <h3>${invite.state === "revoked" ? "Disable accounts" : "Revoke invite"}</h3>
+                    <p class="muted" style="margin:0">Revoking stops the code from working. Accounts with staff rights are never disabled.</p>
+                    <label
+                        >Also disable<select name="disable">
+                            ${options(
+                              [
+                                ["none", "Nobody, only revoke the code"],
+                                ["joined", `The ${fmtNumber(joinedCount)} ${joinedCount === 1 ? "account" : "accounts"} that joined with it`],
+                                ["branch", `Everyone below it in the invite tree (${fmtNumber(invite.branch_size)})`],
+                              ],
+                              "none",
+                            )}
+                        </select></label
+                    >
+                    <div class="form-actions"><button class="btn danger" type="submit">${invite.state === "revoked" ? "Disable accounts" : "Revoke invite"}</button></div>
+                </form>
+            </div>
+        `,
+  );
+  bindUserLinks(body);
+  $("#invite-copy", body).addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(inviteLink(invite.code));
+      toast("Invite link copied");
+    } catch {
+      $("#invite-link", body).select();
+      toast("Couldn't copy the link. It's selected, so press Ctrl+C or Cmd+C.", "error");
+    }
+  });
+  const form = $("#invite-revoke", body);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const disable = form.disable.value;
+    const count = disable === "branch" ? invite.branch_size : disable === "joined" ? joinedCount : 0;
+    if (count && !confirm(`Revoke ${invite.code} and disable ${fmtNumber(count)} ${count === 1 ? "account" : "accounts"}? They're signed out right away.`)) return;
+    const result = await act($("button[type=submit]", form), () =>
+      api(`/admin/instance-invites/${encodeURIComponent(invite.code)}/revoke`, { method: "POST", body: { disable } }),
+    );
+    if (!result) return;
+    toast(
+      result.disabled || result.skipped
+        ? `Invite revoked and ${fmtNumber(result.disabled)} ${result.disabled === 1 ? "account" : "accounts"} disabled${result.skipped ? `. Skipped ${fmtNumber(result.skipped)} staff` : ""}`
+        : "Invite revoked",
+    );
+    delete form.dataset.dirty;
+    closeDrawer({ discard: true });
+    reload?.();
+    openInstanceInvite(invite.code, reload);
+  });
+}
+
+const inviteTreeList = (nodes) =>
+  html`<ul class="invite-tree">
+        ${nodes.map(
+          (node) =>
+            html`<li>
+                    ${inviteUserLink(node.user)} <span class="muted">joined ${fmtDay(node.joined_at)}${node.invite_code ? ` with ${node.invite_code}` : ""}</span>
+                    ${node.children.length ? inviteTreeList(node.children) : ""}
+                </li>`,
+        )}
+    </ul>`;
+
+async function renderUserInvites(u) {
+  const card = $("#invites-card");
+  if (!card) return;
+  let data;
+  try {
+    data = await api(`/admin/users/${u.id}/invites`);
+  } catch (e) {
+    return mount(card, html`<h3>Invites</h3><p class="form-error">${e.message}</p>`);
+  }
+  if (!card.isConnected) return;
+  const { quota } = data;
+  const accounts = (n) => `${fmtNumber(n)} ${n === 1 ? "account" : "accounts"}`;
+  mount(
+    card,
+    html`
+            <h3>Invites</h3>
+            <div class="list">
+                <div class="list-item">
+                    <span class="grow muted">Invited by</span>
+                    <span
+                        >${
+                          data.invited_by
+                            ? html`${data.invited_by.inviter ? inviteUserLink(data.invited_by.inviter) : "a deleted account"}${data.invited_by.invite_code ? html` <span class="muted">with ${data.invited_by.invite_code}</span>` : ""}`
+                            : "Nobody, they joined without an invite"
+                        }</span
+                    >
+                </div>
+                ${data.chain.length > 1 ? html`<div class="list-item"><span class="grow muted">Invite chain, closest first</span><span>${data.chain.map((link) => userName(link)).join(", ")}</span></div>` : ""}
+                <div class="list-item">
+                    <span class="grow muted">Invites left</span>
+                    <span class="num">${fmtNumber(quota.available)} of ${fmtNumber(quota.total)}</span>
+                </div>
+                ${quota.eligible ? "" : html`<div class="list-item"><span class="grow muted">Can make invites from</span><span>${fmtDate(quota.eligible_at)}</span></div>`}
+            </div>
+            <form id="invite-bonus" class="row" style="align-items:flex-end">
+                <label class="grow"
+                    >Extra invites<span class="hint">Added to the instance default. A negative number takes some away.</span
+                    ><input name="bonus_invites" type="number" inputmode="numeric" min="-1000" max="10000" step="1" value="${quota.bonus}" required
+                /></label>
+                <button class="btn" type="submit">Save extra invites</button>
+            </form>
+            <h3>Brought in ${accounts(data.branch_size)}</h3>
+            ${
+              data.tree.length
+                ? html`${inviteTreeList(data.tree)}${data.tree_shown < data.branch_size ? html`<p class="muted">Showing the first ${fmtNumber(data.tree_shown)}.</p>` : ""}`
+                : html`<p class="muted" style="margin:0">Nobody has joined through this account.</p>`
+            }
+            ${
+              data.branch_size
+                ? html`<form id="invite-branch" class="stack">
+                          <label class="toggle"><input type="checkbox" name="include_user" /><span>Also disable this account</span></label>
+                          <div class="form-actions"><button class="btn danger" type="submit">Disable everyone they brought in</button></div>
+                      </form>`
+                : ""
+            }
+            ${
+              data.invites.length
+                ? html`<details>
+                          <summary>Invite links they made (${fmtNumber(data.invites.length)})</summary>
+                          <div class="list">
+                              ${data.invites.map(
+                                (invite) =>
+                                  html`<div class="list-item">
+                                          <span class="grow"><button class="btn small ghost" type="button" data-invite-code="${invite.code}">${invite.code}</button> ${INVITE_STATES[invite.state]}</span>
+                                          <span class="muted num">${inviteUses(invite)}</span>
+                                      </div>`,
+                              )}
+                          </div>
+                      </details>`
+                : ""
+            }
+        `,
+  );
+  bindUserLinks(card);
+  for (const button of $$("[data-invite-code]", card))
+    button.addEventListener("click", () => openInstanceInvite(button.dataset.inviteCode));
+  const bonus = $("#invite-bonus", card);
+  bonus.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const saved = await act(
+      $("button", bonus),
+      () => api(`/admin/users/${u.id}/invites`, { method: "PATCH", body: { bonus_invites: Number(bonus.bonus_invites.value) } }),
+      "Extra invites saved",
+    );
+    if (saved) renderUserInvites(u);
+  });
+  const branch = $("#invite-branch", card);
+  branch?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const includeUser = branch.include_user.checked;
+    if (!confirm(`Disable ${accounts(data.branch_size)}${includeUser ? ` and ${userName(u)}` : ""} and revoke their invites? They're signed out right away.`)) return;
+    const result = await act($("button[type=submit]", branch), () =>
+      api(`/admin/users/${u.id}/invites/disable-branch`, { method: "POST", body: { include_user: includeUser } }),
+    );
+    if (!result) return;
+    toast(`${accounts(result.disabled)} disabled${result.skipped ? `. Skipped ${fmtNumber(result.skipped)} staff or your own account` : ""}`);
+    delete branch.dataset.dirty;
+    renderUserInvites(u);
+  });
+}
+
 async function renderUserSessions(u) {
   const card = $("#sessions-card");
   if (!card) return;
@@ -2424,6 +3376,7 @@ async function renderReports(view) {
       status: reportsState.status,
       limit: reportsState.limit,
       offset: reportsState.offset,
+      ...(reportsState.user_id ? { user_id: reportsState.user_id } : {}),
     });
     const { reports, total, counts } = await api(`/admin/reports?${params}`);
     const tabs = $("#report-tabs");
@@ -2436,8 +3389,17 @@ async function renderReports(view) {
           html`<button class="btn small ${reportsState.status === key ? "primary" : ""}" type="button" data-status="${key}">
                         ${label}${key !== "all" ? html` <span class="muted" style="${reportsState.status === key ? "color:inherit" : ""}">${fmtNumber(counts[key])}</span>` : ""}
                     </button>`,
+      ).concat(
+        reportsState.user_id
+          ? [html`<button class="btn small ghost" type="button" data-clear-user>Only reports against <code>${reportsState.user_id}</code>, show everyone</button>`]
+          : [],
       ),
     );
+    $("[data-clear-user]", tabs)?.addEventListener("click", () => {
+      reportsState.user_id = undefined;
+      reportsState.offset = 0;
+      load();
+    });
     mount(
       results,
       reports.length
@@ -2461,7 +3423,10 @@ async function renderReports(view) {
                                                   <strong>${REPORT_TYPES[r.type] ?? r.type}</strong>
                                                   <div class="muted">${r.reason || "No reason picked"}</div>
                                               </td>
-                                              <td>${reportTarget(r)}</td>
+                                              <td>
+                                                  ${reportTarget(r)}
+                                                  ${r.related?.open > 1 ? html`<span class="badge warn" title="${fmtNumber(r.related.open)} open reports from ${fmtNumber(r.related.reporters)} people">${fmtNumber(r.related.open)} reports</span>` : ""}
+                                              </td>
                                               <td class="hide-sm">
                                                   ${r.reporter ? html`<div class="ident">${avatar(r.reporter)}<span>${userName(r.reporter)}</span></div>` : "—"}
                                               </td>
@@ -2594,6 +3559,40 @@ function openReport(r, reload) {
                 : ""
             }
 
+            ${
+              r.related?.open > 1
+                ? html`<div class="card"><strong>${fmtNumber(r.related.open)} open reports</strong> <span class="muted">from ${fmtNumber(r.related.reporters)} ${r.related.reporters === 1 ? "person" : "different people"} about this ${r.related.scope === "message" ? "message" : "user"}.</span></div>`
+                : ""
+            }
+
+            ${
+              snap.context?.length
+                ? html`<details class="card report-context" open>
+                          <summary><h3 style="display:inline">Conversation around it</h3> <span class="muted">${fmtNumber(snap.context.length)} messages, saved when it was reported</span></summary>
+                          <div class="report-context-list">
+                              ${[...snap.context.filter((m) => !m.after), { reported: true }, ...snap.context.filter((m) => m.after)].map((m) =>
+                                m.reported
+                                  ? html`<div class="report-context-item reported">
+                                            <strong>${snap.author ? userName(snap.author) : "Reported message"}</strong>
+                                            <span class="muted">Reported message</span>
+                                            <p>${snap.content || html`<span class="muted">No text</span>`}</p>
+                                        </div>`
+                                  : html`<div class="report-context-item ${m.author?.id === r.reported_user?.id ? "same-author" : ""}">
+                                            <strong>${m.author ? userName(m.author) : "Unknown"}</strong>
+                                            <span class="muted">${fmtDate(m.sent_at)}</span>
+                                            ${m.encrypted && !m.encrypted.verified ? html`<span class="badge">Encrypted, not shared</span>` : ""}
+                                            <p>${
+                                              m.content ||
+                                              html`<span class="muted">${m.encrypted && !m.encrypted.verified ? "The reporter couldn't read this one" : m.type && m.type !== 0 && m.type !== 19 ? "System message" : "No text"}</span>`
+                                            }</p>
+                                            ${m.files || m.embeds ? html`<span class="muted">${[m.files ? `${fmtNumber(m.files)} ${m.files === 1 ? "file" : "files"}` : "", m.embeds ? `${fmtNumber(m.embeds)} ${m.embeds === 1 ? "embed" : "embeds"}` : ""].filter(Boolean).join(", ")}</span>` : ""}
+                                        </div>`,
+                              )}
+                          </div>
+                      </details>`
+                : ""
+            }
+
             <div class="card">
                 <div class="list">
                     ${
@@ -2632,6 +3631,19 @@ function openReport(r, reload) {
                           })()}</span></div>`
                         : ""
                     }
+                    ${
+                      r.reported_user_history
+                        ? html`<div class="list-item">
+                                  <span class="grow muted">Their history</span>
+                                  <span style="text-align:right">
+                                      ${r.reported_user_history.created_at ? html`Joined ${fmtDate(r.reported_user_history.created_at)}<br />` : ""}
+                                      ${fmtNumber(r.reported_user_history.violations.active)} active of ${fmtNumber(r.reported_user_history.violations.total)} ${r.reported_user_history.violations.total === 1 ? "violation" : "violations"}<br />
+                                      Reported ${fmtNumber(r.reported_user_history.reports.open + r.reported_user_history.reports.resolved + r.reported_user_history.reports.dismissed)} times, ${fmtNumber(r.reported_user_history.reports.resolved)} upheld
+                                  </span>
+                                  ${access.reports ? html`<button class="btn small ghost" type="button" data-filter-user="${r.reported_user.id}">All reports</button>` : ""}
+                              </div>`
+                        : ""
+                    }
                     ${r.application_id ? html`<div class="list-item"><span class="grow muted">App</span><code>${r.application_id}</code></div>` : ""}
                     ${r.guild_scheduled_event_id ? html`<div class="list-item"><span class="grow muted">Event</span><code>${r.guild_scheduled_event_id}</code></div>` : ""}
                     <div class="list-item">
@@ -2639,6 +3651,15 @@ function openReport(r, reload) {
                         ${r.reporter ? html`<span class="ident">${avatar(r.reporter)}<span>${userName(r.reporter)}</span></span>` : "—"}
                         ${r.reporter && access.users ? html`<button class="btn small ghost" type="button" data-open-user="${r.reporter.id}">Open</button>` : ""}
                     </div>
+                    ${
+                      r.reporter_record
+                        ? html`<div class="list-item">
+                                  <span class="grow muted">Their past reports</span>
+                                  <span>${fmtNumber(r.reporter_record.resolved)} upheld, ${fmtNumber(r.reporter_record.dismissed)} dismissed, ${fmtNumber(r.reporter_record.open)} open</span>
+                                  ${r.reporter_record.dismissed >= 5 && r.reporter_record.dismissed > r.reporter_record.resolved * 3 ? html`<span class="badge warn">Mostly dismissed</span>` : ""}
+                              </div>`
+                        : ""
+                    }
                     ${answers.map(
                       ([key, value]) =>
                         html`<div class="list-item">
@@ -2714,6 +3735,17 @@ function openReport(r, reload) {
                       `
                     : ""
                 }
+                ${
+                  r.related?.open > 1
+                    ? html`
+                        <label class="toggle"
+                          ><input type="checkbox" name="include_related" checked /><span
+                            >Apply to all ${fmtNumber(r.related.open)} open reports<span class="hint">Every open report on this ${r.related.scope === "message" ? "message" : "user"} gets the same outcome and note.</span></span
+                          ></label
+                        >
+                      `
+                    : ""
+                }
                 <div class="form-actions">
                     ${
                       r.status !== "open"
@@ -2746,6 +3778,17 @@ function openReport(r, reload) {
     btn.addEventListener("click", () => openUser(btn.dataset.openUser, reload));
   for (const btn of $$("[data-open-guild]", body))
     btn.addEventListener("click", () => openGuild(btn.dataset.openGuild, reload));
+  const reportedInContext = $(".report-context-item.reported", body);
+  if (reportedInContext) reportedInContext.parentElement.scrollTop = reportedInContext.offsetTop - reportedInContext.parentElement.offsetTop - 120;
+  for (const btn of $$("[data-filter-user]", body))
+    btn.addEventListener("click", () => {
+      reportsState.status = "all";
+      reportsState.user_id = btn.dataset.filterUser;
+      reportsState.offset = 0;
+      closeDrawer();
+      location.hash = "#/reports";
+      reload?.();
+    });
 
   $("#report-violation", body)?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -2785,6 +3828,7 @@ function openReport(r, reload) {
             status,
             resolution_note: form.note.value,
             ...(deleting ? { delete_message: true } : {}),
+            ...(form.include_related?.checked ? { include_related: true } : {}),
           },
         }),
       { open: "Report reopened", dismissed: "Report dismissed", resolved: "Report resolved" }[

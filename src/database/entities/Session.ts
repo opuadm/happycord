@@ -51,6 +51,7 @@ export class Session extends BaseClassWithoutId {
     @Column({ nullable: true, type: Date })
     last_seen?: Date;
 
+    @Index("IDX_sessions_last_seen_ip")
     @Column({ nullable: true, type: String })
     last_seen_ip?: string;
 

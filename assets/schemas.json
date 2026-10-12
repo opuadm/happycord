@@ -2706,6 +2706,35 @@
             },
             "password_reset": {
                 "type": "boolean"
+            },
+            "endpoints": {
+                "type": "object",
+                "properties": {
+                    "register": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "login": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    },
+                    "password_reset": {
+                        "type": [
+                            "null",
+                            "string"
+                        ]
+                    }
+                },
+                "additionalProperties": false,
+                "required": [
+                    "login",
+                    "password_reset",
+                    "register"
+                ]
             }
         },
         "additionalProperties": false,
@@ -5926,6 +5955,9 @@
             "flags": {
                 "type": "integer"
             },
+            "thread_name": {
+                "type": "string"
+            },
             "mobile_network_type": {
                 "type": "string"
             },
@@ -6022,9 +6054,6 @@
                 "items": {
                     "type": "string"
                 }
-            },
-            "thread_name": {
-                "type": "string"
             },
             "avatar_url": {
                 "type": "string"
@@ -6303,6 +6332,11 @@
             "invite": {
                 "type": "string"
             },
+            "instance_invite": {
+                "description": "Instance invite code, needed when the instance is invite-only",
+                "maxLength": 64,
+                "type": "string"
+            },
             "date_of_birth": {
                 "type": "string"
             },
@@ -6326,6 +6360,11 @@
                 "items": {
                     "type": "string"
                 }
+            },
+            "join_reason": {
+                "description": "Why the person wants to join, when the instance asks for it",
+                "maxLength": 4000,
+                "type": "string"
             }
         },
         "additionalProperties": false,
@@ -7392,6 +7431,9 @@
             "username": {
                 "type": "string"
             },
+            "thread_name": {
+                "type": "string"
+            },
             "nonce": {
                 "maxLength": 25,
                 "type": "string"
@@ -7453,9 +7495,6 @@
                 "items": {
                     "type": "string"
                 }
-            },
-            "thread_name": {
-                "type": "string"
             },
             "avatar_url": {
                 "type": "string"
@@ -8242,6 +8281,25 @@
             "provider",
             "token"
         ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "InstanceInviteCreateSchema": {
+        "type": "object",
+        "properties": {
+            "max_uses": {
+                "description": "How many people can join with the invite",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000
+            },
+            "max_age_seconds": {
+                "description": "Seconds until the invite expires",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 31536000
+            }
+        },
+        "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
     },
     "PublicMessageListResponse": {
@@ -10195,6 +10253,12 @@
             },
             "e2ee_content_key": {
                 "type": "string"
+            },
+            "e2ee_context_keys": {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "string"
+                }
             }
         },
         "additionalProperties": false,
@@ -10478,6 +10542,33 @@
                     "guestsRequireInvite": {
                         "type": "boolean"
                     },
+                    "instanceInvites": {
+                        "type": "object",
+                        "properties": {
+                            "perUser": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 10000
+                            },
+                            "minAccountAgeDays": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 3650
+                            },
+                            "maxUsesPerInvite": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 1000
+                            },
+                            "maxAgeDays": {
+                                "description": "0 lets invites last forever",
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 365
+                            }
+                        },
+                        "additionalProperties": false
+                    },
                     "requireCaptcha": {
                         "type": "boolean"
                     },
@@ -10609,6 +10700,25 @@
                             "null",
                             "string"
                         ]
+                    },
+                    "blockAutomatedBrowsers": {
+                        "description": "Refuse Cap core solves from headless and automated browsers",
+                        "type": "boolean"
+                    },
+                    "challenges": {
+                        "type": "object",
+                        "properties": {
+                            "register": {
+                                "$ref": "#/definitions/AdminCapChallengeSchema"
+                            },
+                            "login": {
+                                "$ref": "#/definitions/AdminCapChallengeSchema"
+                            },
+                            "passwordReset": {
+                                "$ref": "#/definitions/AdminCapChallengeSchema"
+                            }
+                        },
+                        "additionalProperties": false
                     }
                 },
                 "additionalProperties": false
@@ -10775,6 +10885,21 @@
             },
             "disabled": {
                 "type": "boolean"
+            },
+            "suspended_until": {
+                "description": "Pass null to lift a timed suspension",
+                "type": [
+                    "null",
+                    "string"
+                ]
+            },
+            "join_status": {
+                "description": "Approve or reject an account waiting for approval",
+                "enum": [
+                    "approved",
+                    "rejected"
+                ],
+                "type": "string"
             },
             "verified": {
                 "type": "boolean"
@@ -11760,6 +11885,10 @@
             "delete_message": {
                 "description": "Also delete the reported message. Needs the MANAGE_MESSAGES right.",
                 "type": "boolean"
+            },
+            "include_related": {
+                "description": "Give every other open report on the same message, or against the same user when the report isn't about a message, the same outcome",
+                "type": "boolean"
             }
         },
         "additionalProperties": false,
@@ -11778,6 +11907,63 @@
             }
         },
         "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminUsersBulkSchema": {
+        "type": "object",
+        "properties": {
+            "user_ids": {
+                "description": "The accounts to act on, at most 500 per request",
+                "minItems": 1,
+                "maxItems": 500,
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "action": {
+                "enum": [
+                    "delete",
+                    "disable"
+                ],
+                "type": "string"
+            },
+            "delete_messages": {
+                "description": "Also delete every message the accounts sent. Needs the MANAGE_MESSAGES right. Deleting an account always removes its messages.",
+                "type": "boolean"
+            },
+            "ban": {
+                "description": "When deleting, keep an instance ban on each account id, the same as the single-account delete",
+                "type": "boolean"
+            },
+            "reason": {
+                "maxLength": 512,
+                "type": "string"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "action",
+            "user_ids"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminIpBanCreateSchema": {
+        "type": "object",
+        "properties": {
+            "ip": {
+                "maxLength": 64,
+                "type": "string"
+            },
+            "reason": {
+                "maxLength": 512,
+                "type": "string"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "ip"
+        ],
         "$schema": "http://json-schema.org/draft-07/schema#"
     },
     "AdminSessionsRevokeSchema": {
@@ -12032,6 +12218,100 @@
         "required": [
             "content"
         ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminCapChallengeSchema": {
+        "type": "object",
+        "properties": {
+            "count": {
+                "description": "Proofs a browser has to find",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 500
+            },
+            "size": {
+                "description": "Length of each salt in characters",
+                "type": "integer",
+                "minimum": 16,
+                "maximum": 64
+            },
+            "difficulty": {
+                "description": "Leading hex characters each hash has to match. Every step multiplies the work by 16",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8
+            }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminInstanceInviteCreateSchema": {
+        "type": "object",
+        "properties": {
+            "max_uses": {
+                "description": "0 means unlimited",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000
+            },
+            "max_age_seconds": {
+                "description": "Seconds until the invite expires, 0 means never",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 31536000
+            },
+            "note": {
+                "maxLength": 200,
+                "type": [
+                    "null",
+                    "string"
+                ]
+            }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminInstanceInviteRevokeSchema": {
+        "type": "object",
+        "properties": {
+            "disable": {
+                "description": "none revokes only the code, joined also disables the accounts that used it, branch disables everyone below it in the invite tree",
+                "enum": [
+                    "branch",
+                    "joined",
+                    "none"
+                ],
+                "type": "string"
+            }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminUserInvitesUpdateSchema": {
+        "type": "object",
+        "properties": {
+            "bonus_invites": {
+                "description": "Invites on top of the instance default, negative takes some away",
+                "type": "integer",
+                "minimum": -1000,
+                "maximum": 10000
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "bonus_invites"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminUserInviteBranchSchema": {
+        "type": "object",
+        "properties": {
+            "include_user": {
+                "description": "Also disable the account itself, not only the people it brought in",
+                "type": "boolean"
+            }
+        },
+        "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
     },
     "AdminChannelCreateSchema": {
@@ -12479,6 +12759,216 @@
             "api",
             "cdn",
             "gateway"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminAutomodWordListSchema": {
+        "type": "object",
+        "properties": {
+            "id": {
+                "maxLength": 64,
+                "type": "string"
+            },
+            "name": {
+                "minLength": 1,
+                "maxLength": 64,
+                "type": "string"
+            },
+            "terms": {
+                "maxItems": 500,
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "action": {
+                "enum": [
+                    "delete",
+                    "name",
+                    "suspend"
+                ],
+                "type": "string"
+            },
+            "suspendDays": {
+                "minimum": 1,
+                "maximum": 365,
+                "type": "integer"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "action",
+            "name",
+            "terms"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminAutomodSettingsSchema": {
+        "type": "object",
+        "properties": {
+            "slurs": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "includeSoftA": {
+                        "type": "boolean"
+                    },
+                    "suspendDays": {
+                        "minimum": 1,
+                        "maximum": 365,
+                        "type": "integer"
+                    },
+                    "deleteAllMessages": {
+                        "type": "boolean"
+                    },
+                    "violationDays": {
+                        "minimum": 1,
+                        "maximum": 3650,
+                        "type": "integer"
+                    },
+                    "actOnVerifiedReports": {
+                        "type": "boolean"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "wordLists": {
+                "maxItems": 50,
+                "type": "array",
+                "items": {
+                    "$ref": "#/definitions/AdminAutomodWordListSchema"
+                }
+            },
+            "allowList": {
+                "maxItems": 500,
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "identityBlockedTerms": {
+                "maxItems": 256,
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "registration": {
+                "type": "object",
+                "properties": {
+                    "joinReasonRequired": {
+                        "type": "boolean"
+                    },
+                    "joinReasonMinLength": {
+                        "minimum": 1,
+                        "maximum": 1000,
+                        "type": "integer"
+                    },
+                    "requireApproval": {
+                        "type": "boolean"
+                    },
+                    "maxAccountsPerIpPerDay": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "login": {
+                "type": "object",
+                "properties": {
+                    "maxFailedAttemptsPerAccount": {
+                        "minimum": 0,
+                        "maximum": 1000,
+                        "type": "integer"
+                    },
+                    "lockoutMinutes": {
+                        "minimum": 1,
+                        "maximum": 10080,
+                        "type": "integer"
+                    }
+                },
+                "additionalProperties": false
+            }
+        },
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminAutomodTestSchema": {
+        "type": "object",
+        "properties": {
+            "text": {
+                "maxLength": 4000,
+                "type": "string"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "text"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminAutomodReverseSchema": {
+        "type": "object",
+        "properties": {
+            "reversal": {
+                "enum": [
+                    "not_a_match",
+                    "undo"
+                ],
+                "type": "string"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "reversal"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminAutomodUsersSchema": {
+        "type": "object",
+        "properties": {
+            "user_ids": {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "user_ids"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "AdminJoinRequestActionSchema": {
+        "type": "object",
+        "properties": {
+            "user_ids": {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "action": {
+                "enum": [
+                    "approve",
+                    "reject"
+                ],
+                "type": "string"
+            }
+        },
+        "additionalProperties": false,
+        "required": [
+            "action",
+            "user_ids"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#"
     },
@@ -13579,15 +14069,15 @@
             "flags": {
                 "type": "integer"
             },
+            "pending": {
+                "type": "boolean"
+            },
             "nick": {
                 "type": "string"
             },
             "joined_at": {
                 "type": "string",
                 "format": "date-time"
-            },
-            "pending": {
-                "type": "boolean"
             },
             "deaf": {
                 "type": "boolean"
@@ -15230,6 +15720,38 @@
                     "integer"
                 ]
             },
+            "suspended_until": {
+                "anyOf": [
+                    {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    {
+                        "type": "null"
+                    }
+                ]
+            },
+            "join_reason": {
+                "type": [
+                    "null",
+                    "string"
+                ]
+            },
+            "join_status": {
+                "anyOf": [
+                    {
+                        "enum": [
+                            "approved",
+                            "pending",
+                            "rejected"
+                        ],
+                        "type": "string"
+                    },
+                    {
+                        "type": "null"
+                    }
+                ]
+            },
             "email": {
                 "type": "string"
             },
@@ -15292,6 +15814,12 @@
                     "type": "string"
                 },
                 "default": []
+            },
+            "registration_ip": {
+                "type": [
+                    "null",
+                    "string"
+                ]
             },
             "settings": {
                 "$ref": "#/definitions/UserSettings"
@@ -23498,6 +24026,9 @@
             "attachment": {
                 "$ref": "#/definitions/RateLimitOptions"
             },
+            "instanceInvite": {
+                "$ref": "#/definitions/RateLimitOptions"
+            },
             "auth": {
                 "$ref": "#/definitions/AuthRateLimit"
             }
@@ -23512,6 +24043,7 @@
             "expression",
             "guild",
             "guildCreate",
+            "instanceInvite",
             "interaction",
             "invite",
             "oauth2",

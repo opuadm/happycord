@@ -62,7 +62,7 @@ router.patch(
             });
 
         if (body.nick !== undefined) {
-            assertIdentityNameAllowed(body.nick, "nick");
+            assertIdentityNameAllowed(body.nick, "nick", { user_id: req.user_id, guild_id: req.params.guild_id as string });
             Object.assign(member, { nick: body.nick || null });
         }
         if (body.bio !== undefined) member.bio = body.bio ?? "";

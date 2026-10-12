@@ -55,7 +55,7 @@ const seal = (payload, contentKey = crypto.randomBytes(32)) => {
     return { envelope: { ...envelope, sig: crypto.sign(null, Buffer.from(signed), signer.privateKey).toString("base64url") }, contentKey };
 };
 
-const harness = (envelope, device = { id: deviceId, user_id: authorId, signing_key: signingKey, revoked_at: null }) => {
+const harness = (envelope, device = { id: deviceId, user_id: authorId, signing_key: signingKey, revoked_at: null }, context = { before: [], after: [] }) => {
     const saved = [];
     const message = {
         id: messageId,
@@ -71,10 +71,11 @@ const harness = (envelope, device = { id: deviceId, user_id: authorId, signing_k
     };
     const { createReport } = load("src/api/util/utility/reports.ts", {
         "lambert-server/HTTPError": { HTTPError: class extends Error {} },
-        typeorm: { In: (v) => v, MoreThan: (v) => v },
+        typeorm: { In: (v) => v, MoreThan: (v) => v, LessThan: (v) => v, IsNull: () => null },
         "@spacebar/database": {
             Report: {
                 count: async () => 0,
+                findOne: async () => null,
                 create: (data) => ({
                     ...data,
                     save() {
@@ -83,7 +84,7 @@ const harness = (envelope, device = { id: deviceId, user_id: authorId, signing_k
                     },
                 }),
             },
-            Message: { findOne: async () => message },
+            Message: { findOne: async () => message, find: async ({ order }) => (order.id === "DESC" ? [...context.before] : [...context.after]) },
             E2eeDevice: { findOne: async ({ where }) => (device && where.id === device.id && where.user_id === device.user_id ? device : null) },
             User: { exists: async () => true },
             Guild: {},
@@ -98,6 +99,7 @@ const harness = (envelope, device = { id: deviceId, user_id: authorId, signing_k
         },
         "../handlers/ApplicationWidgets": { snapshotWidget: async () => null },
         "./reportMenus": { getReportingMenu: () => ({ nodes: {} }) },
+        "./instanceAutomod": { automodVerifiedReport: async () => undefined },
         "./e2ee": load("src/api/util/utility/e2ee.ts", {
             "@spacebar/database": {},
             "@spacebar/util": { ApiError: class {}, Config: { get: () => ({}) } },
@@ -105,11 +107,23 @@ const harness = (envelope, device = { id: deviceId, user_id: authorId, signing_k
             "../../middlewares/RateLimit": () => () => {},
         }),
     });
-    return (key) =>
-        createReport("message", { name: "message", breadcrumbs: [1], channel_id: channelId, message_id: messageId, ...(key && { e2ee_content_key: key }) }, "5000", {
-            root_node_id: 1,
-            nodes: {},
-        }).then(() => saved[0].snapshot);
+    return (key, contextKeys) =>
+        createReport(
+            "message",
+            {
+                name: "message",
+                breadcrumbs: [1],
+                channel_id: channelId,
+                message_id: messageId,
+                ...(key && { e2ee_content_key: key }),
+                ...(contextKeys && { e2ee_context_keys: contextKeys }),
+            },
+            "5000",
+            {
+                root_node_id: 1,
+                nodes: {},
+            },
+        ).then(() => saved[0].snapshot);
 };
 
 test("a shared content key opens the reported message and the signature is checked", async () => {
@@ -136,4 +150,44 @@ test("reports without a key, with a wrong key or with a forged signature stay un
     assert.equal(snapshot.encrypted.verified, false);
     assert.match(snapshot.encrypted.reason, /signature/);
     assert.equal((await harness(envelope, null)(contentKey.toString("base64url"))).encrypted.verified, false);
+});
+
+test("context messages are saved around the report and only open with their own key", async () => {
+    const reported = seal({ content: "the reported words" });
+    const earlier = seal({ content: "what came before" });
+    const unreadable = seal({ content: "a secret the reporter didn't share" });
+    const contextMessage = (id, envelope) => ({
+        id,
+        channel_id: channelId,
+        author_id: authorId,
+        author: { id: authorId, username: "sender" },
+        content: "🔒 Encrypted message",
+        nonce,
+        encrypted: envelope,
+        attachments: [],
+        embeds: [],
+        timestamp: new Date(),
+    });
+    const plain = {
+        id: "3001",
+        channel_id: channelId,
+        author_id: "5000",
+        author: { id: "5000", username: "reporter" },
+        content: "a plain reply",
+        attachments: [],
+        embeds: [],
+        timestamp: new Date(),
+    };
+    const snapshot = await harness(reported.envelope, undefined, {
+        before: [contextMessage("2999", unreadable.envelope), contextMessage("2998", earlier.envelope)],
+        after: [plain],
+    })(reported.contentKey.toString("base64url"), { 2998: earlier.contentKey.toString("base64url"), 2999: reported.contentKey.toString("base64url") });
+    assert.deepEqual(
+        snapshot.context.map((m) => [m.id, m.content, m.encrypted?.verified ?? null, m.after]),
+        [
+            ["2998", "what came before", true, false],
+            ["2999", "", false, false],
+            ["3001", "a plain reply", null, true],
+        ],
+    );
 });

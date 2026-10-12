@@ -1,10 +1,10 @@
 import { Request, Response, Router } from "express";
-import { Not } from "typeorm";
 import { route } from "@spacebar/api/middlewares";
-import { Channel, Emoji, Guild, InstanceBan, Member, Recipient, Sticker, User, UserSettingsProtos } from "@spacebar/database";
+import { removeAccount } from "@spacebar/api/util";
+import { User } from "@spacebar/database";
 import { HTTPError } from "lambert-server/HTTPError";
-import { ChannelDeleteEvent, ChannelRecipientRemoveEvent, emitEvent, Rights, UserDeleteEvent } from "@spacebar/util";
-import { ChannelType, InstanceUserDeleteSchema, PrivateUserProjection } from "@spacebar/schemas";
+import { Rights } from "@spacebar/util";
+import { InstanceUserDeleteSchema } from "@spacebar/schemas";
 import { Stopwatch } from "@spacebar/extensions";
 
 const router = Router({ mergeParams: true });
@@ -29,146 +29,14 @@ router.post(
         const body = req.body as InstanceUserDeleteSchema | undefined;
         const user = await User.findOneOrFail({
             where: { id: req.params.user_id as string },
-            select: Object.fromEntries([...PrivateUserProjection, "data", "rights"].map((i) => [i, true])), // TODO: clean up
+            select: { id: true, rights: true },
         });
         if (user.id !== req.user_id && new Rights(user.rights).has("OPERATOR") && !req.rights.has("OPERATOR"))
             throw new HTTPError("Only operators can delete other operators", 403);
 
-        if ((body?.persistInstanceBan ?? true) && !(await InstanceBan.findOne({ where: { user_id: user.id } })))
-            await InstanceBan.create({
-                user_id: user.id,
-                reason: body?.reason ?? "<legacy instance ban API - no reason specified>",
-            }).save();
+        await removeAccount(user.id, { actor_id: req.user_id, reason: body?.reason, persistInstanceBan: body?.persistInstanceBan });
 
-        // prevent bugginess with clients - delete all DMs, only having half of the conversation is quite useless anyhow
-        const dmChannels = await user.getDmChannels();
-        for (const channel of dmChannels) {
-            console.log(`[Instance ban] Deleting DM channel ${channel.id} for user ${user.id}`);
-            await emitEvent({
-                event: "CHANNEL_DELETE",
-                data: channel.toJSON(),
-                channel_id: channel.id,
-            } satisfies ChannelDeleteEvent);
-            await Recipient.delete({ channel_id: channel.id });
-            await Channel.deleteChannel(channel);
-        }
-
-        //leave all group channels
-        const groupChannels = await Channel.find({
-            where: { type: ChannelType.GROUP_DM },
-            relations: { recipients: true },
-            select: {
-                id: true,
-                owner_id: true,
-                recipients: {
-                    id: true,
-                    user_id: true,
-                },
-            },
-        });
-
-        await Promise.all(
-            groupChannels.map(async (channel) => {
-                const recipient = channel.recipients!.find((r) => r.user_id === user.id);
-                if (recipient) {
-                    await Recipient.delete({ id: recipient.id });
-                    await emitEvent({
-                        event: "CHANNEL_RECIPIENT_REMOVE",
-                        data: {
-                            user: user.toPublicUser(),
-                            channel_id: channel.id,
-                        },
-                        channel_id: channel.id,
-                    } satisfies ChannelRecipientRemoveEvent);
-                    console.log(`[Instance ban] Removed user ${user.id} from group channel ${channel.id}`);
-                }
-
-                // if no recipients remain, delete the channel
-                const remainingRecipients = await Recipient.find({ where: { channel_id: channel.id } });
-                if (remainingRecipients.length === 0) {
-                    await emitEvent({
-                        event: "CHANNEL_DELETE",
-                        data: channel.toJSON(),
-                        channel_id: channel.id,
-                    } satisfies ChannelDeleteEvent);
-                    await Channel.deleteChannel(channel);
-                    console.log(`[Instance ban] Deleted empty group channel ${channel.id}`);
-                } else {
-                    // otherwise, if the banned user was the owner, reassign ownership
-                    if (channel.owner_id === user.id) {
-                        channel.owner_id = remainingRecipients[0].user_id;
-                        await channel.save();
-                        console.log(`[Instance ban] Reassigned ownership of group channel ${channel.id} to user ${channel.owner_id}`);
-                    }
-                }
-            }),
-        );
-
-        // change ownership on guilds
-        const guilds = await Guild.find({ where: { owner_id: req.params.user_id as string } });
-        await Promise.all(
-            guilds.map(async (guild) => {
-                const members = await Member.find({
-                    where: { guild_id: guild.id, id: Not(req.params.user_id as string) },
-                    relations: { roles: true },
-                    select: { id: true, roles: { id: true, position: true } },
-                });
-                const sortedMembers = members
-                    .filter((m) => m.id !== req.params.user_id)
-                    .sort((a, b) => {
-                        const aHighestRole = a.roles.reduce((prev, curr) => (curr.position > prev.position ? curr : prev), { position: -1 } as { position: number });
-                        const bHighestRole = b.roles.reduce((prev, curr) => (curr.position > prev.position ? curr : prev), { position: -1 } as { position: number });
-                        return bHighestRole.position - aHighestRole.position;
-                    });
-                if (sortedMembers.length === 0) {
-                    // no members left, delete guild
-                    await guild.remove();
-                    console.log(`[Instance ban] Deleted guild ${guild.id} as user ${user.id} was the last member`);
-                } else {
-                    // assign new owner
-                    guild.owner_id = sortedMembers[0].id;
-                    await guild.save();
-                    console.log(`[Instance ban] Transferred ownership of guild ${guild.id} to user ${guild.owner_id}`);
-
-                    // safety - reassign emojis/stickers owned by the old owner
-                    const stickers = await Sticker.find({
-                        where: { guild_id: guild.id, user_id: req.params.user_id as string },
-                    });
-                    await Promise.all(
-                        stickers.map(async (sticker) => {
-                            sticker.user_id = guild.owner_id;
-                            await sticker.save();
-                            console.log(`[Instance ban] Reassigned sticker ${sticker.id} ownership to user ${guild.owner_id}`);
-                        }),
-                    );
-
-                    const emojis = await Emoji.find({
-                        where: { guild_id: guild.id, user_id: req.params.user_id as string },
-                    });
-                    await Promise.all(
-                        emojis.map(async (emoji) => {
-                            emoji.user_id = guild.owner_id!;
-                            await emoji.save();
-                            console.log(`[Instance ban] Reassigned emoji ${emoji.id} ownership to user ${guild.owner_id}`);
-                        }),
-                    );
-                }
-            }),
-        );
-
-        const members = await Member.find({ where: { id: req.params.user_id as string } });
-        await Promise.all([...members.map((member) => Member.removeFromGuild(member.id, member.guild_id))]);
-        await UserSettingsProtos.delete({ user_id: req.params.user_id as string });
-        await User.delete({ id: req.params.user_id as string });
-
-        // TODO: respect intents as USER_DELETE has potential to cause privacy issues
-        await emitEvent({
-            event: "USER_DELETE",
-            user_id: req.user_id,
-            data: { user_id: req.params.user_id as string },
-        } satisfies UserDeleteEvent);
-
-        console.log(`[Instance ban] Deleted user ${user.id} from instance in ${sw.elapsed().toString()}`);
+        console.log(`[Instance ban] User ${req.user_id} deleted user ${user.id} from instance in ${sw.elapsed().toString()}`);
         res.sendStatus(204);
     },
 );

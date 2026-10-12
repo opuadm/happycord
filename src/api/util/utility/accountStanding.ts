@@ -10,8 +10,8 @@ export const isActiveViolation = (violation: UserViolation, now = new Date()) =>
  * The standing shown on the user's account standing page: the staff override when set, otherwise suspended for
  * disabled accounts, or one step down per active violation (1 limited, 2 very limited, 3+ at risk).
  */
-export function automaticAccountStanding(user: Pick<User, "disabled">, violations: UserViolation[]): AccountStandingState {
-    if (user.disabled) return AccountStandingState.SUSPENDED;
+export function automaticAccountStanding(user: Pick<User, "disabled"> & Partial<Pick<User, "suspended_until">>, violations: UserViolation[]): AccountStandingState {
+    if (user.disabled || (user.suspended_until && new Date(user.suspended_until).getTime() > Date.now())) return AccountStandingState.SUSPENDED;
     const active = violations.filter((v) => isActiveViolation(v)).length;
     if (active === 0) return AccountStandingState.ALL_GOOD;
     if (active === 1) return AccountStandingState.LIMITED;
@@ -19,7 +19,7 @@ export function automaticAccountStanding(user: Pick<User, "disabled">, violation
     return AccountStandingState.AT_RISK;
 }
 
-export const accountStanding = (user: Pick<User, "disabled" | "account_standing">, violations: UserViolation[]): AccountStandingState =>
+export const accountStanding = (user: Pick<User, "disabled" | "account_standing"> & Partial<Pick<User, "suspended_until">>, violations: UserViolation[]): AccountStandingState =>
     user.account_standing ?? automaticAccountStanding(user, violations);
 
 export const getUserViolations = (user_id: string) => UserViolation.find({ where: { user_id }, order: { created_at: "DESC" } });

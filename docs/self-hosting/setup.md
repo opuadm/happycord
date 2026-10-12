@@ -34,7 +34,7 @@ bun add --cwd ~/.cache/fosscord-tools playwright-core
 bun run dev:setup 3001 meowcord_dev_3001
 ```
 
-The setup creates a fresh database, installs dependencies, writes private configuration, builds, starts the server and seeds two accounts. The private DM starts empty until the browsers establish encryption; sample messages are posted only in the test server. Existing databases, runtime configuration and occupied API, voice or media ports are refused. Each additional worktree needs its own base port and database. Worktrees reuse the main checkout's ignored client cache.
+The setup creates a fresh database, installs dependencies, writes private configuration, builds, starts the server and seeds two accounts. The private DM starts empty until the browsers establish encryption; sample messages are posted only in the test server. Existing databases, runtime configuration and occupied API, voice or media ports are refused. Each additional worktree needs its own base port and database. Worktrees reuse the main checkout's ignored client cache. The generated `config.json` turns off `security.captcha.blockAutomatedBrowsers`, because the seed script and the probes solve Cap in headless Brave. Production instances keep it on, see [captcha.md](../features/captcha.md).
 
 The seed script needs an installed Chromium browser. macOS uses Brave when running the documented browser commands; set `CHROME_PATH` to your installed Chromium executable on other systems.
 

@@ -1,4 +1,5 @@
 export * from "./ApiConfiguration";
+export * from "./AutomodConfiguration";
 export * from "./ClientConfiguration";
 export * from "./CdnConfiguration";
 export * from "./DefaultsConfiguration";

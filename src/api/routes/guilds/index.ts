@@ -1,5 +1,6 @@
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
+import { enforceNameAutomod } from "@spacebar/api/util";
 import { Guild, Member } from "@spacebar/database";
 import { Config, DiscordApiErrors, getRights } from "@spacebar/util";
 import { GuildCreateSchema } from "@spacebar/schemas";
@@ -27,6 +28,7 @@ router.post(
     }),
     async (req: Request, res: Response) => {
         const body = req.body as GuildCreateSchema;
+        await enforceNameAutomod({ user_id: req.user_id, name: body.name, field: "name", source: "guild_name" });
 
         const { maxGuilds } = Config.get().limits.user;
         const guild_count = await Member.count({ where: { id: req.user_id } });

@@ -119,9 +119,45 @@ test("admin suspension deletes only target sessions and emits invalidation befor
     const user = { id: "target", rights: "0", disabled: false, account_standing: null };
     const actions = [];
     let handler;
+    const database = {
+        User: {
+            findOneOrFail: async () => user,
+            update: async (where, update) => {
+                assert.equal(where.id, "target");
+                Object.assign(user, update);
+                actions.push("update");
+            },
+        },
+        Session: {
+            find: async ({ where }) => {
+                assert.equal(String(where.user_id.in), "target");
+                return [{ session_id: "one" }, { session_id: "two" }];
+            },
+            delete: async ({ user_id }) => {
+                assert.equal(String(user_id.in), "target");
+                actions.push("delete-sessions");
+            },
+        },
+    };
+    const utilities = {
+        Rights: class {
+            has() {
+                return false;
+            }
+        },
+        emitEvent: async (event) => actions.push(event.event),
+        broadcastUserUpdate: async () => {},
+    };
+    const { endUserSessions } = load("src/api/util/utility/accountRemoval.ts", {
+        typeorm: { In: (values) => ({ in: values }) },
+        "@spacebar/database": database,
+        "@spacebar/util": utilities,
+        "@spacebar/schemas": {},
+    });
     const util = load("src/api/routes/admin/users/#user_id/index.ts", {
         "@spacebar/util/util/IdentityModeration": load("src/util/util/IdentityModeration.ts", {
             "./Config": { Config: { get: () => ({ user: {} }) } },
+            "./SlurMatcher": require("../../src/util/util/SlurMatcher.ts"),
             "./FieldError": {
                 FieldErrors: (fields) => Object.assign(new HTTPError("Invalid identity", 400), { fields }),
             },
@@ -136,35 +172,8 @@ test("admin suspension deletes only target sessions and emits invalidation befor
         },
         "lambert-server/HTTPError": { HTTPError },
         "@spacebar/api/middlewares": { route: () => () => {} },
-        "@spacebar/database": {
-            User: {
-                findOneOrFail: async () => user,
-                update: async (where, update) => {
-                    assert.equal(where.id, "target");
-                    Object.assign(user, update);
-                    actions.push("update");
-                },
-            },
-            Session: {
-                find: async ({ where }) => {
-                    assert.equal(where.user_id, "target");
-                    return [{ session_id: "one" }, { session_id: "two" }];
-                },
-                delete: async ({ user_id }) => {
-                    assert.equal(user_id, "target");
-                    actions.push("delete-sessions");
-                },
-            },
-        },
-        "@spacebar/util": {
-            Rights: class {
-                has() {
-                    return false;
-                }
-            },
-            emitEvent: async (event) => actions.push(event.event),
-            broadcastUserUpdate: async () => {},
-        },
+        "@spacebar/database": database,
+        "@spacebar/util": utilities,
         "@spacebar/schemas": {
             AccountStandingState: { SUSPENDED: 500 },
             PrivateUserProjection: ["id"],
@@ -174,6 +183,7 @@ test("admin suspension deletes only target sessions and emits invalidation befor
             hasAdminPanelAccess: () => false,
             currentStanding: async () => user.account_standing ?? 100,
             notifyStandingDrop: async () => actions.push("notice"),
+            endUserSessions,
         },
         "../index": { ADMIN_USER_COLUMNS: ["id"], pickAdminUser: (user) => user },
     });

@@ -1,5 +1,5 @@
 import { route } from "@spacebar/api/middlewares";
-import { capEndpoint, capSitekey, captchaEnabled, registrationCapEndpoint } from "@spacebar/api/util";
+import { capContextEndpoint, capEndpoint, capSitekey, captchaEnabled, registrationCapEndpoint } from "@spacebar/api/util";
 import { Config } from "@spacebar/util";
 import { Request, Response, Router } from "express";
 const router = Router({ mergeParams: true });
@@ -26,6 +26,11 @@ router.get(
             register: register.requireCaptcha,
             login: login.requireCaptcha && optional,
             password_reset: passwordReset.requireCaptcha && optional,
+            endpoints: {
+                register: register.requireCaptcha ? registrationCapEndpoint() : capEndpoint(),
+                login: capContextEndpoint("login"),
+                password_reset: capContextEndpoint("password_reset"),
+            },
         });
     },
 );

@@ -78,7 +78,20 @@ export const checkToken = (
             const [user, session, banned] = await Promise.all([
                 User.findOne({
                     where: { id: decoded.id },
-                    select: OrmUtils.keysToObject([...(opts?.select || []), "id", "bot", "disabled", "deleted", "account_standing", "rights", "data", "flags", "verified"]), // TODO: clean up
+                    select: OrmUtils.keysToObject([
+                        ...(opts?.select || []),
+                        "id",
+                        "bot",
+                        "disabled",
+                        "deleted",
+                        "account_standing",
+                        "suspended_until",
+                        "join_status",
+                        "rights",
+                        "data",
+                        "flags",
+                        "verified",
+                    ]), // TODO: clean up
                     relations: !opts?.relations ? undefined : OrmUtils.keysToObject(opts.relations), // TODO: clean up
                 }),
                 decoded.did ? Session.findOne({ where: { session_id: decoded.did, user_id: decoded.id } }) : undefined,
@@ -105,7 +118,13 @@ export const checkToken = (
                 return rejectAndLog(reject, 401, "Invalid Token");
             }
 
-            if (user.disabled || user.account_standing === AccountStandingState.SUSPENDED) {
+            if (
+                user.disabled ||
+                user.account_standing === AccountStandingState.SUSPENDED ||
+                (user.suspended_until && new Date(user.suspended_until).getTime() > Date.now()) ||
+                user.join_status === "pending" ||
+                user.join_status === "rejected"
+            ) {
                 logAuth("validateUser rejected: User disabled");
                 return rejectAndLog(reject, 401, "User disabled");
             }

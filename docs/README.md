@@ -14,10 +14,13 @@
 - [admin.md](features/admin.md): the admin dashboard at `/admin`.
 - [activities.md](features/activities.md): embedded activities, their hosting and API.
 - [announcements.md](features/announcements.md): encrypted announcements from the official account.
+- [automod.md](features/automod.md): the slur auto-ban, word lists, join reasons, account approval, sign-in and signup limits and the Automod admin page.
+- [captcha.md](features/captcha.md): Cap challenge work for registration, sign-in and password reset, and refusing automated browsers.
 - [e2ee.md](features/e2ee.md): end-to-end encrypted DMs, key backup and recovery.
 - [link-embeds.md](features/link-embeds.md): link previews, video players and components media.
 - [homepage.md](features/homepage.md): the instance homepage at `/` and the settings that change it.
 - [identity-moderation.md](features/identity-moderation.md): blocked words in usernames, display names and nicknames.
+- [invites.md](features/invites.md): invite-only registration, member and staff instance invites, and invite trees.
 - [loading-screen.md](features/loading-screen.md): custom loading tips and loading animation.
 - [notifications.md](features/notifications.md): notification settings, mention counts, read states and Web Push.
 - [pride-badges.md](features/pride-badges.md): the pride flag catalog and picking flags at signup.

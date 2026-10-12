@@ -43,18 +43,21 @@ export class InstanceBan extends BaseClass {
     origin_instance_ban?: InstanceBan;
 
     private static matching(opts: { userId?: string; ipAddress?: string; fingerprint?: string }) {
-        const optionalChecks: FindOptionsWhere<InstanceBan>[] = [{ user_id: opts.userId }];
+        const optionalChecks: FindOptionsWhere<InstanceBan>[] = [];
+        if (opts?.userId) optionalChecks.push({ user_id: opts.userId });
         if (opts?.ipAddress) optionalChecks.push({ ip_address: opts.ipAddress });
         if (opts?.fingerprint) optionalChecks.push({ fingerprint: opts.fingerprint });
         return optionalChecks;
     }
 
-    static hasInstanceBans(opts: { userId?: string; ipAddress?: string; fingerprint?: string }) {
-        return InstanceBan.exists({ where: InstanceBan.matching(opts) });
+    static async hasInstanceBans(opts: { userId?: string; ipAddress?: string; fingerprint?: string }) {
+        const where = InstanceBan.matching(opts);
+        return where.length > 0 && InstanceBan.exists({ where });
     }
 
     static async findInstanceBans(opts: { userId?: string; ipAddress?: string; fingerprint?: string; propagateBan?: boolean }) {
-        const instanceBans = await InstanceBan.find({ where: InstanceBan.matching(opts) });
+        const where = InstanceBan.matching(opts);
+        const instanceBans = where.length ? await InstanceBan.find({ where }) : [];
 
         const banReasons = [];
         for (const ban of instanceBans) {

@@ -52,7 +52,11 @@ function fixture() {
         },
         "@spacebar/util/util/LoadingScreen": require("../../dist/util/util/LoadingScreen.js"),
         "@spacebar/api/middlewares": { route: () => () => {} },
-        "@spacebar/api/util": { captchaEnabled: () => false },
+        "@spacebar/api/util": {
+            captchaEnabled: () => false,
+            capChallengeParameters: () => ({ challengeCount: 64, challengeSize: 32, challengeDifficulty: 5 }),
+            inviteSettings: () => ({ perUser: 3, minAccountAgeDays: 7, maxUsesPerInvite: 3, maxAgeDays: 30 }),
+        },
         "@spacebar/util": { Config: { get: () => cfg, set: async (value) => writes.push(value) } },
         "lambert-server/HTTPError": { HTTPError },
     };
@@ -123,7 +127,7 @@ test("Cap configuration input templates escape stored attribute payloads", () =>
         ),
     ].map((match) => match[0]);
     assert.equal(attrs.length, 2);
-    const payload = '\" autofocus onfocus="window.injected=true"><img src=x onerror="window.injected=true">&';
+    const payload = '" autofocus onfocus="window.injected=true"><img src=x onerror="window.injected=true">&';
     const rendered = vm.runInNewContext(helpers + "\nrenderValue(html`" + attrs.join("\n") + "`)", {
         s: { captcha: { instance: payload, sitekey: payload } },
     });

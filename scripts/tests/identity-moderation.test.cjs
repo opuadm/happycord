@@ -5,17 +5,23 @@ const vm = require("node:vm");
 const path = require("node:path");
 
 let configuredTerms;
+let configuredAutomod;
 const source = fs
     .readFileSync(path.join(__dirname, "../../src/util/util/IdentityModeration.ts"), "utf8")
     .replace(/^import .*;$/gm, "")
     .replace(/^export /gm, "");
 const transpiler = new Bun.Transpiler({ loader: "ts", target: "bun" });
 const context = vm.createContext({
-    Config: { get: () => ({ user: { identityBlockedTerms: configuredTerms } }) },
+    Config: { get: () => ({ user: { identityBlockedTerms: configuredTerms }, automod: configuredAutomod }) },
     FieldErrors: (fields) => Object.assign(new Error("Invalid identity"), { fields }),
+    matchAutomod: require("../../src/util/util/SlurMatcher.ts").matchAutomod,
+    console,
 });
-vm.runInContext(`${transpiler.transformSync(source)};globalThis.api = { isIdentityNameBlocked, assertIdentityNameAllowed };`, context);
-const { isIdentityNameBlocked, assertIdentityNameAllowed } = context.api;
+vm.runInContext(
+    `${transpiler.transformSync(source)};globalThis.api = { isIdentityNameBlocked, assertIdentityNameAllowed, findIdentityNameBlock, onIdentityNameBlocked };`,
+    context,
+);
+const { isIdentityNameBlocked, assertIdentityNameAllowed, findIdentityNameBlock, onIdentityNameBlocked } = context.api;
 
 test("identity moderation rejects explicit slurs and targeted obfuscations", () => {
     for (const name of [
@@ -60,8 +66,49 @@ test("identity moderation reports the edited field and permits clearing a name",
     assert.doesNotThrow(() => assertIdentityNameAllowed(undefined));
     configuredTerms = ["moderator"];
     assert.throws(() => assertIdentityNameAllowed("moderator"));
+    assert.throws(() => assertIdentityNameAllowed("nigger"));
+    configuredAutomod = { slurs: { enabled: false } };
     assert.doesNotThrow(() => assertIdentityNameAllowed("nigger"));
+    configuredAutomod = undefined;
     configuredTerms = undefined;
+});
+
+test("identity moderation checks the automod slur rule and word lists before the blocked name words", () => {
+    configuredTerms = [];
+    assert.equal(findIdentityNameBlock("N 1 G G 3 R").rule, "hard_r");
+    assert.equal(findIdentityNameBlock("Nigerian"), null);
+    configuredAutomod = { slurs: { enabled: true }, wordLists: [{ id: "1", name: "Spam", terms: ["freenitro"], action: "name" }], allowList: [] };
+    const block = findIdentityNameBlock("FreeNitro");
+    assert.equal(block.rule, "word");
+    assert.equal(block.list.name, "Spam");
+    configuredAutomod = { slurs: { enabled: true }, wordLists: [{ id: "1", name: "Spam", terms: ["freenitro"], action: "name" }], allowList: ["freenitro"] };
+    assert.equal(findIdentityNameBlock("FreeNitro"), null);
+    configuredTerms = ["moderator"];
+    assert.equal(findIdentityNameBlock("moderator").rule, "name_blocklist");
+    configuredAutomod = undefined;
+    configuredTerms = undefined;
+});
+
+test("identity moderation tells the automod log about every blocked name", () => {
+    const seen = [];
+    onIdentityNameBlocked((block) => seen.push(block));
+    assert.throws(() => assertIdentityNameAllowed("nigger", "nick", { user_id: "1", guild_id: "2" }));
+    assert.doesNotThrow(() => assertIdentityNameAllowed("kitten", "nick", { user_id: "1" }));
+    assert.equal(seen.length, 1);
+    assert.equal(seen[0].field, "nick");
+    assert.equal(seen[0].rule, "hard_r");
+    assert.equal(seen[0].actor.guild_id, "2");
+    onIdentityNameBlocked(() => {
+        throw new Error("listener failed");
+    });
+    const quiet = console.error;
+    console.error = () => {};
+    assert.throws(
+        () => assertIdentityNameAllowed("nigger", "username"),
+        (error) => error.fields.username?.code === "NAME_NOT_ALLOWED",
+    );
+    console.error = quiet;
+    onIdentityNameBlocked(undefined);
 });
 
 test("identity terms survive empty and reduced JSON and database configuration reloads", async () => {

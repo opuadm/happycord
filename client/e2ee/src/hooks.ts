@@ -368,11 +368,27 @@ export const createHooks = (ctx: HookContext) => {
                 ) {
                     const report = (async () => {
                         const res = await originals
-                            .get({ url: `/channels/${reported.channel_id}/messages`, query: { around: reported.message_id, limit: 1 }, rejectWithError: false })
+                            .get({ url: `/channels/${reported.channel_id}/messages`, query: { around: reported.message_id, limit: 50 }, rejectWithError: false })
                             .catch(() => null);
-                        const message = ((res?.ok ? res.body : []) as RawMessage[]).find((m) => m.id === reported.message_id);
+                        const nearby = (res?.ok ? res.body : []) as RawMessage[];
+                        const message = nearby.find((m) => m.id === reported.message_id);
                         const key = message && (await engine.contentKey(message));
-                        return original({ ...opts, body: { ...(opts.body as object), ...(key && { e2ee_content_key: key }) } }, callback);
+                        const context = Object.fromEntries(
+                            (
+                                await Promise.all(
+                                    nearby
+                                        .filter((m) => m.id !== reported.message_id && m.encrypted)
+                                        .map(async (m) => [m.id, await engine.contentKey(m).catch(() => undefined)] as const),
+                                )
+                            ).filter(([, contextKey]) => contextKey),
+                        );
+                        return original(
+                            {
+                                ...opts,
+                                body: { ...(opts.body as object), ...(key && { e2ee_content_key: key }), ...(Object.keys(context).length && { e2ee_context_keys: context }) },
+                            },
+                            callback,
+                        );
                     })();
                     report.catch(() => {});
                     return report;

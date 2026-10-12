@@ -200,7 +200,7 @@ router.patch(
         }
 
         if ("nick" in body) {
-            assertIdentityNameAllowed(body.nick, "nick");
+            assertIdentityNameAllowed(body.nick, "nick", { user_id: req.user_id, guild_id });
             if (member_id != req.user_id) {
                 permission.hasThrow("MANAGE_NICKNAMES");
             } else {
@@ -210,7 +210,7 @@ router.patch(
             if (!body.nick) {
                 delete body.nick;
                 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                //@ts-ignore shut up
+                //@ts-expect-error shut up
                 member.nick = null; // remove the nickname
             }
         }

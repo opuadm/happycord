@@ -1,6 +1,6 @@
 # Admin dashboard
 
-The dashboard is served at `/admin/` and needs an account with the operator right. [setup.md](../self-hosting/setup.md#operator-account) explains how to grant it. It has pages for profiles, servers, the shop, sticker packs, badges, games, announcements, reports, status, moderation, security, site settings and performance.
+The dashboard is served at `/admin/` and needs an account with the operator right. [setup.md](../self-hosting/setup.md#operator-account) explains how to grant it. It has pages for profiles, servers, the shop, sticker packs, badges, games, announcements, reports, automod, status, moderation, security, site settings and performance.
 
 ## Navigation and editors
 
@@ -21,6 +21,38 @@ With `MANAGE_USERS`, operators can also manage another user's pride badges, prof
 Admin user responses use an explicit projection that leaves out password hashes, session tokens, OAuth tokens, MFA secrets, private encryption keys, sealed backups and recovery codes. MFA reports only whether an authenticator is set up. Password-reset links are a separate explicit operator action.
 
 [admin-api-coverage.md](../development/admin-api-coverage.md) maps which API operations the dashboard covers.
+
+## Removing spam accounts
+
+The Users page has checkboxes on every row. The header checkbox selects the page, and once the whole page is selected a button selects every account that matches the search and filter, up to the newest 5,000. The bar above the list then disables or deletes the selected accounts. Disabling can also delete every message they sent, which needs `MANAGE_MESSAGES`. Deleting always removes their messages, because the database deletes them with the account. The confirmation names the exact number of accounts.
+
+- `POST /api/v9/admin/users/bulk` takes `user_ids` (1 to 500), `action` (`delete` or `disable`), `delete_messages`, `ban` and `reason`, and needs `MANAGE_USERS`. The dashboard sends 100 ids per request and shows its progress. The response lists the processed ids, the skipped ids with a reason (`unknown`, `self`, `operator` or `failed`), the number of deleted messages and the number of ended sessions.
+- `GET /api/v9/admin/users/bulk` returns the ids behind a search. It takes the same `q`, `ip` and `filter` as the user search.
+- Your own account is always skipped, and operators are skipped unless you are an operator.
+- Accounts are handled in batches of 50. Disabling sets `disabled`, ends every session with `SB_SESSION_REMOVE` and then deletes messages. Deleting goes through the same code as the single-account delete in the user drawer: it ends sessions, deletes messages, removes DMs and group DMs, hands owned servers to the member with the highest role or deletes them when nobody is left, removes server memberships with `GUILD_MEMBER_REMOVE` and deletes the account.
+- Messages are deleted 500 at a time with one `MESSAGE_DELETE_BULK` per channel, so open clients drop them right away.
+- The server log records who ran each bulk action and which ids it changed.
+
+## IP addresses
+
+Registration stores the address it came from in `users.registration_ip`, using the request address Express gives after the `security.trustedProxies` setting. Sessions keep the last address they were used from in `last_seen_ip`. Accounts made before this column existed show only their session addresses, and a session's address goes away when the session ends.
+
+- The user drawer shows the registration address and every address the account's sessions used, with the last time each was seen, how many accounts share it and whether it is banned.
+- Typing an address into the Users search, or passing `ip`, lists the accounts that registered on it or have a session from it. `::ffff:203.0.113.7` and `203.0.113.7` are the same address.
+- The IP addresses view of the Users page, `GET /api/v9/admin/ips`, lists addresses with the most accounts first, with the number of accounts, how many registered there and when the address was last seen. `q` filters by the start of an address.
+- Opening an address shows its accounts and removes all of them with the same bulk endpoint. It bans the address too unless you untick that.
+
+## IP bans
+
+IP bans are `instance_bans` rows with `ip_address` set. `GET /api/v9/admin/ips/bans` lists them, `POST` to the same path adds one and `DELETE /api/v9/admin/ips/bans/:ban_id` lifts one. All three need `MANAGE_USERS`, and the Users page lists them below the addresses.
+
+- Registration from a banned address returns 403 before the captcha is checked, and so does password sign-in.
+- Tokens already issued stop working when they are used from a banned address. The account that used one gets an instance ban of its own, which is how instance bans already spread. Lifting the address ban also lifts the bans it spread.
+- You can't ban the address you are using.
+
+## Instance invites
+
+Instance invites under People & servers lists the codes that let people sign up, creates staff invites and revokes an invite, optionally disabling the accounts that joined with it or the whole branch below it. The user drawer's Invites card shows who invited the account, its remaining invites with an Extra invites field and the tree of accounts it brought in. [invites.md](invites.md) has the details. Site settings has the invite-only switch and the member invite limits under Registration, and the captcha challenge settings and Block automated browsers under Captcha, see [captcha.md](captcha.md).
 
 ## Servers, channels and roles
 
@@ -52,6 +84,28 @@ The Sticker packs page manages the packs every account gets in the sticker picke
 - An open client fetches the packs again after an hour and picks up new and edited packs then. A hidden or deleted pack stays in an open client until it reloads.
 - While `externalRequests.discordStickerPacks` is on, an instance with no packs at all imports Discord's catalog again. Hide the imported packs instead of deleting every pack, or turn that setting off first.
 
+## Reports
+
+The Reports page lists what people sent from the client's Report menus, newest first, filtered by status or by the reported user. The server decides what each report points at, so a reporter can't attach a server, channel or message they made up:
+
+- A message report needs a message the reporter can see. The author, server and channel come from the stored message, not from the request.
+- Server, discovery and directory reports blame the server's owner. Event reports blame the event's creator, and the reporter has to be in that server. App reports blame the app's owner.
+- A stage report names a speaker only if that person is in the server.
+- A user report keeps a server only when the reporter and the reported user are both members of it, and drops any channel or message id.
+- Reporting the same thing again while the first report is open updates that report instead of adding a second one, so one account can't stack the count.
+
+Message reports save the 15 messages before the reported one and the 10 after it, as they were at report time, so deleting the conversation later doesn't remove the context. In encrypted channels the reporter's client also shares the keys of the context messages it can read, and the server checks each one the same way as the reported message. A context message the reporter couldn't read is saved without its text.
+
+The report drawer shows:
+
+- how many open reports point at the same message or user and from how many people, with an option to close all of them at once;
+- the reported user's join date, active and total violations, and how often they were reported and how often those reports were upheld;
+- how many of the reporter's past reports were upheld or dismissed, with a "Mostly dismissed" badge for someone with at least 5 dismissed reports and three times as many dismissed as upheld.
+
+## Automod
+
+The Automod page sits under Reports in the sidebar and needs the same `MANAGE_USERS` right. It shows how many actions automod took in the last 24 hours and 7 days by rule, the automod log with filters, undo and "not a match", join requests with low-effort badges and bulk approve and reject, a box to test text against the saved rules, a form for each group of automod settings and a scan of existing names with bulk disable. The users list can be filtered to suspended accounts, accounts waiting for approval and accounts that gave a join reason, and the user drawer shows the join reason and can lift a suspension. [automod.md](automod.md) has the rules.
+
 ## Slowmode
 
 Sends in a slowmode channel serialize per user and channel across processes with a PostgreSQL transaction advisory lock. The send rechecks the cooldown and saves the message, read state, member and channel pointers and a successful-send marker in one short transaction. A failed send rolls these back and uses no cooldown. The marker expires after six hours, the longest channel slowmode, and the current channel setting decides how much cooldown remains. Deleting the last message does not reset the cooldown.
@@ -72,6 +126,7 @@ Site settings expose user, guild, message and channel limits, default server fea
 
 - [signup.md](signup.md) for Cap mode and registration policy,
 - [identity-moderation.md](identity-moderation.md) for blocked identity words,
+- [automod.md](automod.md) for the Automod page, its log and join requests,
 - [loading-screen.md](loading-screen.md) for loading tips and the loading SVG,
 - [announcements.md](announcements.md) for encrypted announcements,
 - [e2ee.md](e2ee.md) for encryption rate limits,

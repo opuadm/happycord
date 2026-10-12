@@ -306,7 +306,7 @@ export class Member extends BaseClassWithoutId {
     }
 
     static async changeNickname(user_id: string, guild_id: string, nickname: string) {
-        assertIdentityNameAllowed(nickname, "nick");
+        assertIdentityNameAllowed(nickname, "nick", { user_id, guild_id });
         const member = await Member.findOneOrFail({
             where: {
                 id: user_id,

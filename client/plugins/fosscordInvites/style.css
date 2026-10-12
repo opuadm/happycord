@@ -1,0 +1,115 @@
+.fosscord-invite-signup {
+    display: grid;
+    gap: 8px;
+    margin-block: 20px;
+    color: var(--text-default);
+    font-size: 14px;
+}
+.fosscord-invite-signup-label {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-weight: 600;
+}
+.fosscord-invite-signup-label span,
+.fosscord-invite-signup-status {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 400;
+}
+.fosscord-invite-signup-status {
+    margin: 0;
+    line-height: 1.4;
+    text-wrap: pretty;
+}
+.fosscord-invite-signup-status[data-invalid="true"] {
+    color: var(--text-feedback-critical, var(--text-danger));
+}
+.fosscord-invite-input {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid var(--input-border-default, var(--background-mod-strong));
+    border-radius: 8px;
+    background: var(--input-background-default, var(--background-base-lowest));
+    color: var(--text-default);
+    font: inherit;
+    font-size: 16px;
+}
+.fosscord-invite-input:focus-visible {
+    outline: 2px solid var(--focus-primary);
+    outline-offset: 2px;
+}
+.fosscord-invite-input[aria-invalid="true"] {
+    border-color: var(--text-feedback-critical, var(--text-danger));
+}
+.fosscord-invites {
+    display: grid;
+    gap: 24px;
+    min-width: 0;
+    padding: 24px 0;
+    color: var(--text-default);
+}
+.fosscord-invites .fosscord-ui-section-heading {
+    display: grid;
+    gap: 8px;
+}
+.fosscord-invites .fosscord-ui-section-heading h3 {
+    margin: 0;
+    text-wrap: balance;
+}
+.fosscord-invites .fosscord-ui-section-heading div {
+    text-wrap: pretty;
+}
+.fosscord-invites-quota {
+    display: grid;
+    gap: 4px;
+    font-variant-numeric: tabular-nums;
+}
+.fosscord-invites-create {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+    align-items: end;
+    gap: 12px;
+}
+.fosscord-invites-create label {
+    display: grid;
+    gap: 8px;
+}
+.fosscord-invites-group {
+    display: grid;
+    gap: 8px;
+}
+.fosscord-invites-list {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.fosscord-invite-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 48px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--background-base-lowest, var(--background-secondary));
+    font-variant-numeric: tabular-nums;
+}
+.fosscord-invite-row:not([data-state="active"])[data-state] {
+    opacity: 0.7;
+}
+.fosscord-invite-meta {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    overflow-wrap: break-word;
+}
+.fosscord-invite-actions {
+    display: flex;
+    gap: 8px;
+}

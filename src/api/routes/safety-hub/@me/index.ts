@@ -27,6 +27,7 @@ router.get(
                 discriminator: true,
                 disabled: true,
                 account_standing: true,
+                suspended_until: true,
             },
         });
         const violations = await getUserViolations(user.id);

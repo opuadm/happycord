@@ -1,6 +1,7 @@
 import type { Request } from "express";
 import { Config } from "@spacebar/util";
 import { CaptchaRequiredResponse } from "@spacebar/schemas";
+import type { CapContext } from "./localCap";
 
 export interface CaptchaVerifyResult {
     success: boolean;
@@ -18,6 +19,12 @@ export function capEndpoint() {
     if (capMode !== "standalone") return CORE_ENDPOINT;
     if (!sitekey || !secret || !instance) return null;
     return `${instance.replace(/\/+$/, "")}/${encodeURIComponent(sitekey)}/`;
+}
+
+export function capContextEndpoint(context: CapContext) {
+    const endpoint = capEndpoint();
+    if (endpoint !== CORE_ENDPOINT || context === "register") return endpoint;
+    return `${CORE_ENDPOINT}${context}/`;
 }
 
 export function captchaEnabled() {
@@ -48,12 +55,12 @@ const verifyCap = async (response: string, secret: string): Promise<CaptchaVerif
     };
 };
 
-export async function verifyCaptcha(response: string, consume = true): Promise<CaptchaVerifyResult> {
+export async function verifyCaptcha(response: string, consume = true, context: CapContext = "register"): Promise<CaptchaVerifyResult> {
     const endpoint = capEndpoint();
     if (!endpoint) throw new Error("Cap Standalone is not configured. It needs a server URL, site key and secret.");
     if (endpoint === CORE_ENDPOINT) {
         const { consumeRegistrationToken, registrationTokenAvailable } = await import("./localCap.js");
-        return { success: await (consume ? consumeRegistrationToken(response) : registrationTokenAvailable(response)) };
+        return { success: await (consume ? consumeRegistrationToken(response, context) : registrationTokenAvailable(response, context)) };
     }
     return verifyCap(response, Config.get().security.captcha.secret!);
 }
@@ -64,10 +71,10 @@ const challenge = (codes: string[]): CaptchaRequiredResponse => ({
     captcha_service: "cap",
 });
 
-export async function checkCaptcha(required: boolean, response: string | null | undefined): Promise<CaptchaRequiredResponse | null> {
+export async function checkCaptcha(required: boolean, response: string | null | undefined, context: CapContext = "register"): Promise<CaptchaRequiredResponse | null> {
     if (!required || !captchaEnabled()) return null;
     if (!response || typeof response !== "string" || response.length > 512) return challenge(["captcha-required"]);
-    const verify = await verifyCaptcha(response);
+    const verify = await verifyCaptcha(response, true, context);
     return verify.success ? null : challenge(verify["error-codes"] ?? ["invalid-input-response"]);
 }
 

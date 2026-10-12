@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { AuditLog, Channel, Guild, Tag } from "@spacebar/database";
 import { ChannelCreateEvent, ChannelUpdateEvent, Config, DiscordApiErrors, emitEvent, FieldErrors } from "@spacebar/util";
-import { THREAD_TYPES } from "@spacebar/api/util";
+import { enforceNameAutomod, THREAD_TYPES } from "@spacebar/api/util";
 import { AuditLogEvents, GuildChannelCreateSchema, ChannelReorderSchema, ChannelType } from "@spacebar/schemas";
 import { In, Not } from "typeorm";
 
@@ -70,6 +70,7 @@ router.post(
                 },
             });
 
+        await enforceNameAutomod({ user_id: req.user_id, name: body.name, field: "name", source: "channel_name", guild_id });
         if (body.type === ChannelType.GUILD_NEWS || body.type === ChannelType.GUILD_STAGE_VOICE) {
             const { features } = await Guild.findOneOrFail({
                 where: { id: guild_id },

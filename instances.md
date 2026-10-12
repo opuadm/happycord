@@ -20,3 +20,4 @@ public meowcord instances. to add yours, open a pull request that adds a row.
 | NandroChat | [chat.nandroserver.duckdns.org](https://chat.nandroserver.duckdns.org) | |
 | Termcord | [termcord.linux-user.fyi](https://termcord.linux-user.fyi) | |
 | Hola Quetal | [dc.polo.beer](https://dc.polo.beer) | |
+| GTDcord | [chat.gtdmc.org](https://chat.gtdmc.org) | |

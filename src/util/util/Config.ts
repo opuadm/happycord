@@ -44,8 +44,12 @@ export class Config {
         if (Object.keys(config).length == 0) config = new ConfigValue();
 
         const identityBlockedTerms = config.user?.identityBlockedTerms;
+        const automodWordLists = config.automod?.wordLists;
+        const automodAllowList = config.automod?.allowList;
         config = OrmUtils.mergeDeep({}, { ...new ConfigValue() }, config);
         if (Array.isArray(identityBlockedTerms)) config.user.identityBlockedTerms = [...identityBlockedTerms];
+        if (Array.isArray(automodWordLists)) config.automod.wordLists = automodWordLists.map((list) => ({ ...list, terms: [...(list.terms ?? [])] }));
+        if (Array.isArray(automodAllowList)) config.automod.allowList = [...automodAllowList];
         replaceStaleDefaults(config);
         delete (config.security?.captcha as { service?: unknown } | undefined)?.service;
 
@@ -122,9 +126,11 @@ function replaceStaleDefaults(config: ConfigValue) {
     config.defaultsRevision = StaleDefaults.length;
 }
 
+const WHOLE_LIST_KEYS = new Set(["user_identityBlockedTerms", "automod_wordLists", "automod_allowList"]);
+
 // TODO: better types
 const generatePairs = (obj: object | null, key = ""): ConfigEntity[] => {
-    if (key === "user_identityBlockedTerms" && Array.isArray(obj)) {
+    if (WHOLE_LIST_KEYS.has(key) && Array.isArray(obj)) {
         const entry = new ConfigEntity();
         entry.key = key;
         entry.value = obj as string[];

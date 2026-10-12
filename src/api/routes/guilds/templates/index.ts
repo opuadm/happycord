@@ -1,6 +1,6 @@
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
-import { applyTemplateSettings, resolveGuildTemplate } from "@spacebar/api/util";
+import { applyTemplateSettings, enforceNameAutomod, resolveGuildTemplate } from "@spacebar/api/util";
 import { Guild, Member, Template } from "@spacebar/database";
 import { Config, DiscordApiErrors } from "@spacebar/util";
 import { GuildTemplateCreateSchema } from "@spacebar/schemas";
@@ -44,6 +44,7 @@ router.post("/:template_code", route({ requestBody: "GuildTemplateCreateSchema" 
     if (guild_count >= maxGuilds) throw DiscordApiErrors.MAXIMUM_GUILDS.withParams(maxGuilds);
 
     const template = await resolveGuildTemplate(template_code);
+    await enforceNameAutomod({ user_id: req.user_id, name: body.name ?? template.serialized_source_guild?.name, field: "name", source: "guild_name" });
 
     const guild = await Guild.createGuild({
         ...template.serialized_source_guild,

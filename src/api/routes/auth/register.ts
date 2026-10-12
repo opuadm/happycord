@@ -3,7 +3,22 @@ import { Request, Response, Router } from "express";
 import { HTTPError } from "lambert-server/HTTPError";
 import crypto from "node:crypto";
 import { ILike, MoreThan } from "typeorm";
-import { captchaKeyFrom, checkRegistrationCaptcha, registrationCapEndpoint } from "@spacebar/api/util";
+import {
+    assertIpNotBanned,
+    assertRegistrationAllowedForIp,
+    captchaKeyFrom,
+    checkRegistrationCaptcha,
+    claimInvite,
+    findUsableInvite,
+    instanceAutomodMatch,
+    normalizeIp,
+    recordAutomodAction,
+    recordInvitedUser,
+    recordRegistrationForIp,
+    registrationCapEndpoint,
+    releaseInvite,
+} from "@spacebar/api/util";
+import { assertIdentityNameAllowed } from "@spacebar/util/util/IdentityModeration";
 import { isPrideBadgeSelection } from "@spacebar/api/util/utility/prideBadgeSelection";
 import { route } from "@spacebar/api/middlewares";
 import { Invite, User, ValidRegistrationToken } from "@spacebar/database";
@@ -13,6 +28,8 @@ import { BcryptWorkerPool } from "@spacebar/util/util/workers/bcrypt/BcryptWorke
 import { Stopwatch, TimeSpan, trimSpecial } from "@spacebar/extensions";
 
 const router: Router = Router({ mergeParams: true });
+
+const inviteError = (code: string, message: string) => FieldErrors({ username: { code, message }, instance_invite: { code, message } });
 
 const recentlyBlockedIps: {
     [ip: string]: {
@@ -44,6 +61,7 @@ router.post(
         const body = req.body as RegisterSchema;
         const { register, limits } = Config.get();
         const ip = req.ip!;
+        await assertIpNotBanned(ip, "Your IP is blocked from registration");
 
         const captchaKey = captchaKeyFrom(req);
         const captcha = await checkRegistrationCaptcha(captchaKey, false);
@@ -120,6 +138,35 @@ router.post(
                     },
                 });
             }
+        }
+
+        if (!regTokenUsed) await assertRegistrationAllowedForIp(ip, body.username ?? body.global_name);
+
+        const reasonField = "join_reason" in body ? "join_reason" : "username";
+        const joinReason = typeof body.join_reason === "string" ? body.join_reason.trim() : "";
+        const reasonRules = register.joinReason;
+        if (reasonRules.required && joinReason.length < reasonRules.minLength)
+            throw FieldErrors({
+                [reasonField]: {
+                    code: "JOIN_REASON_REQUIRED",
+                    message: joinReason
+                        ? `Tell us a bit more about why you want to join. Use at least ${reasonRules.minLength} characters.`
+                        : `This instance asks why you want to join. Write at least ${reasonRules.minLength} characters.`,
+                },
+            });
+        if (joinReason.length > reasonRules.maxLength)
+            throw FieldErrors({ join_reason: { code: "BASE_TYPE_BAD_LENGTH", message: `Must be ${reasonRules.maxLength} or fewer in length.` } });
+        const reasonMatch = instanceAutomodMatch(joinReason, true);
+        if (reasonMatch) {
+            await recordAutomodAction({
+                username: (body.username ?? body.global_name ?? "").slice(0, 64) || null,
+                rule: reasonMatch.rule,
+                match: reasonMatch,
+                source: "registration",
+                action: "block",
+                text: joinReason,
+            }).catch(() => undefined);
+            throw FieldErrors({ [reasonField]: { code: "JOIN_REASON_NOT_ALLOWED", message: "Your answer contains words that aren't allowed on this instance." } });
         }
 
         logTrace("Basic checks");
@@ -287,15 +334,11 @@ router.post(
         }
         logTrace("Password checks");
 
-        if (!regTokenUsed && !body.invite && (register.requireInvite || (register.guestsRequireInvite && !register.email))) {
-            // require invite to register -> e.g. for organizations to send invites to their employees
-            throw FieldErrors({
-                email: {
-                    code: "INVITE_ONLY",
-                    message: req.t("auth:register.INVITE_ONLY"),
-                },
-            });
-        }
+        const instanceInvite = typeof body.instance_invite === "string" ? body.instance_invite.trim() : "";
+        const inviteRequired = !regTokenUsed && register.requireInvite;
+        if (inviteRequired && !instanceInvite) throw inviteError("INVITE_ONLY", "This instance is invite-only. Open the invite link a member sent you to sign up.");
+        if (inviteRequired && !(await findUsableInvite(instanceInvite)))
+            throw inviteError("INVALID_INVITE", "This invite is invalid, expired or used up. Ask for a new invite link.");
 
         if (
             !regTokenUsed &&
@@ -340,6 +383,8 @@ router.post(
         }
 
         body.username = trimSpecial(body.username);
+        assertIdentityNameAllowed(body.username, "username", { source: "registration" });
+        assertIdentityNameAllowed(body.global_name, "global_name", { source: "registration", username: body.username });
         User.assertUsernameAllowed(body.username);
         if (await User.isUsernameTaken(body.username))
             throw FieldErrors({
@@ -354,8 +399,29 @@ router.post(
             if (claimed) return res.status(400).json(claimed);
         }
 
-        const user = await User.register({ ...body, username: body.username, req });
+        const claimedInvite = instanceInvite ? await claimInvite(instanceInvite) : null;
+        if (inviteRequired && !claimedInvite) throw inviteError("INVALID_INVITE", "This invite is invalid, expired or used up. Ask for a new invite link.");
+
+        let user: User;
+        try {
+            user = await User.register({ ...body, username: body.username, req, registration_ip: normalizeIp(ip) });
+        } catch (error) {
+            if (claimedInvite) await releaseInvite(claimedInvite.code);
+            throw error;
+        }
+        if (claimedInvite) await recordInvitedUser(user.id, claimedInvite);
         logTrace("Register user");
+        await recordRegistrationForIp(ip);
+
+        const pending = !regTokenUsed && register.requireApproval;
+        if (joinReason || pending) await User.update({ id: user.id }, { join_reason: joinReason || null, join_status: pending ? "pending" : null });
+        if (pending)
+            throw FieldErrors({
+                [reasonField]: {
+                    code: "ACCOUNT_PENDING_APPROVAL",
+                    message: "Your account was created. A moderator needs to approve it before you can log in, so try logging in later.",
+                },
+            });
 
         if (body.invite) {
             // await to fail if the invite doesn't exist (necessary for requireInvite to work properly) (username only signups are possible)

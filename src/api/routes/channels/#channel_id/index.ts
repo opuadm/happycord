@@ -1,7 +1,15 @@
 import { Request, Response, Router } from "express";
 import { Not } from "typeorm";
 import { route } from "@spacebar/api/middlewares";
-import { AUTO_ARCHIVE_DURATION_ERROR, AUTO_ARCHIVE_DURATIONS, emitThreadUpdate, purgeDeletedChannels, sendMessage, setThreadArchived } from "@spacebar/api/util";
+import {
+    AUTO_ARCHIVE_DURATION_ERROR,
+    AUTO_ARCHIVE_DURATIONS,
+    emitThreadUpdate,
+    enforceNameAutomod,
+    purgeDeletedChannels,
+    sendMessage,
+    setThreadArchived,
+} from "@spacebar/api/util";
 import { AuditLog, Channel, Guild, Recipient, Tag, ThreadMember, VoiceChannels } from "@spacebar/database";
 import {
     ChannelDeleteEvent,
@@ -212,6 +220,15 @@ router.patch(
             relations: { available_tags: true },
         });
 
+        if (payload.name != null)
+            await enforceNameAutomod({
+                user_id: req.user_id,
+                name: payload.name,
+                field: "name",
+                source: channel.isThread() ? "thread_name" : "channel_name",
+                guild_id: channel.guild_id,
+                channel_id: channel.id,
+            });
         const channelLimits = Config.get().limits.channel;
         const errors: ErrorList = {};
         const maxName = channel.isThread() ? 100 : channelLimits.maxName;

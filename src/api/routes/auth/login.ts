@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import { Request, Response, Router } from "express";
-import { loginMfaResponse, captchaKeyFrom, checkCaptcha } from "@spacebar/api/util";
+import { assertIpNotBanned, assertLoginNotLocked, captchaKeyFrom, checkCaptcha, clearFailedLogins, loginMfaResponse, recordFailedLogin } from "@spacebar/api/util";
 import { route } from "@spacebar/api/middlewares";
 import { User } from "@spacebar/database";
 import { Config, FieldErrors, generateToken } from "@spacebar/util";
@@ -26,8 +26,9 @@ router.post(
         const { login, password, undelete } = req.body as LoginSchema;
 
         const config = Config.get();
+        await assertIpNotBanned(req.ip, "Sign-in from this network is blocked on this instance");
 
-        const captcha = await checkCaptcha(config.login.requireCaptcha, captchaKeyFrom(req));
+        const captcha = await checkCaptcha(config.login.requireCaptcha, captchaKeyFrom(req), "login");
         if (captcha) return res.status(400).json(captcha);
 
         const user = await User.findOneOrFail({
@@ -38,6 +39,8 @@ router.post(
                 disabled: true,
                 deleted: true,
                 account_standing: true,
+                suspended_until: true,
+                join_status: true,
                 totp_secret: true,
                 mfa_enabled: true,
                 webauthn_enabled: true,
@@ -58,9 +61,12 @@ router.post(
             });
         });
 
+        await assertLoginNotLocked(user.id);
+
         // the salt is saved in the password refer to bcrypt docs
         const same_password = await bcrypt.compare(password, user.data.hash || "");
         if (!same_password) {
+            await recordFailedLogin(user.id);
             throw FieldErrors({
                 login: {
                     message: req.t("auth:login.INVALID_LOGIN"),
@@ -72,6 +78,16 @@ router.post(
                 },
             });
         }
+
+        await clearFailedLogins(user.id);
+
+        const refuse = (code: string, message: string) => {
+            throw FieldErrors({ login: { code, message }, password: { code, message } });
+        };
+        if (user.join_status === "pending") refuse("ACCOUNT_PENDING_APPROVAL", "Your account is waiting for a moderator to approve it. Try again once it's approved.");
+        if (user.join_status === "rejected") refuse("ACCOUNT_NOT_APPROVED", "A moderator didn't approve this account.");
+        if (user.suspended_until && new Date(user.suspended_until).getTime() > Date.now())
+            refuse("ACCOUNT_SUSPENDED", `This account is suspended until ${new Date(user.suspended_until).toUTCString()} for breaking the rules.`);
 
         if (!undelete && user.deleted)
             return res.status(400).json({
