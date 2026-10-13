@@ -8,6 +8,7 @@ interface DeviceEmojiDescriptor {
     id: string;
     name: string;
     animated: boolean;
+    v?: string;
 }
 
 interface DeviceEmojiContext {
@@ -28,10 +29,10 @@ function deviceEmojis(): DeviceEmojiDescriptor[] {
     if (emojiCache.list === list) return emojiCache.out;
     const out = list
         .filter(
-            (entry): entry is { id: string; name: string } =>
+            (entry): entry is { id: string; name: string; v?: unknown } =>
                 !!entry && typeof entry === "object" && typeof (entry as { id?: unknown }).id === "string" && typeof (entry as { name?: unknown }).name === "string",
         )
-        .map((entry) => ({ id: entry.id, name: entry.name, animated: false }));
+        .map((entry) => ({ id: entry.id, name: entry.name, animated: false, v: typeof entry.v === "string" ? entry.v : undefined }));
     emojiCache = { list, out };
     return out;
 }
@@ -83,7 +84,8 @@ function devicesDescription(): string {
 function deviceNode(id: string, jumboable: boolean) {
     const found = deviceEmojis().find((entry) => entry.id === id);
     if (!found) return null;
-    return { name: `:${found.name}:`, src: `/emojis/${found.id}.webp?size=128`, jumboable };
+    const version = found.v ? `&v=${found.v}` : "";
+    return { name: `:${found.name}:`, src: `/emojis/${found.id}.webp?size=128${version}`, jumboable };
 }
 
 function describeDeviceApp(intl: unknown, keys: unknown, app: unknown): string {

@@ -1,0 +1,47 @@
+diff --git a/src/plugins/platformIndicators/index.tsx b/src/plugins/platformIndicators/index.tsx
+--- a/src/plugins/platformIndicators/index.tsx
++++ b/src/plugins/platformIndicators/index.tsx
+@@ -39,15 +39,17 @@
+     return ({ color, tooltip, small }: { color: string; tooltip: string; small: boolean; }) => (
+         <Tooltip text={tooltip}>
+             {tooltipProps => (
+-                <svg
+-                    {...tooltipProps}
+-                    height={(opts?.height ?? 20) - (small ? 3 : 0)}
+-                    width={(opts?.width ?? 20) - (small ? 3 : 0)}
+-                    viewBox={opts?.viewBox ?? "0 0 24 24"}
+-                    fill={color}
+-                >
+-                    <path d={path} />
+-                </svg>
++                <span {...tooltipProps} className="vc-platform-indicator-icon" role="img" aria-label={tooltip}>
++                    <svg
++                        height={(opts?.height ?? 20) - (small ? 3 : 0)}
++                        width={(opts?.width ?? 20) - (small ? 3 : 0)}
++                        viewBox={opts?.viewBox ?? "0 0 24 24"}
++                        fill={color}
++                        aria-hidden="true"
++                    >
++                        <path d={path} />
++                    </svg>
++                </span>
+             )}
+         </Tooltip>
+     );
+diff --git a/src/plugins/platformIndicators/style.css b/src/plugins/platformIndicators/style.css
+--- a/src/plugins/platformIndicators/style.css
++++ b/src/plugins/platformIndicators/style.css
+@@ -15,3 +15,13 @@
+     vertical-align: top;
+     top: -1px;
+ }
++
++.vc-platform-indicator-icon {
++    display: inline-flex;
++    flex-shrink: 0;
++}
++
++.vc-platform-indicator-icon > svg {
++    display: block;
++    pointer-events: none;
++}

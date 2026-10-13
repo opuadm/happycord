@@ -39,5 +39,14 @@ export interface ClientStatus {
     terminal?: string; // e.g. terminal
     toilet?: string; // e.g. smart toilet
     bed?: string; // e.g. smart bed
+    floor?: string; // e.g. smart floor
+    house?: string; // e.g. smart house
+    router?: string; // e.g. router
+    settings?: string; // e.g. settings page
+    smartwatch?: string; // e.g. smartwatch
+    clock?: string; // e.g. clock
+    leaf?: string; // e.g. smart leaf
+    pencil?: string; // e.g. smart pencil
+    paper?: string; // e.g. smart paper
     unknown?: string; // e.g. unknown device
 }

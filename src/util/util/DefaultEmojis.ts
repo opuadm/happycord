@@ -9,10 +9,11 @@ export interface DefaultEmoji {
     id: string;
     name: string;
     file: string;
+    sha256: string;
 }
 
 interface DeviceEmojiManifest {
-    emojis?: { id?: unknown; name?: unknown; file?: unknown }[];
+    emojis?: { id?: unknown; name?: unknown; file?: unknown; sha256?: unknown }[];
 }
 
 // The manifest is the single source of truth: ids are explicit and frozen, so adding art never
@@ -30,8 +31,8 @@ export function getDefaultEmojis(): DefaultEmoji[] {
         }
         catalog =
             entries?.filter(
-                (entry): entry is { id: string; name: string; file: string } =>
-                    !!entry && typeof entry.id === "string" && typeof entry.name === "string" && typeof entry.file === "string",
+                (entry): entry is { id: string; name: string; file: string; sha256: string } =>
+                    !!entry && typeof entry.id === "string" && typeof entry.name === "string" && typeof entry.file === "string" && typeof entry.sha256 === "string",
             ) ?? [];
     }
     return catalog;

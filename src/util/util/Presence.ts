@@ -75,7 +75,27 @@ export interface AggregatedPresence {
 }
 
 const PresencePriority: Record<string, number> = { dnd: 0, online: 1, idle: 2 };
-const ClientPlatforms = ["desktop", "mobile", "web", "embedded", "vr", "toaster", "terminal", "toilet", "bed", "unknown"] as const;
+const ClientPlatforms = [
+    "desktop",
+    "mobile",
+    "web",
+    "embedded",
+    "vr",
+    "toaster",
+    "terminal",
+    "toilet",
+    "bed",
+    "floor",
+    "house",
+    "router",
+    "settings",
+    "smartwatch",
+    "clock",
+    "leaf",
+    "pencil",
+    "paper",
+    "unknown",
+] as const;
 export type ClientPlatform = (typeof ClientPlatforms)[number];
 
 function platformTokens(browser: string, os: string) {
@@ -86,6 +106,15 @@ function platformTokens(browser: string, os: string) {
     if (browser.includes("terminal")) found.add("terminal");
     if (browser.includes("toilet")) found.add("toilet");
     if (browser.includes("discord bed")) found.add("bed");
+    if (browser.includes("floor")) found.add("floor");
+    if (browser.includes("house")) found.add("house");
+    if (browser.includes("router")) found.add("router");
+    if (browser.includes("settings")) found.add("settings");
+    if (browser.includes("smartwatch")) found.add("smartwatch");
+    if (browser.includes("clock")) found.add("clock");
+    if (browser.includes("leaf")) found.add("leaf");
+    if (browser.includes("pencil")) found.add("pencil");
+    if (browser.includes("paper")) found.add("paper");
     if (browser.includes("unknown")) found.add("unknown");
     if (browser.includes("embedded")) found.add("embedded");
     if (browser.includes("vr")) found.add("vr");
@@ -101,6 +130,15 @@ export function getClientPlatform(properties?: { browser?: string; $browser?: st
     if (browser.includes("terminal")) return "terminal";
     if (browser.includes("toilet")) return "toilet";
     if (browser.includes("discord bed")) return "bed";
+    if (browser.includes("floor")) return "floor";
+    if (browser.includes("house")) return "house";
+    if (browser.includes("router")) return "router";
+    if (browser.includes("settings")) return "settings";
+    if (browser.includes("smartwatch")) return "smartwatch";
+    if (browser.includes("clock")) return "clock";
+    if (browser.includes("leaf")) return "leaf";
+    if (browser.includes("pencil")) return "pencil";
+    if (browser.includes("paper")) return "paper";
     if (browser.includes("unknown")) return "unknown";
     if (browser.includes("embedded")) return "embedded";
     if (browser.includes("vr")) return "vr";

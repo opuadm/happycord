@@ -14705,6 +14705,33 @@
             "bed": {
                 "type": "string"
             },
+            "floor": {
+                "type": "string"
+            },
+            "house": {
+                "type": "string"
+            },
+            "router": {
+                "type": "string"
+            },
+            "settings": {
+                "type": "string"
+            },
+            "smartwatch": {
+                "type": "string"
+            },
+            "clock": {
+                "type": "string"
+            },
+            "leaf": {
+                "type": "string"
+            },
+            "pencil": {
+                "type": "string"
+            },
+            "paper": {
+                "type": "string"
+            },
             "unknown": {
                 "type": "string"
             }

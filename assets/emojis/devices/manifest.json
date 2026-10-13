@@ -1,14 +1,14 @@
 {
   "source": "user-provided Happies (high-quality) and their Discord-compressed low-quality copies, plus instance-generated mood variants for the custom platforms",
   "upstreamDirectory": "/mnt/c/Users/OpuaY/Documents/Happies",
-  "generatedFrom": "client platform SVG paths (toaster: custom front-view art; terminal/question-mark: Google Material Icons; toilet: Material Design Icons)",
+  "generatedFrom": "client platform SVG paths (toaster: custom front-view art; terminal/bed/question-mark/floor/house/router/settings/smartwatch/clock/leaf/pencil/paper: Google Material Icons; toilet: Material Design Icons)",
   "moodColors": {
     "happy": "#45A366",
-    "angry": "#DA3E44",
     "neutral": "#FFC04E",
+    "angry": "#DA3E44",
     "sad": "#84858D"
   },
-  "emojiCount": 57,
+  "emojiCount": 93,
   "emojis": [
     {
       "name": "happybrowser",
@@ -146,130 +146,85 @@
       "id": "101000000000000014"
     },
     {
-      "name": "angrybrowser",
-      "file": "emojis/devices/angrybrowser.png",
-      "sha256": "a20bab68a88a046dfd3f67d1a4acef6190133fec44e3bd79815a4572982505e5",
-      "mood": "angry",
-      "device": "browser",
+      "name": "happyfloor",
+      "file": "emojis/devices/happyfloor.png",
+      "sha256": "c36a73e876d895db7c6fe61d18aca0d1d50b82f8290e8d6655c03ff801580cf9",
+      "mood": "happy",
+      "device": "floor",
       "quality": "high",
-      "id": "101000000000000015"
+      "id": "101000000000000057"
     },
     {
-      "name": "angrybrowser_low",
-      "file": "emojis/devices/angrybrowser_low.png",
-      "sha256": "8bf191b6b88b0696b979d80453118aea92df2453d39d28a32a32979c1c0f8e42",
-      "mood": "angry",
-      "device": "browser",
-      "quality": "low",
-      "id": "101000000000000016"
-    },
-    {
-      "name": "angryconsole",
-      "file": "emojis/devices/angryconsole.png",
-      "sha256": "c8107ecc4d5b2a131d4dbe382e73ceac411a80cf20245de89e1bf366c13d1242",
-      "mood": "angry",
-      "device": "console",
+      "name": "happyhouse",
+      "file": "emojis/devices/happyhouse.png",
+      "sha256": "0f2f3da61aa203fd76bb1bf1bbdda6f86c105acad440476755ca01818acf7568",
+      "mood": "happy",
+      "device": "house",
       "quality": "high",
-      "id": "101000000000000017"
+      "id": "101000000000000058"
     },
     {
-      "name": "angryconsole_low",
-      "file": "emojis/devices/angryconsole_low.png",
-      "sha256": "e203a72f42af24baade6c3719a1bc9a86dee99ba4be93bbef2305f2e2cebd587",
-      "mood": "angry",
-      "device": "console",
-      "quality": "low",
-      "id": "101000000000000018"
-    },
-    {
-      "name": "angrypc",
-      "file": "emojis/devices/angrypc.png",
-      "sha256": "4c4e8c94bcdf049d4be310a72c6c94e9b9100a1b8ce9b825aca6324d108dc3c1",
-      "mood": "angry",
-      "device": "pc",
+      "name": "happyrouter",
+      "file": "emojis/devices/happyrouter.png",
+      "sha256": "41913df0a1579bc53dc9f6ed228e624c466b70cb3f9de0b6653a855a1c15bd5b",
+      "mood": "happy",
+      "device": "router",
       "quality": "high",
-      "id": "101000000000000019"
+      "id": "101000000000000059"
     },
     {
-      "name": "angrypc_low",
-      "file": "emojis/devices/angrypc_low.png",
-      "sha256": "558cfdba497d8014f20aa3d8cac7c4f9fe7199c1b0d950b007d907b535eafddb",
-      "mood": "angry",
-      "device": "pc",
-      "quality": "low",
-      "id": "101000000000000020"
-    },
-    {
-      "name": "angryphone",
-      "file": "emojis/devices/angryphone.png",
-      "sha256": "17ea32f6cd16f5a08045f9768d9e4ab18ff4bdaa43e7b43027b69c8a0518d70b",
-      "mood": "angry",
-      "device": "phone",
+      "name": "happysettings",
+      "file": "emojis/devices/happysettings.png",
+      "sha256": "f4b67bf57ddfdc25ed4ff158ab88231b34e09cc03e1a948b63793e47b0cb5b56",
+      "mood": "happy",
+      "device": "settings",
       "quality": "high",
-      "id": "101000000000000021"
+      "id": "101000000000000060"
     },
     {
-      "name": "angryphone_low",
-      "file": "emojis/devices/angryphone_low.png",
-      "sha256": "483b4918b288cbd50451bd218168064ccb8a4bc7afabf3be3ceda9df81214d42",
-      "mood": "angry",
-      "device": "phone",
-      "quality": "low",
-      "id": "101000000000000022"
-    },
-    {
-      "name": "angryvr",
-      "file": "emojis/devices/angryvr.png",
-      "sha256": "a4edcb7a7c2da5eca1c9b1823fa4429c6e74eea47cbb03b3cb3bc573b0da0552",
-      "mood": "angry",
-      "device": "vr",
+      "name": "happysmartwatch",
+      "file": "emojis/devices/happysmartwatch.png",
+      "sha256": "41efe4373af130d60e1905f961809dccd0780abe5c59d412cc4f1892ba8f4cfb",
+      "mood": "happy",
+      "device": "smartwatch",
       "quality": "high",
-      "id": "101000000000000023"
+      "id": "101000000000000061"
     },
     {
-      "name": "angrytoaster",
-      "file": "emojis/devices/angrytoaster.png",
-      "sha256": "e46addf0c5ef2f697c89970272203cb2288119e98e46a621a4839a913eb25398",
-      "mood": "angry",
-      "device": "toaster",
+      "name": "happyclock",
+      "file": "emojis/devices/happyclock.png",
+      "sha256": "e1df25cab5f58f60000c3aa0980d66ebea74d63c07e5fb56ec5fbc3eefb36491",
+      "mood": "happy",
+      "device": "clock",
       "quality": "high",
-      "id": "101000000000000024"
+      "id": "101000000000000062"
     },
     {
-      "name": "angryterminal",
-      "file": "emojis/devices/angryterminal.png",
-      "sha256": "4d9f8d0405bc01cf0e838c2b996e16ead2aeef1d0af0d85cd467c46cc10b1821",
-      "mood": "angry",
-      "device": "terminal",
+      "name": "happyleaf",
+      "file": "emojis/devices/happyleaf.png",
+      "sha256": "454cf76d8db25bd24f83eb054504355729b80c215e48ccfc0c2647a6cb35d983",
+      "mood": "happy",
+      "device": "leaf",
       "quality": "high",
-      "id": "101000000000000025"
+      "id": "101000000000000063"
     },
     {
-      "name": "angrytoilet",
-      "file": "emojis/devices/angrytoilet.png",
-      "sha256": "65376cb4b191f143fe4ad57cfe2fb6ffef4d05fff8982f23c3e5ed4886d96d55",
-      "mood": "angry",
-      "device": "toilet",
+      "name": "happypencil",
+      "file": "emojis/devices/happypencil.png",
+      "sha256": "f1f31453dab893e5f543515b0b511343372fb7d143af212ec19eafa611da8a7c",
+      "mood": "happy",
+      "device": "pencil",
       "quality": "high",
-      "id": "101000000000000026"
+      "id": "101000000000000064"
     },
     {
-      "name": "angrybed",
-      "file": "emojis/devices/angrybed.png",
-      "sha256": "e450e7c9cebe3806fcf55c241a833fea9aa8795bee8d3421b97bc451e5ab9ec2",
-      "mood": "angry",
-      "device": "bed",
+      "name": "happypaper",
+      "file": "emojis/devices/happypaper.png",
+      "sha256": "12fecc685b65327eb309073ee1e062b5423060943468b382e16a09b8915a63c1",
+      "mood": "happy",
+      "device": "paper",
       "quality": "high",
-      "id": "101000000000000027"
-    },
-    {
-      "name": "angryunknown",
-      "file": "emojis/devices/angryunknown.png",
-      "sha256": "8ade58c6833cdf40db58661d790268f28f29c986c87592ffaee27a17480974f2",
-      "mood": "angry",
-      "device": "unknown",
-      "quality": "high",
-      "id": "101000000000000028"
+      "id": "101000000000000065"
     },
     {
       "name": "neutralbrowser",
@@ -398,6 +353,294 @@
       "id": "101000000000000042"
     },
     {
+      "name": "neutralfloor",
+      "file": "emojis/devices/neutralfloor.png",
+      "sha256": "6a98ccaa90be7de22898aa191fe3312a8c6b37cef994692e281d9d2111b5dd9c",
+      "mood": "neutral",
+      "device": "floor",
+      "quality": "high",
+      "id": "101000000000000075"
+    },
+    {
+      "name": "neutralhouse",
+      "file": "emojis/devices/neutralhouse.png",
+      "sha256": "d101431af9a63d9069427e4c83aea5c41d127af7de775ad56a6a28f5fa202643",
+      "mood": "neutral",
+      "device": "house",
+      "quality": "high",
+      "id": "101000000000000076"
+    },
+    {
+      "name": "neutralrouter",
+      "file": "emojis/devices/neutralrouter.png",
+      "sha256": "8868e9ec5f23a9385eddeffb34894143233f0f57725474f189815e01352c87aa",
+      "mood": "neutral",
+      "device": "router",
+      "quality": "high",
+      "id": "101000000000000077"
+    },
+    {
+      "name": "neutralsettings",
+      "file": "emojis/devices/neutralsettings.png",
+      "sha256": "c1f59272ef2ca8e46a8064cd5b38c25d658b49790ad81a098e1187e94bc0a750",
+      "mood": "neutral",
+      "device": "settings",
+      "quality": "high",
+      "id": "101000000000000078"
+    },
+    {
+      "name": "neutralsmartwatch",
+      "file": "emojis/devices/neutralsmartwatch.png",
+      "sha256": "78ef0a026eae59b31afc6d2d646aaa536885825fb5f709444be754c9a96e8685",
+      "mood": "neutral",
+      "device": "smartwatch",
+      "quality": "high",
+      "id": "101000000000000079"
+    },
+    {
+      "name": "neutralclock",
+      "file": "emojis/devices/neutralclock.png",
+      "sha256": "0c12fbdb680d71299f90511f5ffd99d413c98ec8ec0cc012ce973f5fbe110b61",
+      "mood": "neutral",
+      "device": "clock",
+      "quality": "high",
+      "id": "101000000000000080"
+    },
+    {
+      "name": "neutralleaf",
+      "file": "emojis/devices/neutralleaf.png",
+      "sha256": "b8d39959aa9eaa58d032b04464c5fc02cab6a8d5c32af07c11e98ea671793065",
+      "mood": "neutral",
+      "device": "leaf",
+      "quality": "high",
+      "id": "101000000000000081"
+    },
+    {
+      "name": "neutralpencil",
+      "file": "emojis/devices/neutralpencil.png",
+      "sha256": "a1d0fe5334fcba4357c337cf1e020fa82a27f1d33e10ee9ed8d6c19f381b4133",
+      "mood": "neutral",
+      "device": "pencil",
+      "quality": "high",
+      "id": "101000000000000082"
+    },
+    {
+      "name": "neutralpaper",
+      "file": "emojis/devices/neutralpaper.png",
+      "sha256": "ddba77984b8212cea7b150ca12c9663f36436b4001cf5f32a232994f420a244c",
+      "mood": "neutral",
+      "device": "paper",
+      "quality": "high",
+      "id": "101000000000000083"
+    },
+    {
+      "name": "angrybrowser",
+      "file": "emojis/devices/angrybrowser.png",
+      "sha256": "a20bab68a88a046dfd3f67d1a4acef6190133fec44e3bd79815a4572982505e5",
+      "mood": "angry",
+      "device": "browser",
+      "quality": "high",
+      "id": "101000000000000015"
+    },
+    {
+      "name": "angrybrowser_low",
+      "file": "emojis/devices/angrybrowser_low.png",
+      "sha256": "8bf191b6b88b0696b979d80453118aea92df2453d39d28a32a32979c1c0f8e42",
+      "mood": "angry",
+      "device": "browser",
+      "quality": "low",
+      "id": "101000000000000016"
+    },
+    {
+      "name": "angryconsole",
+      "file": "emojis/devices/angryconsole.png",
+      "sha256": "c8107ecc4d5b2a131d4dbe382e73ceac411a80cf20245de89e1bf366c13d1242",
+      "mood": "angry",
+      "device": "console",
+      "quality": "high",
+      "id": "101000000000000017"
+    },
+    {
+      "name": "angryconsole_low",
+      "file": "emojis/devices/angryconsole_low.png",
+      "sha256": "e203a72f42af24baade6c3719a1bc9a86dee99ba4be93bbef2305f2e2cebd587",
+      "mood": "angry",
+      "device": "console",
+      "quality": "low",
+      "id": "101000000000000018"
+    },
+    {
+      "name": "angrypc",
+      "file": "emojis/devices/angrypc.png",
+      "sha256": "4c4e8c94bcdf049d4be310a72c6c94e9b9100a1b8ce9b825aca6324d108dc3c1",
+      "mood": "angry",
+      "device": "pc",
+      "quality": "high",
+      "id": "101000000000000019"
+    },
+    {
+      "name": "angrypc_low",
+      "file": "emojis/devices/angrypc_low.png",
+      "sha256": "558cfdba497d8014f20aa3d8cac7c4f9fe7199c1b0d950b007d907b535eafddb",
+      "mood": "angry",
+      "device": "pc",
+      "quality": "low",
+      "id": "101000000000000020"
+    },
+    {
+      "name": "angryphone",
+      "file": "emojis/devices/angryphone.png",
+      "sha256": "17ea32f6cd16f5a08045f9768d9e4ab18ff4bdaa43e7b43027b69c8a0518d70b",
+      "mood": "angry",
+      "device": "phone",
+      "quality": "high",
+      "id": "101000000000000021"
+    },
+    {
+      "name": "angryphone_low",
+      "file": "emojis/devices/angryphone_low.png",
+      "sha256": "483b4918b288cbd50451bd218168064ccb8a4bc7afabf3be3ceda9df81214d42",
+      "mood": "angry",
+      "device": "phone",
+      "quality": "low",
+      "id": "101000000000000022"
+    },
+    {
+      "name": "angryvr",
+      "file": "emojis/devices/angryvr.png",
+      "sha256": "a4edcb7a7c2da5eca1c9b1823fa4429c6e74eea47cbb03b3cb3bc573b0da0552",
+      "mood": "angry",
+      "device": "vr",
+      "quality": "high",
+      "id": "101000000000000023"
+    },
+    {
+      "name": "angrytoaster",
+      "file": "emojis/devices/angrytoaster.png",
+      "sha256": "e46addf0c5ef2f697c89970272203cb2288119e98e46a621a4839a913eb25398",
+      "mood": "angry",
+      "device": "toaster",
+      "quality": "high",
+      "id": "101000000000000024"
+    },
+    {
+      "name": "angryterminal",
+      "file": "emojis/devices/angryterminal.png",
+      "sha256": "4d9f8d0405bc01cf0e838c2b996e16ead2aeef1d0af0d85cd467c46cc10b1821",
+      "mood": "angry",
+      "device": "terminal",
+      "quality": "high",
+      "id": "101000000000000025"
+    },
+    {
+      "name": "angrytoilet",
+      "file": "emojis/devices/angrytoilet.png",
+      "sha256": "65376cb4b191f143fe4ad57cfe2fb6ffef4d05fff8982f23c3e5ed4886d96d55",
+      "mood": "angry",
+      "device": "toilet",
+      "quality": "high",
+      "id": "101000000000000026"
+    },
+    {
+      "name": "angrybed",
+      "file": "emojis/devices/angrybed.png",
+      "sha256": "e450e7c9cebe3806fcf55c241a833fea9aa8795bee8d3421b97bc451e5ab9ec2",
+      "mood": "angry",
+      "device": "bed",
+      "quality": "high",
+      "id": "101000000000000027"
+    },
+    {
+      "name": "angryunknown",
+      "file": "emojis/devices/angryunknown.png",
+      "sha256": "8ade58c6833cdf40db58661d790268f28f29c986c87592ffaee27a17480974f2",
+      "mood": "angry",
+      "device": "unknown",
+      "quality": "high",
+      "id": "101000000000000028"
+    },
+    {
+      "name": "angryfloor",
+      "file": "emojis/devices/angryfloor.png",
+      "sha256": "3654683e419868e3f2c93133e143f36c710cea70132bf73d3d38937102d40abb",
+      "mood": "angry",
+      "device": "floor",
+      "quality": "high",
+      "id": "101000000000000066"
+    },
+    {
+      "name": "angryhouse",
+      "file": "emojis/devices/angryhouse.png",
+      "sha256": "a77b87857d8638b315cb836d08c531bf47397fb6445824fe84b3759001e4c321",
+      "mood": "angry",
+      "device": "house",
+      "quality": "high",
+      "id": "101000000000000067"
+    },
+    {
+      "name": "angryrouter",
+      "file": "emojis/devices/angryrouter.png",
+      "sha256": "9bbb125c4cb24b9208f2a607b032e3be64ab18abd13704900ad3392a90b83943",
+      "mood": "angry",
+      "device": "router",
+      "quality": "high",
+      "id": "101000000000000068"
+    },
+    {
+      "name": "angrysettings",
+      "file": "emojis/devices/angrysettings.png",
+      "sha256": "39704cd06dcf9103f510e3a726665e8348c04da984d39966be5e9752ffa25cc0",
+      "mood": "angry",
+      "device": "settings",
+      "quality": "high",
+      "id": "101000000000000069"
+    },
+    {
+      "name": "angrysmartwatch",
+      "file": "emojis/devices/angrysmartwatch.png",
+      "sha256": "632db1a4da79aa7e341c2777e91aa869b78f0ce4c1e001d99aadee5aed9da2cc",
+      "mood": "angry",
+      "device": "smartwatch",
+      "quality": "high",
+      "id": "101000000000000070"
+    },
+    {
+      "name": "angryclock",
+      "file": "emojis/devices/angryclock.png",
+      "sha256": "c721e65b5b42cf29672002482f4b2a570ea101965b01706fe4a57f5e60cac12d",
+      "mood": "angry",
+      "device": "clock",
+      "quality": "high",
+      "id": "101000000000000071"
+    },
+    {
+      "name": "angryleaf",
+      "file": "emojis/devices/angryleaf.png",
+      "sha256": "dd747a48df177b6cde56935aa1a0f04ae1b752f37e09331471b850cc7299c337",
+      "mood": "angry",
+      "device": "leaf",
+      "quality": "high",
+      "id": "101000000000000072"
+    },
+    {
+      "name": "angrypencil",
+      "file": "emojis/devices/angrypencil.png",
+      "sha256": "94799e316a61119e6652a738b2254c083a5b719f2a9cdd00175af3073f468058",
+      "mood": "angry",
+      "device": "pencil",
+      "quality": "high",
+      "id": "101000000000000073"
+    },
+    {
+      "name": "angrypaper",
+      "file": "emojis/devices/angrypaper.png",
+      "sha256": "dbe964a96bab9775cd727196bc3fcf1bc5f43fd7384520103859be2feac8bb42",
+      "mood": "angry",
+      "device": "paper",
+      "quality": "high",
+      "id": "101000000000000074"
+    },
+    {
       "name": "sadbrowser",
       "file": "emojis/devices/sadbrowser.png",
       "sha256": "fbec416a96ff166cd87edb5546e56966b658c019db9b843ff4321950496ec043",
@@ -522,6 +765,87 @@
       "device": "unknown",
       "quality": "high",
       "id": "101000000000000056"
+    },
+    {
+      "name": "sadfloor",
+      "file": "emojis/devices/sadfloor.png",
+      "sha256": "d9f45b5ff9ba93da02fa3db0f3bc6fd74fe15d9bc99968b5cd3abe5ce563cb21",
+      "mood": "sad",
+      "device": "floor",
+      "quality": "high",
+      "id": "101000000000000084"
+    },
+    {
+      "name": "sadhouse",
+      "file": "emojis/devices/sadhouse.png",
+      "sha256": "be0a98581588c12306221b9f75cd48970f3c86999b36f2644d3420997b819ee1",
+      "mood": "sad",
+      "device": "house",
+      "quality": "high",
+      "id": "101000000000000085"
+    },
+    {
+      "name": "sadrouter",
+      "file": "emojis/devices/sadrouter.png",
+      "sha256": "bd948c08e1ef200d744584fc59a063ed3bdb94887f5ef78e1c05e8339cd70d66",
+      "mood": "sad",
+      "device": "router",
+      "quality": "high",
+      "id": "101000000000000086"
+    },
+    {
+      "name": "sadsettings",
+      "file": "emojis/devices/sadsettings.png",
+      "sha256": "a2060aedf21bdb3769f2f0e26d09d87d03d3e4e4a31004227e399ccf5df57721",
+      "mood": "sad",
+      "device": "settings",
+      "quality": "high",
+      "id": "101000000000000087"
+    },
+    {
+      "name": "sadsmartwatch",
+      "file": "emojis/devices/sadsmartwatch.png",
+      "sha256": "825b05dde7be5d712a91859e982695ecd2b88e34a62747d7e5e4f5358f07bf24",
+      "mood": "sad",
+      "device": "smartwatch",
+      "quality": "high",
+      "id": "101000000000000088"
+    },
+    {
+      "name": "sadclock",
+      "file": "emojis/devices/sadclock.png",
+      "sha256": "be4ecade083240b0fc665da6867b3702d08e0eeca602eadf918367d6bc63524b",
+      "mood": "sad",
+      "device": "clock",
+      "quality": "high",
+      "id": "101000000000000089"
+    },
+    {
+      "name": "sadleaf",
+      "file": "emojis/devices/sadleaf.png",
+      "sha256": "4cd133ce5943e3541a3970ce5d5e7e996ff156dc40e7f5b82e04bb788327fe44",
+      "mood": "sad",
+      "device": "leaf",
+      "quality": "high",
+      "id": "101000000000000090"
+    },
+    {
+      "name": "sadpencil",
+      "file": "emojis/devices/sadpencil.png",
+      "sha256": "38f4a7d594bf353f41cd12a627801535de43b356d04dcf1f075139a2bd82f259",
+      "mood": "sad",
+      "device": "pencil",
+      "quality": "high",
+      "id": "101000000000000091"
+    },
+    {
+      "name": "sadpaper",
+      "file": "emojis/devices/sadpaper.png",
+      "sha256": "d36a2d9ed0fc0d7ecc82132be8fb92c41380858bdacacecc6d01c1e0eb0c3aa2",
+      "mood": "sad",
+      "device": "paper",
+      "quality": "high",
+      "id": "101000000000000092"
     }
   ]
 }

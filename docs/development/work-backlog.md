@@ -26,6 +26,7 @@ Start with `src/api/util/utility/prideBadges.ts; client/plugins/fosscordPride`.
 - [ ] **FLAG-007** Verify badges render in compact and expanded profiles.
 - [ ] **FLAG-008** Check selection search, keyboard interaction and empty results.
 - [ ] **FLAG-012** Measure profile badge rendering with a large selection.
+- [ ] **PROFILE-001** Verify PlatformIndicators wrapping in native compact and expanded profiles with 20 devices, long display names and OFFICIAL, SYSTEM and AI tags. Also check member-list groups with 3, 4 and 20 devices, tooltip opening and closing across the standard and custom glyphs, the Add note control beside the profile icon row while hidden, hovered and keyboard focused, and the 20px icons in expanded profiles and large display-name headers. The source patches are implemented; offline Chromium layout and hover-target fixtures cover them, and native client verification remains pending.
 - [ ] **QA-016** Check that default and profile badge artwork is available without runtime upstream requests. Sample each configured and default badge on the current deployment, keep custom images, and don't broadly enable upstream fetching.
 
 ## Admin navigation and lists (P1)

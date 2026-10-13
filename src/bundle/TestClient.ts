@@ -269,7 +269,7 @@ const buildHtml = () => {
         REGISTER_JOIN_REASON: ${json(joinReasonEnv())},
         CUSTOM_CLAN_BADGE_PACK: ${json(CUSTOM_CLAN_BADGE_PACK)},
         CUSTOM_CLAN_BADGES: ${json(CUSTOM_CLAN_BADGES.map((badge) => ({ ...badge, pack: clanBadgePack(badge), colors: clanBadgeColorCount(badge) })))},
-        DEFAULT_EMOJIS: ${json(DEFAULT_EMOJIS.map(({ id, name }) => ({ id, name })))},
+        DEFAULT_EMOJIS: ${json(DEFAULT_EMOJIS.map(({ id, name, sha256 }) => ({ id, name, v: sha256.slice(0, 12) })))},
     });
 })();
 </script>`;

@@ -1,0 +1,138 @@
+diff --git a/src/plugins/platformIndicators/style.css b/src/plugins/platformIndicators/style.css
+--- a/src/plugins/platformIndicators/style.css
++++ b/src/plugins/platformIndicators/style.css
+@@ -1,15 +1,118 @@
+ .vc-platform-indicator {
+     display: inline-flex;
++    flex-wrap: wrap;
++    min-width: 0;
++    max-width: 100%;
+     justify-content: center;
+     align-items: center;
+     gap: 2px;
+ }
+ 
++.vc-platform-indicator-member-list {
++    justify-content: flex-start;
++    margin-left: 4px;
++}
++
++.vc-member-list-decorators-wrapper:has(> .vc-platform-indicator-member-list) {
++    flex-shrink: 0;
++}
++
++.vc-member-list-decorators-wrapper:has(> .vc-platform-indicator-member-list > :nth-child(4)) {
++    flex: 1 1 100%;
++    min-width: 0;
++    max-width: 100%;
++    margin-left: 0;
++    justify-content: flex-start;
++}
++
++.vc-member-list-decorators-wrapper > .vc-platform-indicator-member-list:has(> :nth-child(4)) {
++    margin-left: 0;
++}
++
++:has(> .vc-member-list-decorators-wrapper > .vc-platform-indicator-member-list > :nth-child(4)) {
++    flex-wrap: wrap;
++    height: auto;
++    row-gap: 2px;
++}
++
++[class*="member_"]:has(.vc-platform-indicator-member-list > :nth-child(4)),
++[class*="member_"] [class*="layout_"]:has(.vc-platform-indicator-member-list > :nth-child(4)) {
++    height: auto;
++    min-height: 42px;
++}
++
++.vc-platform-indicator > svg {
++    flex-shrink: 0;
++}
++
+ .vc-platform-indicator-profile {
++    flex: 0 1 auto;
++    justify-content: flex-start;
+     margin: 0 1px;
+     padding: 0 1px;
+ }
+ 
++:has(> .vc-platform-indicator-profile),
++:has(> * > .vc-platform-indicator-profile) {
++    flex-wrap: wrap;
++    min-width: 0;
++    max-width: 100%;
++    height: auto;
++    row-gap: 4px;
++}
++
++:has(> .vc-platform-indicator-profile) > :not(.vc-platform-indicator-profile),
++:has(> * > .vc-platform-indicator-profile) > * {
++    flex-shrink: 0;
++    min-width: 0;
++    max-width: 100%;
++}
++
++:has(> .vc-platform-indicator-profile),
++:has(> * > .vc-platform-indicator-profile),
++:has(> * > .vc-platform-indicator-profile) :is([class*="nickname"], [class*="displayName"]) {
++    white-space: normal;
++    overflow-wrap: anywhere;
++    overflow: visible;
++    text-overflow: clip;
++}
++
++:has(> * > .vc-platform-indicator-profile) :is([class*="botTag"], [class*="botText"]) {
++    flex-shrink: 0;
++    white-space: nowrap;
++}
++
++
++:has(> .vc-platform-indicator-profile):has(> :is([class*="noteIcon"], [class*="noteButton"], [class*="addNote"])) {
++    position: relative;
++    box-sizing: border-box;
++    min-height: 20px;
++    padding-inline-end: 24px;
++}
++
++:has(> .vc-platform-indicator-profile) > :is([class*="noteIcon"], [class*="noteButton"], [class*="addNote"]) {
++    position: absolute;
++    inset-inline-end: 0;
++    inset-block-start: 0;
++    margin: 0;
++    max-width: 20px;
++}
++
++[class*="displayNameRow_"]:is([class^="lg_"], [class*=" lg_"]):has(.vc-platform-indicator-profile) {
++    align-items: center;
++}
++
++[class*="displayNameRow_"]:is([class^="lg_"], [class*=" lg_"]) > [class*="displayNameTrailing_"]:has(> .vc-platform-indicator-profile) {
++    align-self: center;
++    align-items: center;
++}
++
++:is([class*="userProfileModal"], [class*="profileModal"], [class*="fullSize_"]) .vc-platform-indicator-profile .vc-platform-indicator-icon > svg,
++[class*="displayNameRow_"]:is([class^="lg_"], [class*=" lg_"]) .vc-platform-indicator-profile .vc-platform-indicator-icon > svg {
++    width: 20px;
++    height: 20px;
++}
++
+ .vc-platform-indicator-message {
+     position: relative;
+     vertical-align: top;
+diff --git a/src/plugins/platformIndicators/index.tsx b/src/plugins/platformIndicators/index.tsx
+--- a/src/plugins/platformIndicators/index.tsx
++++ b/src/plugins/platformIndicators/index.tsx
+@@ -148,6 +148,10 @@
+     return (
+         <div
+-            className={classes("vc-platform-indicator", isProfile && "vc-platform-indicator-profile", isMessage && "vc-platform-indicator-message")}
++            className={classes(
++                "vc-platform-indicator",
++                isProfile && "vc-platform-indicator-profile",
++                isMessage && "vc-platform-indicator-message",
++                isMemberList && "vc-platform-indicator-member-list"
++            )}
+-            style={{ marginLeft: isMemberList ? "4px" : undefined }}
+         >
+             {icons}
