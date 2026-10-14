@@ -11767,12 +11767,71 @@
                     "type": "string"
                 }
             },
+            "summary": {
+                "description": "Short tagline shown on the game's popup",
+                "maxLength": 500,
+                "type": "string"
+            },
+            "description": {
+                "description": "Long description shown on the game's popup",
+                "maxLength": 2000,
+                "type": "string"
+            },
             "icon_data": {
                 "description": "Square icon as a data: URI image",
                 "type": "string"
             },
             "cover_data": {
                 "description": "Cover art as a data: URI image",
+                "type": "string"
+            },
+            "banner_data": {
+                "description": "Wide banner as a data: URI image",
+                "type": "string"
+            },
+            "genres": {
+                "description": "Genre ids shown on the game's popup, 1 to 69",
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                    "type": "integer"
+                }
+            },
+            "platforms": {
+                "description": "Platform ids shown on the game's popup: 0 desktop, 1 Xbox, 2 PlayStation, 5 Nintendo, 6 Linux, 7 macOS",
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                    "type": "integer"
+                }
+            },
+            "websites": {
+                "description": "Links shown on the game's popup, sorted into categories by domain",
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "publishers": {
+                "description": "Publishers shown on the game's popup",
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "developers": {
+                "description": "Developers shown on the game's popup",
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "release_date": {
+                "description": "Release date shown on the game's popup, for example 2024-03-15",
+                "maxLength": 30,
                 "type": "string"
             }
         },
@@ -11797,6 +11856,20 @@
                     "type": "string"
                 }
             },
+            "summary": {
+                "maxLength": 500,
+                "type": [
+                    "null",
+                    "string"
+                ]
+            },
+            "description": {
+                "maxLength": 2000,
+                "type": [
+                    "null",
+                    "string"
+                ]
+            },
             "icon_data": {
                 "description": "New icon as a data: URI image, or null to remove it",
                 "type": [
@@ -11806,6 +11879,55 @@
             },
             "cover_data": {
                 "description": "New cover art as a data: URI image, or null to remove it",
+                "type": [
+                    "null",
+                    "string"
+                ]
+            },
+            "banner_data": {
+                "description": "New banner as a data: URI image, or null to remove it",
+                "type": [
+                    "null",
+                    "string"
+                ]
+            },
+            "genres": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                    "type": "integer"
+                }
+            },
+            "platforms": {
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                    "type": "integer"
+                }
+            },
+            "websites": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "publishers": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "developers": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "release_date": {
+                "maxLength": 30,
                 "type": [
                     "null",
                     "string"
@@ -23293,6 +23415,12 @@
                     "$ref": "#/definitions/PublicChannel"
                 }
             },
+            "mention_games": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/definitions/MentionGame"
+                }
+            },
             "attachments": {
                 "type": "array",
                 "items": {
@@ -23422,6 +23550,198 @@
             "tts",
             "type",
             "webhook"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+    },
+    "MentionGame": {
+        "type": "object",
+        "properties": {
+            "id": {
+                "description": "A Twitter-like snowflake, except the epoch is 2015-01-01T00:00:00.000Z\n```\nIf we have a snowflake '266241948824764416' we can represent it as binary:\n\n64                                          22     17     12          0\n 000000111011000111100001101001000101000000  00001  00000  000000000000\n      number of ms since Discord epoch       worker  pid    increment\n```",
+                "type": "string"
+            },
+            "name": {
+                "type": "string"
+            },
+            "description": {
+                "type": "string"
+            },
+            "summary": {
+                "type": "string"
+            },
+            "aliases": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "executables": {
+                "type": "array",
+                "items": {}
+            },
+            "overlay": {
+                "type": "boolean"
+            },
+            "overlay_warn": {
+                "type": "boolean"
+            },
+            "overlay_compatibility_hook": {
+                "type": "boolean"
+            },
+            "overlay_methods": {
+                "type": "integer"
+            },
+            "hook": {
+                "type": "boolean"
+            },
+            "third_party_skus": {
+                "type": "array",
+                "items": {}
+            },
+            "themes": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "genres": {
+                "type": "array",
+                "items": {
+                    "type": "integer"
+                }
+            },
+            "platforms": {
+                "type": "array",
+                "items": {
+                    "type": "integer"
+                }
+            },
+            "platform_availability": {
+                "type": "array",
+                "items": {}
+            },
+            "websites": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "category": {
+                            "type": "integer"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "category",
+                        "url"
+                    ]
+                }
+            },
+            "companies": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        },
+                        "roles": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "name",
+                        "roles"
+                    ]
+                }
+            },
+            "publishers": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "developers": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            },
+            "first_release_date": {
+                "type": [
+                    "null",
+                    "string"
+                ]
+            },
+            "media": {
+                "type": "object",
+                "properties": {
+                    "icon": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string"
+                            },
+                            "value": {
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                            "type",
+                            "value"
+                        ]
+                    },
+                    "cover": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string"
+                            },
+                            "value": {
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                            "type",
+                            "value"
+                        ]
+                    },
+                    "banner": {
+                        "type": "object",
+                        "properties": {
+                            "type": {
+                                "type": "string"
+                            },
+                            "value": {
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                            "type",
+                            "value"
+                        ]
+                    }
+                },
+                "additionalProperties": false
+            },
+            "game_flags": {
+                "type": "integer"
+            },
+            "content_classification": {}
+        },
+        "additionalProperties": false,
+        "required": [
+            "id",
+            "name"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#"
     },

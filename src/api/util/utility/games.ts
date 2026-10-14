@@ -10,6 +10,15 @@ export interface DetectableGame {
     executables?: unknown[];
     icon_hash?: string | null;
     cover_image_hash?: string | null;
+    banner_hash?: string | null;
+    summary?: string;
+    description?: string;
+    genres?: number[];
+    platforms?: number[];
+    websites?: { category: number; url: string }[];
+    publishers?: string[];
+    developers?: string[];
+    release_date?: string | null;
     themes?: string[];
     third_party_skus?: unknown[];
     overlay?: boolean;
@@ -26,7 +35,7 @@ const CACHE_FILE = path.join(ASSETS_FOLDER, "detectable.json");
 const TTL = 6 * 3_600_000;
 const SUGGESTED = ["Minecraft", "Fortnite", "League of Legends", "VALORANT", "Roblox", "Counter-Strike 2", "Genshin Impact", "Overwatch 2", "Apex Legends", "Grand Theft Auto V"];
 
-type GameIndex = { games: DetectableGame[]; byId: Map<string, DetectableGame>; expires: number };
+type GameIndex = { games: DetectableGame[]; byId: Map<string, DetectableGame>; expires: number; etag: string };
 
 let loaded: GameIndex | undefined;
 let pending: Promise<GameIndex> | undefined;
@@ -36,13 +45,54 @@ let pendingCustom: Promise<DetectableGame[]> | undefined;
 let customRevision = 0;
 let merged: { remote: GameIndex; custom: DetectableGame[]; index: GameIndex } | undefined;
 
-const index = (games: DetectableGame[], expires: number) => ({
+const index = (games: DetectableGame[], expires: number, etag?: string) => ({
     games,
     byId: new Map(games.map((x) => [x.id, x])),
     expires,
+    etag: etag ?? `"detectable-${expires}"`,
 });
 
 export const cleanGameAliases = (aliases: string[] | undefined) => [...new Set((aliases ?? []).map((alias) => alias.trim()).filter(Boolean))];
+
+export const cleanGameList = (values: string[] | undefined, maxItem = 500) =>
+    [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))].slice(0, 20).map((value) => value.slice(0, maxItem));
+
+export const cleanGameIds = (values: (number | string)[] | undefined, min: number, max: number) => [
+    ...new Set(
+        (values ?? [])
+            .map((value) => (typeof value === "string" && /^\d+$/.test(value.trim()) ? Number(value.trim()) : value))
+            .filter((value): value is number => typeof value === "number" && Number.isInteger(value) && value >= min && value <= max),
+    ),
+];
+
+const websiteCategory = (url: string) => {
+    const host = (url.split("://")[1] ?? url)
+        .split("/")[0]
+        .toLowerCase()
+        .replace(/^www\./, "");
+    if (/(^|\.)twitter\.com$|(^|\.)x\.com$/.test(host)) return 5;
+    if (/(^|\.)facebook\.com$|(^|\.)fb\.com$/.test(host)) return 4;
+    if (/(^|\.)instagram\.com$/.test(host)) return 8;
+    if (/(^|\.)youtube\.com$|(^|\.)youtu\.be$/.test(host)) return 9;
+    if (/(^|\.)twitch\.tv$/.test(host)) return 6;
+    if (/(^|\.)reddit\.com$/.test(host)) return 14;
+    if (/(^|\.)bsky\.app$/.test(host)) return 19;
+    return 1;
+};
+
+export const cleanGameWebsites = (values: (string | { category?: number | string; url?: string })[] | undefined) => {
+    const seen = new Set<string>();
+    const websites: { category: number; url: string }[] = [];
+    for (const entry of values ?? []) {
+        const url = (typeof entry === "string" ? entry : (entry.url ?? "")).trim().slice(0, 1000);
+        if (!url || seen.has(url.toLowerCase())) continue;
+        seen.add(url.toLowerCase());
+        const raw = typeof entry === "string" ? websiteCategory(url) : Number(entry.category);
+        websites.push({ category: Number.isInteger(raw) && raw >= 1 && raw <= 23 ? raw : websiteCategory(url), url });
+        if (websites.length >= 20) break;
+    }
+    return websites;
+};
 
 export const serializeCustomGame = (game: CustomGame) => ({
     id: game.id,
@@ -50,6 +100,15 @@ export const serializeCustomGame = (game: CustomGame) => ({
     aliases: game.aliases ?? [],
     icon_hash: game.icon_hash ?? null,
     cover_image_hash: game.cover_image_hash ?? null,
+    banner_hash: game.banner_hash ?? null,
+    summary: game.summary ?? "",
+    description: game.description ?? "",
+    genres: cleanGameIds(game.genres as (number | string)[], 1, 69),
+    platforms: cleanGameIds(game.platforms as (number | string)[], 0, 7),
+    websites: cleanGameWebsites(game.websites as (string | { category?: number; url?: string })[]),
+    publishers: game.publishers ?? [],
+    developers: game.developers ?? [],
+    release_date: game.release_date ?? null,
     created_at: game.created_at,
 });
 
@@ -60,6 +119,15 @@ export const customGameToDetectable = (game: CustomGame): DetectableGame => ({
     executables: [],
     icon_hash: game.icon_hash ?? null,
     cover_image_hash: game.cover_image_hash ?? null,
+    banner_hash: game.banner_hash ?? null,
+    summary: game.summary ?? "",
+    description: game.description ?? "",
+    genres: cleanGameIds(game.genres as (number | string)[], 1, 69),
+    platforms: cleanGameIds(game.platforms as (number | string)[], 0, 7),
+    websites: cleanGameWebsites(game.websites as (string | { category?: number; url?: string })[]),
+    publishers: game.publishers ?? [],
+    developers: game.developers ?? [],
+    release_date: game.release_date ?? null,
     themes: [],
     third_party_skus: [],
     overlay: false,
@@ -80,10 +148,12 @@ async function fetchList() {
 export const DetectableGames = {
     async load(): Promise<GameIndex> {
         const remote = await this.loadRemote();
+        let revision: number;
+        let task: Promise<DetectableGame[]>;
+        let games: DetectableGame[];
         if (!custom) {
-            const revision = customRevision;
-            const task = (pendingCustom ??= CustomGame.find({ order: { name: "ASC" } }).then((games) => games.map(customGameToDetectable)));
-            let games: DetectableGame[];
+            revision = customRevision;
+            task = pendingCustom ??= CustomGame.find({ order: { name: "ASC" } }).then((games) => games.map(customGameToDetectable));
             try {
                 games = await task;
             } finally {
@@ -92,15 +162,47 @@ export const DetectableGames = {
             if (revision !== customRevision) return this.load();
             custom ??= games;
         }
-        if (merged?.remote !== remote || merged.custom !== custom) merged = { remote, custom, index: index([...custom, ...remote.games], remote.expires) };
+        if (merged?.remote !== remote || merged.custom !== custom)
+            merged = {
+                remote,
+                custom,
+                index: index([...custom, ...remote.games], remote.expires, `"detectable-${customRevision}-${remote.expires}"`),
+            };
         return merged.index;
     },
 
-    /** Call after adding, changing or removing a custom game. */
-    invalidateCustom() {
+    async invalidateCustom() {
         custom = undefined;
         pendingCustom = undefined;
+        merged = undefined;
         customRevision++;
+        await this.load();
+    },
+
+    peek(): GameIndex | undefined {
+        return merged?.index;
+    },
+
+    prime() {
+        void this.load().catch(() => undefined);
+    },
+
+    mentionGames(content: string | null | undefined) {
+        if (!content?.includes("<@$")) return [];
+        const index = this.peek();
+        if (!index) {
+            this.prime();
+            return [];
+        }
+        const seen = new Set<string>();
+        const games: ReturnType<typeof DetectableGames.toGame>[] = [];
+        for (const match of content.matchAll(/<@\$(\d{1,20})>/g)) {
+            const game = !seen.has(match[1]) && index.byId.get(match[1]);
+            if (!game) continue;
+            seen.add(match[1]);
+            games.push(this.toGame(game));
+        }
+        return games;
     },
 
     async loadRemote() {
@@ -156,7 +258,8 @@ export const DetectableGames = {
         return {
             id: game.id,
             name: game.name,
-            description: "",
+            description: (game.description as string) || "",
+            summary: (game.summary as string) || "",
             aliases: game.aliases ?? [],
             executables: game.executables ?? [],
             overlay: game.overlay ?? false,
@@ -166,14 +269,18 @@ export const DetectableGames = {
             hook: game.hook ?? true,
             third_party_skus: game.third_party_skus ?? [],
             themes: game.themes ?? [],
-            genres: [],
-            platforms: [],
+            genres: game.genres ?? [],
+            platforms: game.platforms ?? [],
             platform_availability: [],
-            websites: [],
-            companies: [],
+            websites: game.websites ?? [],
+            companies: [...(game.publishers ?? []).map((name) => ({ name, roles: [1] })), ...(game.developers ?? []).map((name) => ({ name, roles: [2] }))],
+            publishers: game.publishers ?? [],
+            developers: game.developers ?? [],
+            first_release_date: game.release_date ?? null,
             media: {
                 icon: game.icon_hash ? { type: "hash", value: game.icon_hash } : undefined,
                 cover: game.cover_image_hash ? { type: "hash", value: game.cover_image_hash } : undefined,
+                banner: game.banner_hash ? { type: "hash", value: game.banner_hash } : undefined,
             },
             game_flags: 0,
             content_classification: game.content_classification,

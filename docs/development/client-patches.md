@@ -24,7 +24,7 @@ The default set leaves out every plugin that talks to a third-party service on l
 
 To move to a newer Equicord, change `commit` in `client/vencord.json`, rebuild and run the check below.
 
-The pinned source is Equicord `1489c0e2a4435d854d7343a5cfb0abb894772318`. The legacy `build:vencord` command, `.vencord` cache, `assets/vencord` URLs and `client/vencord.json` filename remain compatible. Existing browser `VencordSettings` are copied to `EquicordSettings` only when Equicord settings are absent. QuickCSS keeps its existing storage. SilentTyping retains its previous global enabled choice, and new browsers keep typing visible. New-plugin notifications are disabled by default.
+The pinned source is Equicord `e0e85c8d4f6dc73aac9368cf3f4b2200eac4d4b4`. The legacy `build:vencord` command, `.vencord` cache, `assets/vencord` URLs and `client/vencord.json` filename remain compatible. Existing browser `VencordSettings` are copied to `EquicordSettings` only when Equicord settings are absent. QuickCSS keeps its existing storage. SilentTyping retains its previous global enabled choice, and new browsers keep typing visible. New-plugin notifications are disabled by default.
 
 The build reads `patches` and `settingsKey` from `client/vencord.json` and points the cached `.vencord` checkout at the configured repository before it fetches the commit. The Docker build bootstraps the exact pnpm version Equicord declares instead of running `bunx pnpm`, and calls pnpm's Node entry point, because pnpm 12 ships a launcher without a shebang when its install scripts are blocked and Bun cannot spawn it.
 
@@ -136,3 +136,7 @@ The homepage includes the fixed Meowcord project credit directly in its HTML. `s
 The composer handles the expected HTTP 429 with code 20016 from slowmode without an unhandled rejection, keeps the failed message for the Resend message action and cleans up the draft as usual. Other send failures still reject.
 
 [dialog-dismissal.md](dialog-dismissal.md) lists how each owned dialog and popover dismisses and how the developer portal handles late responses.
+
+### Game profile freshness
+
+The required FosscordGameRefresh plugin fetches `/games` when a game profile opens and dispatches `GAME_FETCH_SUCCESS` to refresh the native game store. The server loads the catalog before API and gateway startup completes and waits for catalog rebuilding after an admin edit, so the client does not need an extra API read or tab refresh to warm server metadata. Game detail responses disable HTTP caching. See [profile-widgets.md](../features/profile-widgets.md#custom-game-profiles).

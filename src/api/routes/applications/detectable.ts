@@ -16,9 +16,8 @@ router.get(
     async (req: Request, res: Response) => {
         const cache = await DetectableGames.load();
 
-        res.set("Cache-Control", `public, max-age=${Math.floor((cache.expires - Date.now()) / 1000)}, s-maxage=${Math.floor((cache.expires - Date.now()) / 1000)}, immutable`)
-            .status(200)
-            .json(cache.games);
+        if (req.headers["if-none-match"] === cache.etag) return void res.sendStatus(304);
+        res.set("Cache-Control", "public, max-age=60, s-maxage=300, must-revalidate").set("ETag", cache.etag).status(200).json(cache.games);
     },
 );
 

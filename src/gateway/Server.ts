@@ -13,6 +13,7 @@ import { Connection } from "./events/Connection";
 import { RemoteAuthConnection } from "./events/RemoteAuth";
 import { cleanupOnStartup, startPresenceSweep, stopPresenceSweep } from "./util";
 import { Authentication, BodyParser, CORS, ErrorHandler } from "@spacebar/api";
+import { DetectableGames } from "@spacebar/api/util/utility/games";
 
 export class GatewayServer extends Server {
     public ws: ws.Server;
@@ -48,17 +49,20 @@ export class GatewayServer extends Server {
     }
 
     async start(): Promise<void> {
+        const logRequests = process.env["LOG_REQUESTS"] != undefined;
+        let trustedProxies: ReturnType<typeof Config.get>["security"]["trustedProxies"];
+
         await Monitoring.init();
         Monitoring.attach(this.app);
         await initDatabase();
         await Config.init();
+        await DetectableGames.load();
         await initEvent();
         // temporary fix
         await cleanupOnStartup();
         startPresenceSweep();
         await JwtKeypairManager.init();
 
-        const logRequests = process.env["LOG_REQUESTS"] != undefined;
         if (logRequests && !this.options.app) {
             this.app.use(
                 morgan("combined", {
@@ -74,7 +78,7 @@ export class GatewayServer extends Server {
         this.app.set("json replacer", JSONReplacer);
         this.app.disable("x-powered-by");
 
-        const trustedProxies = Config.get().security.trustedProxies;
+        trustedProxies = Config.get().security.trustedProxies;
         if (trustedProxies) this.app.set("trust proxy", trustedProxies);
 
         this.app.use(CORS);

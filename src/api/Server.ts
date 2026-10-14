@@ -28,6 +28,7 @@ import { initInstance } from "./util/handlers/Instance";
 import { initEmbeddedActivities } from "./activities";
 import { recoverPendingPolls, dispatchMessagePush, startMessagePurger, startScheduledMessageSender, startThreadArchiver } from "./util";
 import { route } from "@spacebar/api/middlewares";
+import { DetectableGames } from "./util/utility/games";
 import { startAnnouncementDeliveryWorker } from "./util/utility/announcementDelivery";
 import { GifProviderManager } from "@spacebar/integrations/gifs";
 
@@ -50,10 +51,17 @@ export class SpacebarServer extends Server {
     }
 
     async start() {
+        const logRequests = process.env["LOG_REQUESTS"] != undefined;
+        const app = this.app;
+        const api = Router({ mergeParams: true });
+        let trustedProxies: ReturnType<typeof Config.get>["security"]["trustedProxies"];
+        let outbound: ReturnType<typeof outboundProxyStatus>;
+
         await Monitoring.init();
         Monitoring.attach(this.app);
         await initDatabase();
         await Config.init();
+        await DetectableGames.load();
         await initEvent();
         onEmitEvent((payload) => (payload.event === "MESSAGE_CREATE" && payload.channel_id ? dispatchMessagePush(payload.data) : undefined));
         await Email.init();
@@ -66,7 +74,6 @@ export class SpacebarServer extends Server {
         await GifProviderManager.init();
         ScheduledEvents.startSweeper();
 
-        const logRequests = process.env["LOG_REQUESTS"] != undefined;
         if (logRequests && !this.options.app) {
             this.app.use(
                 morgan("combined", {
@@ -82,15 +89,12 @@ export class SpacebarServer extends Server {
         this.app.set("json replacer", JSONReplacer);
         this.app.disable("x-powered-by");
 
-        const trustedProxies = Config.get().security.trustedProxies;
+        trustedProxies = Config.get().security.trustedProxies;
         if (trustedProxies) this.app.set("trust proxy", trustedProxies);
 
         this.app.use(CORS);
         this.app.use(BodyParser({ inflate: true, limit: "10mb" }));
         this.app.use(Authentication);
-
-        const app = this.app;
-        const api = Router({ mergeParams: true });
 
         await initRateLimits(api);
         await initTranslation(api);
@@ -132,7 +136,7 @@ export class SpacebarServer extends Server {
 
         await ConnectionLoader.loadConnections();
 
-        const outbound = outboundProxyStatus();
+        outbound = outboundProxyStatus();
         if (outbound.problem) console.warn(red(`[Network] Warning: ${outbound.problem}. See docs/self-hosting/external-services.md#hiding-the-servers-address`));
         if (logRequests) console.log(red(`Warning: Request logging is enabled! This will spam your console!\nTo disable this, unset the 'LOG_REQUESTS' environment variable!`));
 

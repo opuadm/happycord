@@ -71,7 +71,7 @@ fi
 
 # 2. web client: download it again only when discord.com serves a different build
 if [ "${UPDATE_CLIENT:-1}" != 0 ]; then
-    user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+    user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36"
     build_of() { grep -o '"BUILD_NUMBER":"[0-9]*"' | head -n1 | grep -o '[0-9][0-9]*' || true; }
     latest=$(curl -fsSL -m 30 -A "$user_agent" https://discord.com/app | build_of || true)
     current=$(compose run --rm --no-deps -T --entrypoint sh client -c 'cat assets/cache/index.html 2>/dev/null || true' | build_of) || current=""

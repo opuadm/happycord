@@ -135,6 +135,7 @@ Start with `docs/development/parity.md; client/plugins; client/equicord-patches`
 - [ ] **APP-007** Check iPhone registration and desktop registration flows.
 - [ ] **APP-008** Check Android-sized navigation and settings layouts.
 - [ ] **APP-009** Check reduced-motion and keyboard-only behavior.
+- [x] **APP-025** Resolve custom game mentions on cold startup and rebuild their metadata before admin edit responses. Cache regressions and a disposable SQLite HTTP check cover publishers, deletion and overlapping reads. Native browser verification remains pending.
 - [ ] **APP-010** Verify account and server customization updates without reload.
 - [ ] **APP-011** Keep guild messaging behavior intact while private chats require encryption.
 - [ ] **APP-012** Audit safe clipboard and download behavior on mobile Safari.

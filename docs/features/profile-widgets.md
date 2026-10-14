@@ -48,3 +48,11 @@ The portal saves the layout with `PUT /applications/:application_id/widget-confi
 ## Reports
 
 The ⋯ menu on someone else's widget has Report Widget. For an application widget the report stores the application id and a snapshot of the widget's text and images as the reporter saw them, and the admin panel shows it as Reported widget.
+
+## Custom game profiles
+
+Operators create and edit custom games on the dashboard's Games page. Publishers and developers appear in game profiles as companies with their respective roles. The API and gateway load the game catalog before accepting requests, so game mentions in the first message response contain the game name and profile metadata.
+
+Creating, editing or deleting a custom game clears the merged catalog and waits for its replacement before the admin response completes. Later message responses use the updated metadata without needing a game API request to warm the cache. Game detail responses use `Cache-Control: no-store`. The required FosscordGameRefresh plugin fetches the latest record when a game profile opens.
+
+`scripts/tests/game-profile-cache.test.cjs` covers shared initial loading, publisher edits, deletion and a catalog read overlapping an edit. A live check on a disposable SQLite database verified cold API startup and admin publisher edits and deletion without an intervening game API read.

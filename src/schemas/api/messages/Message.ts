@@ -172,6 +172,37 @@ export interface MessageCall {
     ended_timestamp: string | null;
 }
 
+export interface MentionGame {
+    id: Snowflake;
+    name: string;
+    description?: string;
+    summary?: string;
+    aliases?: string[];
+    executables?: unknown[];
+    overlay?: boolean;
+    overlay_warn?: boolean;
+    overlay_compatibility_hook?: boolean;
+    overlay_methods?: number;
+    hook?: boolean;
+    third_party_skus?: unknown[];
+    themes?: string[];
+    genres?: number[];
+    platforms?: number[];
+    platform_availability?: unknown[];
+    websites?: { category: number; url: string }[];
+    companies?: { name: string; roles: number[] }[];
+    publishers?: string[];
+    developers?: string[];
+    first_release_date?: string | null;
+    media?: {
+        icon?: { type: string; value: string };
+        cover?: { type: string; value: string };
+        banner?: { type: string; value: string };
+    };
+    game_flags?: number;
+    content_classification?: unknown;
+}
+
 export interface PublicMessage {
     id: Snowflake;
     channel_id: Snowflake;
@@ -185,6 +216,7 @@ export interface PublicMessage {
     mentions: PartialUser[];
     mention_roles: Snowflake[];
     mention_channels?: PublicChannel[]; // TODO: PartialPublicChannel
+    mention_games?: MentionGame[];
     attachments: PublicAttachment[];
     embeds: Embed[];
     reactions?: PublicReaction[];

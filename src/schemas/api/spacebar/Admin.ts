@@ -718,6 +718,16 @@ export interface AdminCustomGameCreateSchema {
      */
     aliases?: string[];
     /**
+     * Short tagline shown on the game's popup
+     * @maxLength 500
+     */
+    summary?: string;
+    /**
+     * Long description shown on the game's popup
+     * @maxLength 2000
+     */
+    description?: string;
+    /**
      * Square icon as a data: URI image
      */
     icon_data?: string;
@@ -725,6 +735,40 @@ export interface AdminCustomGameCreateSchema {
      * Cover art as a data: URI image
      */
     cover_data?: string;
+    /**
+     * Wide banner as a data: URI image
+     */
+    banner_data?: string;
+    /**
+     * Genre ids shown on the game's popup, 1 to 69
+     * @maxItems 20
+     */
+    genres?: number[];
+    /**
+     * Platform ids shown on the game's popup: 0 desktop, 1 Xbox, 2 PlayStation, 5 Nintendo, 6 Linux, 7 macOS
+     * @maxItems 8
+     */
+    platforms?: number[];
+    /**
+     * Links shown on the game's popup, sorted into categories by domain
+     * @maxItems 20
+     */
+    websites?: string[];
+    /**
+     * Publishers shown on the game's popup
+     * @maxItems 20
+     */
+    publishers?: string[];
+    /**
+     * Developers shown on the game's popup
+     * @maxItems 20
+     */
+    developers?: string[];
+    /**
+     * Release date shown on the game's popup, for example 2024-03-15
+     * @maxLength 30
+     */
+    release_date?: string;
 }
 
 export interface AdminCustomGameUpdateSchema {
@@ -738,6 +782,14 @@ export interface AdminCustomGameUpdateSchema {
      */
     aliases?: string[];
     /**
+     * @maxLength 500
+     */
+    summary?: string | null;
+    /**
+     * @maxLength 2000
+     */
+    description?: string | null;
+    /**
      * New icon as a data: URI image, or null to remove it
      */
     icon_data?: string | null;
@@ -745,6 +797,34 @@ export interface AdminCustomGameUpdateSchema {
      * New cover art as a data: URI image, or null to remove it
      */
     cover_data?: string | null;
+    /**
+     * New banner as a data: URI image, or null to remove it
+     */
+    banner_data?: string | null;
+    /**
+     * @maxItems 20
+     */
+    genres?: number[];
+    /**
+     * @maxItems 8
+     */
+    platforms?: number[];
+    /**
+     * @maxItems 20
+     */
+    websites?: string[];
+    /**
+     * @maxItems 20
+     */
+    publishers?: string[];
+    /**
+     * @maxItems 20
+     */
+    developers?: string[];
+    /**
+     * @maxLength 30
+     */
+    release_date?: string | null;
 }
 
 export interface AdminOfficialAccountUpdateSchema {

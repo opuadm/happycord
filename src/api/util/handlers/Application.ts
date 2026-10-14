@@ -1,6 +1,6 @@
 import { createPrivateKey, generateKeyPairSync, randomBytes, sign } from "node:crypto";
 import { ILike, In, Not, IsNull } from "typeorm";
-import { Application, ApplicationCommand, EmbeddedActivity, Member } from "@spacebar/database";
+import { Application, ApplicationCommand, CustomGame, EmbeddedActivity, Member } from "@spacebar/database";
 import { withApplicationOutbound } from "@spacebar/api/util/utility/applicationOutbound";
 import { serializeCommand } from "./ApplicationCommands";
 import { fetchPublicUrl, Snowflake } from "@spacebar/util";
@@ -138,22 +138,60 @@ export function activityConfig(activity: EmbeddedActivity) {
     };
 }
 
+export function toCustomGameApplication(game: CustomGame) {
+    return {
+        id: game.id,
+        name: game.name,
+        icon: game.icon_hash ?? null,
+        description: game.description ?? "",
+        summary: game.summary ?? "",
+        type: null,
+        cover_image: game.cover_image_hash ?? undefined,
+        banner: game.banner_hash ?? undefined,
+        flags: 0,
+        hook: false,
+        bot_public: true,
+        bot_require_code_grant: false,
+        verify_key: "",
+        tags: [],
+        guild_id: undefined,
+        terms_of_service_url: undefined,
+        privacy_policy_url: undefined,
+        custom_install_url: undefined,
+        install_params: { scopes: ["bot", "applications.commands"], permissions: "0" },
+        integration_types_config: {
+            "0": { oauth2_install_params: { scopes: ["bot", "applications.commands"], permissions: "0" } },
+            "1": { oauth2_install_params: { scopes: ["applications.commands"], permissions: "0" } },
+        },
+        is_monetized: false,
+        is_verified: false,
+        is_discoverable: false,
+        storefront_available: false,
+    };
+}
+
 export async function findPublicApplications(ids: string[]) {
     if (!ids.length) return [];
     const apps = await Application.find({ where: { id: In(ids) }, relations: { bot: true } });
     const activities = await EmbeddedActivity.find({
         where: { application_id: In(apps.map((a) => a.id)) },
     });
-    return apps.map((app) => {
-        const activity = activities.find((a) => a.application_id === app.id);
-        return {
-            ...toPublicApplication(app),
-            ...(activity && {
-                embedded_activity_config: activityConfig(activity),
-                embedded_surfaces: [0],
-            }),
-        };
-    });
+    const known = new Set(apps.map((a) => a.id));
+    const missing = ids.filter((id) => !known.has(id));
+    const games = missing.length ? await CustomGame.find({ where: { id: In(missing) } }) : [];
+    return [
+        ...apps.map((app) => {
+            const activity = activities.find((a) => a.application_id === app.id);
+            return {
+                ...toPublicApplication(app),
+                ...(activity && {
+                    embedded_activity_config: activityConfig(activity),
+                    embedded_surfaces: [0],
+                }),
+            };
+        }),
+        ...games.map(toCustomGameApplication),
+    ];
 }
 
 export const isDirectoryApplication = async (app: Application) =>

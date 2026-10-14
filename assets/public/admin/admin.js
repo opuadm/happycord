@@ -4781,6 +4781,21 @@ function openGrant(catalog, refresh) {
 
 /* ---------- games ---------- */
 
+const GAME_GENRES = [
+    [1, "Action"], [2, "Action RPG"], [3, "Brawler"], [4, "Hack and Slash"], [5, "Platformer"], [6, "Stealth"], [7, "Survival"], [8, "Adventure"],
+    [9, "Action Adventure"], [10, "Metroidvania"], [11, "Open World"], [12, "Psychological Horror"], [13, "Sandbox"], [14, "Survival Horror"],
+    [15, "Visual Novel"], [16, "Driving/Racing"], [17, "Vehicular Combat"], [18, "Massively Multiplayer"], [19, "MMORPG"], [20, "Role Playing"],
+    [21, "Dungeon Crawler"], [22, "Roguelike"], [23, "Shooter"], [24, "Light Gun"], [25, "Shoot 'Em Up"], [26, "FPS"], [27, "Dual Joystick Shooter"],
+    [28, "Simulation"], [29, "Flight Simulator"], [30, "Train Simulator"], [31, "Life Simulator"], [32, "Fishing"], [33, "Sports"], [34, "Baseball"],
+    [35, "Basketball"], [36, "Billiards"], [37, "Bowling"], [38, "Boxing"], [39, "Football"], [40, "Golf"], [41, "Hockey"], [42, "Skateboarding/Skating"],
+    [43, "Snowboarding/Skiing"], [44, "Soccer"], [45, "Track and Field"], [46, "Surfing/Wakeboarding"], [47, "Wrestling"], [48, "Strategy"],
+    [49, "4X"], [50, "Artillery"], [51, "RTS"], [52, "Tower Defense"], [53, "Turn Based Strategy"], [54, "Wargame"], [55, "MOBA"], [56, "Fighting"],
+    [57, "Puzzle"], [58, "Card Game"], [59, "Education"], [60, "Fitness"], [61, "Gambling"], [62, "Music/Rhythm"], [63, "Party/Mini Game"],
+    [64, "Pinball"], [65, "Trivia/Board Game"], [66, "Tactical"], [67, "Indie"], [68, "Arcade"], [69, "Point and Click"],
+];
+
+const GAME_PLATFORMS = [[0, "Desktop"], [1, "Xbox"], [2, "PlayStation"], [5, "Nintendo"], [6, "Linux"], [7, "macOS"], [3, "iOS"], [4, "Android"]];
+
 // art lives where the client looks for game art: app-icons/<game id>/<hash>
 const gameArt = (g, hash, cls = "") =>
   hash
@@ -4797,7 +4812,7 @@ async function renderGames(view) {
                     <h1>Games</h1>
                     <p class="muted">
                         Games you add here show up next to the built-in game list wherever people pick games, such as the games on their profile or their server's profile. Open
-                        clients see new games in search right away; their full game list refreshes within a few hours.
+                        clients pick up new games within about a minute.
                     </p>
                 </div>
                 <button class="btn primary" id="new-game" type="button">Add game</button>
@@ -4856,7 +4871,7 @@ async function renderGames(view) {
 
 function openGame(game, refresh) {
   // undefined keeps the saved art, null removes it, a data: URI replaces it
-  const art = { icon: undefined, cover: undefined };
+  const art = { icon: undefined, cover: undefined, banner: undefined };
   const body = openDrawer(
     game ? "Edit game" : "Add game",
     html`
@@ -4873,6 +4888,44 @@ function openGame(game, refresh) {
                     >Also found by<span class="hint">Optional. Other names people might search for, separated by commas.</span
                     ><input name="aliases" value="${(game?.aliases ?? []).join(", ")}" placeholder="MG, My Game Remastered"
                 /></label>
+                <label
+                    >Tagline<span class="hint">Optional. A short line shown on the game's popup, at most 500 characters.</span
+                    ><input name="summary" maxlength="500" value="${game?.summary ?? ""}" placeholder="A cozy farming sim"
+                /></label>
+                <label
+                    >Description<span class="hint">Optional. Shown on the game's popup, at most 2000 characters.</span
+                    ><textarea name="description" maxlength="2000" rows="4" placeholder="What the game is about...">${game?.description ?? ""}</textarea>
+                </label>
+                <div class="form-grid">
+                    <label
+                        >Genres<span class="hint">Optional. Hold Ctrl or Cmd to pick several.</span
+                        ><select name="genres" multiple size="8" id="game-genres"></select>
+                    </label>
+                    <label
+                        >Platforms<span class="hint">Optional. Hold Ctrl or Cmd to pick several.</span
+                        ><select name="platforms" multiple size="8" id="game-platforms"></select>
+                    </label>
+                </div>
+                <div class="form-grid">
+                    <label
+                        >Publishers<span class="hint">Optional. Separated by commas.</span
+                        ><input name="publishers" value="${(game?.publishers ?? []).join(", ")}" placeholder="Publisher"
+                    /></label>
+                    <label
+                        >Developers<span class="hint">Optional. Separated by commas.</span
+                        ><input name="developers" value="${(game?.developers ?? []).join(", ")}" placeholder="Studio"
+                    /></label>
+                </div>
+                <div class="form-grid">
+                    <label
+                        >Links<span class="hint">Optional. Separated by commas. Each link is sorted into a category by its domain.</span
+                        ><input name="websites" value="${(game?.websites ?? []).map((site) => (typeof site === "string" ? site : site.url)).join(", ")}" placeholder="https://example.com"
+                    /></label>
+                    <label
+                        >Release date<span class="hint">Optional. For example 2024-03-15.</span
+                        ><input name="release_date" maxlength="30" value="${game?.release_date ?? ""}" placeholder="2024-03-15"
+                    /></label>
+                </div>
                 <div class="form-grid">
                     <div class="stack">
                         <label
@@ -4900,6 +4953,19 @@ function openGame(game, refresh) {
                             : ""
                         }
                     </div>
+                    <div class="stack">
+                        <label
+                            >Banner<span class="hint">Optional. A wide image for the game's popup, like 1200×480.</span
+                            ><input name="banner" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
+                        /></label>
+                        ${
+                          game?.banner_hash
+                            ? html`
+                                <button class="btn small" type="button" data-remove="banner">Remove banner</button>
+                              `
+                            : ""
+                        }
+                    </div>
                 </div>
                 <div class="form-actions">
                     ${
@@ -4918,6 +4984,17 @@ function openGame(game, refresh) {
   );
   if (!body) return;
   const form = $("#game-form", body);
+  const fillList = (id, options, selected) => {
+    const select = $(id, body);
+    mount(
+      select,
+      options.map(([value, label]) => html`<option value="${value}">${label}</option>`),
+    );
+    const picked = new Set((selected ?? []).map(Number));
+    for (const option of select.options) option.selected = picked.has(Number(option.value));
+  };
+  fillList("#game-genres", GAME_GENRES, game?.genres);
+  fillList("#game-platforms", GAME_PLATFORMS, game?.platforms);
   const preview = () => {
     const icon =
       art.icon === undefined
@@ -4937,7 +5014,7 @@ function openGame(game, refresh) {
   preview();
   form.name.addEventListener("input", preview);
 
-  for (const key of ["icon", "cover"]) {
+  for (const key of ["icon", "cover", "banner"]) {
     form[key].addEventListener("change", async () => {
       const file = form[key].files[0];
       if (!file) return;
@@ -4959,15 +5036,27 @@ function openGame(game, refresh) {
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    const splitList = (value) =>
+      value
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    const pickedIds = (select) => [...select.selectedOptions].map((option) => Number(option.value)).filter((id) => Number.isInteger(id));
     const payload = {
       name: form.name.value,
-      aliases: form.aliases.value
-        .split(",")
-        .map((alias) => alias.trim())
-        .filter(Boolean),
+      aliases: splitList(form.aliases.value),
+      summary: form.summary.value,
+      description: form.description.value,
+      genres: pickedIds($("#game-genres", body)),
+      platforms: pickedIds($("#game-platforms", body)),
+      publishers: splitList(form.publishers.value),
+      developers: splitList(form.developers.value),
+      websites: splitList(form.websites.value),
+      release_date: form.release_date.value,
     };
     if (art.icon !== undefined && (game || art.icon)) payload.icon_data = art.icon;
     if (art.cover !== undefined && (game || art.cover)) payload.cover_data = art.cover;
+    if (art.banner !== undefined && (game || art.banner)) payload.banner_data = art.banner;
     const done = await act(
       $("button[type=submit]", form),
       () =>

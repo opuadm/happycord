@@ -19,6 +19,33 @@ export class CustomGame extends BaseClass {
     @Column({ type: "character varying", nullable: true })
     cover_image_hash?: string | null;
 
+    @Column({ type: "character varying", nullable: true })
+    banner_hash?: string | null;
+
+    @Column({ default: "" })
+    summary: string = "";
+
+    @Column({ default: "" })
+    description: string = "";
+
+    @Column({ type: "jsonb", default: [] })
+    genres: number[] = [];
+
+    @Column({ type: "jsonb", default: [] })
+    platforms: number[] = [];
+
+    @Column({ type: "jsonb", default: [] })
+    websites: { category: number; url: string }[] = [];
+
+    @Column({ type: "jsonb", default: [] })
+    publishers: string[] = [];
+
+    @Column({ type: "jsonb", default: [] })
+    developers: string[] = [];
+
+    @Column({ type: "character varying", nullable: true })
+    release_date?: string | null;
+
     @Column({ type: "int8", nullable: true })
     created_by?: string | null;
 

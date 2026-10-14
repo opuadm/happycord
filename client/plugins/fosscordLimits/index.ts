@@ -27,9 +27,10 @@ export default definePlugin({
         },
         {
             find: "Message Too Long Alert",
+            all: true,
             replacement: {
-                match: /let (\i)=\i\?\i\.\i:\i\.\i;if\((\i)\.length>\1\)/,
-                replace: "let $1=(window.GLOBAL_ENV?.INSTANCE_LIMITS?.message?.maxCharacters||4000);if($2.length>$1)",
+                match: /let (\i)=\i\?\i\.\i:\i\.\i;if\((\i)\.length>\1\)\{if\((\i)\|\|null==(\i)\)/,
+                replace: "let $1=(window.GLOBAL_ENV?.INSTANCE_LIMITS?.message?.maxCharacters||4000);if($2.length>$1){if($3||null==$4)",
             },
         },
         {
@@ -47,8 +48,7 @@ export default definePlugin({
             },
         },
         {
-            find: "premiumMaxMessageLength",
-            all: true,
+            find: "premiumMaxMessageLength:",
             replacement: {
                 match: /premiumMaxMessageLength:\i\.\i/,
                 replace: "premiumMaxMessageLength:(window.GLOBAL_ENV?.INSTANCE_LIMITS?.message?.maxCharacters||4000)",
@@ -65,7 +65,7 @@ export default definePlugin({
         {
             find: "ttJ/hj",
             replacement: {
-                match: /canUseIncreasedGuildCap\(\i\)\|\|\i\?\.isStaff\(\)\?\i\.\i:\i\.\i/,
+                match: /\i\.\i\.canUseIncreasedGuildCap\(\i\)\|\|\i\?\.isStaff\(\)\?\i\.\i:\i\.\i/,
                 replace: "(window.GLOBAL_ENV?.INSTANCE_LIMITS?.user?.maxGuilds||200)",
             },
         },
@@ -92,15 +92,15 @@ export default definePlugin({
             },
         },
         {
-            find: "getMaxAttachmentsCount",
+            find: "getMaxAttachmentsCount(){return",
             all: true,
             replacement: {
-                match: /getMaxAttachmentsCount\(\)\{return \i\.\i\}/,
+                match: /getMaxAttachmentsCount\(\)\{return (?:\i\.\i|\d+)\}/,
                 replace: "getMaxAttachmentsCount(){return (window.GLOBAL_ENV?.INSTANCE_LIMITS?.message?.maxAttachments||15)}",
             },
         },
         {
-            find: '"username"',
+            find: /"username",(?:value:\i,maxLength|setRef:)/,
             all: true,
             replacement: {
                 match: /("username".{0,400}?)maxLength\s*:\s*(?:32\b|\i\.\i)/,
@@ -108,16 +108,14 @@ export default definePlugin({
             },
         },
         {
-            find: '"pronouns"',
-            all: true,
+            find: "onPronounsChange",
             replacement: {
-                match: /("pronouns".{0,400}?)maxLength\s*:\s*(?:40\b|\i\.\i)/,
+                match: /(pendingPronouns[\s\S]{0,400}?)maxLength:40/,
                 replace: "$1maxLength:(window.GLOBAL_ENV?.INSTANCE_LIMITS?.user?.maxPronouns||40)",
             },
         },
         {
-            find: /"(?:displayName|display_name|globalName|global_name)"/,
-            all: true,
+            find: '"global_name",value:',
             replacement: {
                 match: /("(?:displayName|display_name|globalName|global_name)".{0,400}?)maxLength\s*:\s*(?:32\b|\i\.\i)/,
                 replace: "$1maxLength:(window.GLOBAL_ENV?.INSTANCE_LIMITS?.user?.maxUsername||32)",

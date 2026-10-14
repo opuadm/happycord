@@ -486,7 +486,15 @@ export class Message extends BaseClass {
             referenced_message: shallow ? undefined : this.referenced_message === null ? null : this.referenced_message?.toJSON(this.type !== MessageType.THREAD_STARTER_MESSAGE),
             encrypted: this.encrypted ?? undefined,
             soundboard_sounds: this.soundboard_sounds?.length ? this.soundboard_sounds : undefined,
+            mention_games: Message.mentionGames(this.content),
         } satisfies PublicMessage;
+    }
+
+    static mentionGames(content?: string | null) {
+        if (!content?.includes("<@$")) return [];
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { DetectableGames } = require("@spacebar/api/util/utility/games") as typeof import("@spacebar/api/util/utility/games");
+        return DetectableGames.mentionGames(content);
     }
 
     toPartialMessage(): PartialMessage {
