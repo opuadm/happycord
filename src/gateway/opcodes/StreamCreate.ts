@@ -1,6 +1,6 @@
 import { Channel, Member, Recipient, Stream, StreamSession, VoiceState } from "@spacebar/database";
 import { genVoiceToken, Payload, WebSocket, generateStreamKey } from "@spacebar/gateway";
-import { Config, emitEvent, getPermission, Snowflake, StreamCreateEvent, StreamServerUpdateEvent, VoiceStateUpdateEvent } from "@spacebar/util";
+import { Config, emitEvent, FederatedVoice, getPermission, Snowflake, StreamCreateEvent, StreamServerUpdateEvent, VoiceStateUpdateEvent } from "@spacebar/util";
 import { check } from "./instanceOf";
 import { StreamCreateSchema } from "@spacebar/schemas";
 
@@ -10,6 +10,7 @@ export async function onStreamCreate(this: WebSocket, data: Payload) {
     const body = data.d as StreamCreateSchema;
 
     if (body.channel_id.trim().length === 0) return;
+    if (await FederatedVoice.relayStream(this.user_id, this.session_id, "create", { ...body })) return;
 
     // first check if we are in a voice channel already. cannot create a stream if there's no existing voice connection
     const voiceState = await VoiceState.findOne({

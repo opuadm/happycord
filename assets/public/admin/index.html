@@ -50,14 +50,23 @@
             <span class="muted">Admin</span>
           </div>
         </div>
-        <label class="nav-search"
-          >Find a section<input
+        <div class="nav-search">
+          <label for="nav-search">Search</label>
+          <input
             id="nav-search"
             type="search"
-            placeholder="Search dashboard…"
-            aria-controls="nav"
-          /><span class="hint">⌘ / Ctrl K</span></label
-        >
+            role="combobox"
+            aria-expanded="false"
+            aria-controls="jump-results"
+            aria-autocomplete="list"
+            aria-describedby="nav-search-hint"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="People, servers, IPs, pages"
+          />
+          <span class="hint" id="nav-search-hint">⌘ / Ctrl K</span>
+          <div id="jump-results" class="jump-results" role="listbox" aria-label="Search results" hidden></div>
+        </div>
         <nav id="nav" aria-label="Admin sections">
           <div class="nav-group">
             <span class="nav-label">Instance</span>
@@ -67,6 +76,7 @@
             <a href="#/announcements" data-tab="announcements" data-access="settings"
               >Announcements</a
             >
+            <a href="#/federation" data-tab="federation" data-access="operator">Federation</a>
           </div>
           <div class="nav-group">
             <span class="nav-label">People & servers</span>
@@ -75,6 +85,11 @@
             <a href="#/guilds" data-tab="guilds" data-access="guilds">Servers</a>
             <a href="#/reports" data-tab="reports" data-access="reports">Reports</a>
             <a href="#/automod" data-tab="automod" data-access="reports">Automod</a>
+          </div>
+          <div class="nav-group">
+            <span class="nav-label">Staff</span>
+            <a href="#/staff" data-tab="staff" data-access="staff">Staff roles</a>
+            <a href="#/audit" data-tab="audit" data-access="audit">Audit log</a>
           </div>
           <div class="nav-group">
             <span class="nav-label">Customization</span>
@@ -90,7 +105,7 @@
             <a href="#/status" data-tab="status" data-access="status">Status page</a>
             <a href="#/system" data-tab="system" data-access="system">System & compatibility</a>
           </div>
-          <p id="nav-empty" class="muted" hidden>No matching sections. Try another search.</p>
+          <p id="nav-empty" class="muted" hidden>No pages match this search.</p>
         </nav>
         <div class="sidebar-foot">
           <div class="me" id="me"></div>
@@ -115,8 +130,11 @@
       </section>
     </div>
 
-    <div id="toasts" class="toasts" aria-live="polite"></div>
+    <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
     <script src="/admin/admin.js"></script>
+    <script src="/admin/overview.js"></script>
     <script src="/admin/automod.js"></script>
+    <script src="/admin/federation.js"></script>
+    <script src="/admin/staff.js"></script>
   </body>
 </html>

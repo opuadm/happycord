@@ -10,7 +10,7 @@ const router = Router({ mergeParams: true });
 router.get(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_USERS",
         spacebarOnly: true,
         description:
             "IP addresses that accounts registered on or signed in from, with how many accounts used each, most accounts first. Session addresses disappear when the session ends; registration addresses stay.",

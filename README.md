@@ -7,9 +7,13 @@
 
 **happycord is currently in very early alpha.** right now, it's a big mess and not recommended for production use or anything other than testing. during this alpha, we'll also have an extremely permissive ai contribution policy, so that we can get as many people as possible to test it and contribute to it. else, we'd never get anywhere near discord feature parity.
 
-encryption has not yet been audited, and you will find plenty of bugs and issues. as a future warning, please open an issue or pr rather than trying to dunk on an alpha release on the internet.
+## join meowcord!!
 
-## getting started
+since meowcord is federated, no matter what instance you pick, you'll always be able to talk to anybody else, even on other instances :3
+
+**start by [picking an instance from this list](instances.md) and signing up.** you can find servers to join in the Discovery tab.
+
+## self-hosting
 
 follow [the setup guide](docs/self-hosting/setup.md) for Docker, local development and the source archive. to run without Docker, [the native Linux guide](docs/self-hosting/native.md) sets the server up as a dedicated `meowcord` user with systemd, local PostgreSQL and an HTTPS reverse proxy, and covers voice, operator access, backups and updates. the server supports [PostgreSQL and SQLite](docs/self-hosting/databases.md).
 
@@ -20,6 +24,8 @@ docker compose up -d --build
 ```
 
 after registering your operator account, grant it access locally using its numeric account ID: `docker compose exec server bun scripts/ops/operator.mjs grant <account-id>`. the first signup is an ordinary account. see the alpha guide for local provisioning and revocation.
+
+to get your instance listed in [instances.md](instances.md) and in global discovery, read [the verification guide](docs/self-hosting/verification.md).
 
 ## contributing
 

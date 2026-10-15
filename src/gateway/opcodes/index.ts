@@ -1,4 +1,5 @@
 import { WebSocket, Payload } from "@spacebar/gateway";
+import { FederatedVoice } from "@spacebar/util";
 import { onHeartbeat } from "./Heartbeat";
 import { onIdentify } from "./Identify";
 import { onLazyRequest } from "./LazyRequest";
@@ -18,6 +19,12 @@ import { onStreamSetPaused } from "./StreamSetPaused";
 import { onRequestSoundboardSounds } from "./RequestSoundboardSounds";
 
 export type OPCodeHandler = (this: WebSocket, data: Payload) => unknown;
+
+const streamHandlers = { create: [18, onStreamCreate], watch: [20, onStreamWatch], delete: [19, onStreamDelete], paused: [22, onStreamSetPaused] } as const;
+FederatedVoice.setStreamApplier(async (user_id, session_id, operation, body) => {
+    const [op, handler] = streamHandlers[operation];
+    await (handler as OPCodeHandler).call({ user_id, session_id, close: () => undefined } as unknown as WebSocket, { op, d: body } as Payload);
+});
 
 export default {
     1: onHeartbeat,

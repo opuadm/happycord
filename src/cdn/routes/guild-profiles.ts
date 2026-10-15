@@ -2,8 +2,9 @@ import crypto from "node:crypto";
 import { Request, Response, Router } from "express";
 import { fileTypeFromBuffer } from "file-type";
 import { HTTPError } from "lambert-server/HTTPError";
-import { Config } from "@spacebar/util";
-import { storage, internalUpload, setCacheControl } from "../util";
+import { Config, isRequestSignature } from "@spacebar/util";
+import { storage, internalUpload, setCacheControl, safeMediaType } from "../util";
+import { sendRemoteMemberMedia } from "../util/federationMedia";
 
 // TODO: check premium and animated pfp are allowed in the config
 // TODO: generate different sizes of icon
@@ -19,7 +20,7 @@ const router = Router({ mergeParams: true });
 router.post(
     "/",
     internalUpload(async (req: Request, res: Response) => {
-        if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+        if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
         if (!req.file) throw new HTTPError("Missing file");
         const { buffer, size } = req.file;
         const { guild_id, user_id } = req.params as { [key: string]: string };
@@ -54,7 +55,7 @@ router.get("/", setCacheControl, async (req: Request, res: Response) => {
     if (!file) throw new HTTPError("not found", 404);
     const type = await fileTypeFromBuffer(file);
 
-    res.set("Content-Type", type?.mime);
+    res.set("Content-Type", safeMediaType(type?.mime));
 
     return res.send(file);
 });
@@ -66,16 +67,17 @@ router.get("/:hash", setCacheControl, async (req: Request, res: Response) => {
     const path = `guilds/${guild_id}/users/${user_id}/avatars/${hash}`;
 
     const file = await storage.get(path);
+    if (!file && (await sendRemoteMemberMedia(req, res, guild_id, user_id, req.baseUrl.endsWith("/banners") ? "banners" : "avatars", req.params.hash as string))) return;
     if (!file) throw new HTTPError("not found", 404);
     const type = await fileTypeFromBuffer(file);
 
-    res.set("Content-Type", type?.mime);
+    res.set("Content-Type", safeMediaType(type?.mime));
 
     return res.send(file);
 });
 
 router.delete("/:id", async (req: Request, res: Response) => {
-    if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+    if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
     const { guild_id, user_id, id } = req.params as { [key: string]: string };
     const path = `guilds/${guild_id}/users/${user_id}/avatars/${id}`;
 

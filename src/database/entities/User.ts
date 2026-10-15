@@ -1,6 +1,6 @@
 import { assertIdentityNameAllowed } from "@spacebar/util/util/IdentityModeration";
 import { Request } from "express";
-import { AfterLoad, Column, Entity, FindOptionsWhere, ILike, Index, JoinColumn, ManyToOne, OneToMany, OneToOne } from "typeorm";
+import { AfterLoad, Column, Entity, FindOptionsWhere, ILike, Index, IsNull, JoinColumn, ManyToOne, OneToMany, OneToOne } from "typeorm";
 import { Config, Email, FieldErrors, Snowflake } from "@spacebar/util";
 import { Stopwatch, trimSpecial, Random } from "@spacebar/extensions";
 import { BaseClass } from "./BaseClass";
@@ -287,6 +287,12 @@ export class User extends BaseClass {
     @Column({ type: "int8", nullable: true })
     avatar_decoration_id?: string;
 
+    @Column({ type: "varchar", nullable: true })
+    federated_instance?: string | null;
+
+    @Column({ type: "jsonb", nullable: true, select: false })
+    remote_badges?: { id: string; kind: string; description: string; pride_flag?: string; icon?: string }[] | null;
+
     @AfterLoad()
     applyPremiumDefaults() {
         const { premium, premiumType } = Config.get().defaults.user;
@@ -415,12 +421,13 @@ export class User extends BaseClass {
     static loginWhere(login: string): FindOptionsWhere<User>[] {
         const tag = login.match(/^(.+)#(\d{4})$/);
         return [
-            { phone: login },
-            { email: login },
+            { phone: login, federated_instance: IsNull() },
+            { email: login, federated_instance: IsNull() },
             {
                 username: ILike((tag?.[1] ?? login).replace(/[\\%_]/g, "\\$&")),
                 discriminator: tag?.[2] ?? "0",
                 bot: false,
+                federated_instance: IsNull(),
             },
         ];
     }
@@ -592,7 +599,7 @@ export class User extends BaseClass {
     async getDmChannelWith(user_id: string) {
         const qry = await Channel.getRepository()
             .createQueryBuilder()
-            .leftJoinAndSelect("Channel.recipients", "rcp")
+            .innerJoin("Channel.recipients", "rcp")
             .where("Channel.type = :type", { type: ChannelType.DM })
             .andWhere("rcp.user_id IN (:...user_ids)", { user_ids: [this.id, user_id] })
             .groupBy("Channel.id")

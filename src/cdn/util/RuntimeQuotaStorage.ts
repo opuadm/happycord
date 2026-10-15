@@ -1,6 +1,7 @@
 import { isSqlite } from "@spacebar/database/Sql";
 // Copyright Spacebar & contributors 2026 (AGPLv3)
 import { createHash, randomUUID } from "node:crypto";
+import { finished } from "node:stream";
 import { HTTPError } from "lambert-server/HTTPError";
 import { QueryRunner } from "typeorm";
 import { getDatabase } from "../../database/Database";
@@ -19,6 +20,9 @@ interface StoredObject {
     pending: boolean;
     operation_generation: string;
 }
+const touchIntervalMs = 60 * 60 * 1000;
+const touchFlushDelayMs = 30 * 1000;
+const touchMemory = 100000;
 export interface InventoryStorage extends Storage {
     inventory(): AsyncIterable<{ path: string; size: number; generation?: string }>;
     remoteGenerationConfirmation?: boolean;
@@ -27,6 +31,10 @@ export interface InventoryStorage extends Storage {
 export class QuotaStorage implements Storage {
     private initialized?: Promise<void>;
     private namespace: string;
+    private touched = new Map<string, number>();
+    private pendingTouches = new Set<string>();
+    private touchTimer?: ReturnType<typeof setTimeout>;
+    private reading = new Map<string, number>();
     constructor(
         private backend: InventoryStorage,
         identity: string,
@@ -45,9 +53,11 @@ export class QuotaStorage implements Storage {
         try {
             if (!isSqlite()) await runner.query("SELECT pg_advisory_lock(hashtextextended($1,17014))", [this.namespace]);
             else await runner.startTransaction();
-            const result = await callback(runner);
-            if (isSqlite()) await runner.commitTransaction();
-            return result;
+            try {
+                return await callback(runner);
+            } finally {
+                if (isSqlite()) await runner.commitTransaction();
+            }
         } finally {
             if (!isSqlite()) await runner.query("SELECT pg_advisory_unlock(hashtextextended($1,17014))", [this.namespace]).catch(() => {});
             await runner.release();
@@ -73,7 +83,7 @@ export class QuotaStorage implements Storage {
                     const owner = known ?? (await references.resolve(object.path));
                     const budget = known?.budget_principal ?? (await this.budgetPrincipal(runner, owner.principal));
                     await runner.query(
-                        `INSERT INTO storage_runtime_objects(namespace,path,principal,category,bytes,budget_principal) VALUES($1,$2,$3,$4,$5,$6)
+                        `INSERT INTO storage_runtime_objects(namespace,path,principal,category,bytes,budget_principal,last_used_at) VALUES($1,$2,$3,$4,$5,$6,$9)
                         ON CONFLICT(namespace,path) DO UPDATE SET bytes=$5,reserved_bytes=$7,pending=$8`,
                         [
                             this.namespace,
@@ -84,6 +94,7 @@ export class QuotaStorage implements Storage {
                             budget,
                             uncertain ? known.reserved_bytes : 0,
                             !!uncertain,
+                            Date.now(),
                         ],
                     );
                     await runner.query("INSERT INTO storage_runtime_inventory(path) VALUES($1)", [object.path]);
@@ -132,8 +143,9 @@ export class QuotaStorage implements Storage {
         const prior = await this.object(runner, path);
         const owner = prior ?? (await this.owner(runner, path, source));
         if (prior && source && (prior.principal !== source.principal || prior.category !== source.category)) throw new HTTPError("Storage ownership conflict", 409);
-        const budget = prior?.budget_principal ?? source?.budget_principal ?? (await this.budgetPrincipal(runner, owner.principal));
         const limits = Config.get().cdn.storageQuota;
+        if (owner.category === "cache") await this.evict(runner, path, bytes, !!prior, limits);
+        const budget = prior?.budget_principal ?? source?.budget_principal ?? (await this.budgetPrincipal(runner, owner.principal));
         for (const prefix of ["instance", "principal", ...(owner.category === "cache" ? ["cache"] : [])] as ("instance" | "principal" | "cache")[]) {
             const byteLimit = limits[`${prefix}Bytes`],
                 objectLimit = limits[`${prefix}Objects`];
@@ -148,11 +160,101 @@ export class QuotaStorage implements Storage {
         }
         const generation = randomUUID();
         await runner.query(
-            `INSERT INTO storage_runtime_objects(namespace,path,principal,category,reserved_bytes,pending,budget_principal,operation_generation) VALUES($1,$2,$3,$4,$5,true,$6,$7)
-            ON CONFLICT(namespace,path) DO UPDATE SET reserved_bytes=$5,pending=true,operation_generation=$7`,
-            [this.namespace, path, owner.principal, owner.category, bytes, budget, generation],
+            `INSERT INTO storage_runtime_objects(namespace,path,principal,category,reserved_bytes,pending,budget_principal,operation_generation,last_used_at) VALUES($1,$2,$3,$4,$5,true,$6,$7,$8)
+            ON CONFLICT(namespace,path) DO UPDATE SET reserved_bytes=$5,pending=true,operation_generation=$7,last_used_at=$8`,
+            [this.namespace, path, owner.principal, owner.category, bytes, budget, generation, Date.now()],
         );
         return generation;
+    }
+    private async evict(runner: QueryRunner, path: string, bytes: number, replacing: boolean, limits: { cacheBytes: number; cacheObjects: number }) {
+        const [usage] = await runner.query(
+            `SELECT CAST(COALESCE(SUM(bytes+reserved_bytes),0) AS text) AS bytes,CAST(COUNT(*) AS text) AS objects FROM storage_runtime_objects
+            WHERE namespace=$1 AND category='cache'`,
+            [this.namespace],
+        );
+        const excessBytes = BigInt(usage.bytes) + BigInt(bytes) - BigInt(limits.cacheBytes);
+        const excessObjects = BigInt(usage.objects) + (replacing ? 0n : 1n) - BigInt(limits.cacheObjects);
+        if ((excessBytes <= 0n && excessObjects <= 0n) || BigInt(bytes) > BigInt(limits.cacheBytes)) return;
+        await this.flushTouches(runner);
+        const victims: { path: string; bytes: bigint }[] = [];
+        let freedBytes = 0n;
+        const enough = () => freedBytes >= excessBytes && BigInt(victims.length) >= excessObjects;
+        for (let offset = 0; !enough(); offset += 500) {
+            const rows: { path: string; bytes: string }[] = await runner.query(
+                `SELECT path,bytes FROM storage_runtime_objects WHERE namespace=$1 AND category='cache' AND NOT pending AND reserved_bytes=0 AND path<>$2
+                ORDER BY last_used_at,path LIMIT 500 OFFSET $3`,
+                [this.namespace, path, offset],
+            );
+            for (const row of rows) {
+                if (enough()) break;
+                if (this.reading.has(row.path)) continue;
+                victims.push({ path: row.path, bytes: BigInt(row.bytes) });
+                freedBytes += BigInt(row.bytes);
+            }
+            if (rows.length < 500) break;
+        }
+        if (!enough()) return;
+        let evictedBytes = 0n;
+        let evictedObjects = 0;
+        for (const victim of victims) {
+            if (this.reading.has(victim.path)) continue;
+            await runner.query("UPDATE storage_runtime_objects SET pending=true WHERE namespace=$1 AND path=$2", [this.namespace, victim.path]);
+            try {
+                await this.backend.delete(victim.path);
+                await this.confirm(runner, victim.path);
+            } catch (error) {
+                if (!this.backend.remoteGenerationConfirmation) await this.confirm(runner, victim.path).catch(() => {});
+                console.warn(`[CDN] could not evict ${victim.path} from the upstream cache: ${(error as Error)?.message ?? error}`);
+                break;
+            }
+            this.touched.delete(victim.path);
+            evictedBytes += victim.bytes;
+            evictedObjects++;
+        }
+        if (!evictedObjects) return;
+        await runner.query(
+            `INSERT INTO storage_cache_evictions(namespace,objects,bytes,last_evicted_at) VALUES($1,$2,$3,$4)
+            ON CONFLICT(namespace) DO UPDATE SET objects=storage_cache_evictions.objects+excluded.objects,bytes=storage_cache_evictions.bytes+excluded.bytes,
+            last_evicted_at=excluded.last_evicted_at`,
+            [this.namespace, evictedObjects, evictedBytes.toString(), Date.now()],
+        );
+    }
+    private touch(path: string) {
+        const now = Date.now();
+        if (now - (this.touched.get(path) ?? Number.NEGATIVE_INFINITY) < touchIntervalMs) return;
+        this.touched.delete(path);
+        this.touched.set(path, now);
+        if (this.touched.size > touchMemory) this.touched.delete(this.touched.keys().next().value!);
+        this.pendingTouches.add(path);
+        if (this.touchTimer) return;
+        this.touchTimer = setTimeout(() => this.flushTouches().catch(() => {}), touchFlushDelayMs);
+        this.touchTimer.unref?.();
+    }
+    async flushTouches(runner?: QueryRunner) {
+        if (this.touchTimer) clearTimeout(this.touchTimer);
+        this.touchTimer = undefined;
+        if (!this.pendingTouches.size) return;
+        const paths = [...this.pendingTouches];
+        this.pendingTouches.clear();
+        const now = Date.now();
+        try {
+            for (let start = 0; start < paths.length; start += 500) {
+                const batch = paths.slice(start, start + 500);
+                const sql = `UPDATE storage_runtime_objects SET last_used_at=$2 WHERE namespace=$1 AND category='cache' AND last_used_at<$2
+                    AND path IN (${batch.map((_, index) => `$${index + 3}`).join(",")})`;
+                const parameters = [this.namespace, now, ...batch];
+                if (runner) await runner.query(sql, parameters);
+                else await getDatabase()?.query(sql, parameters);
+            }
+        } catch (error) {
+            for (const path of paths) this.touched.delete(path);
+            throw error;
+        }
+    }
+    private release(path: string) {
+        const count = (this.reading.get(path) ?? 1) - 1;
+        if (count > 0) this.reading.set(path, count);
+        else this.reading.delete(path);
     }
     private async confirm(runner: QueryRunner, path: string, generation?: string) {
         const read = await this.backend.openRead!(path);
@@ -233,11 +335,32 @@ export class QuotaStorage implements Storage {
             }
         });
     }
-    openRead(path: string, signal?: AbortSignal): Promise<StorageRead | null> {
-        return this.backend.openRead!(path, signal);
+    async openRead(path: string, signal?: AbortSignal): Promise<StorageRead | null> {
+        this.reading.set(path, (this.reading.get(path) ?? 0) + 1);
+        let read: StorageRead | null;
+        try {
+            read = await this.backend.openRead!(path, signal);
+        } catch (error) {
+            this.release(path);
+            throw error;
+        }
+        if (!read) {
+            this.release(path);
+            return null;
+        }
+        finished(read.stream, () => this.release(path));
+        this.touch(path);
+        return read;
     }
-    get(path: string) {
-        return this.backend.get(path);
+    async get(path: string) {
+        this.reading.set(path, (this.reading.get(path) ?? 0) + 1);
+        try {
+            const data = await this.backend.get(path);
+            if (data) this.touch(path);
+            return data;
+        } finally {
+            this.release(path);
+        }
     }
     exists(path: string) {
         return this.backend.exists(path);

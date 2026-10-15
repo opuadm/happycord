@@ -30,6 +30,12 @@ Please do not leave any Markdown files or screenshots in the main repo. Leave th
 
 Use biome and two space indentation.
 
+## Listing an instance
+
+Public instances are listed in `instances.json` at the repository root. To add yours, add an entry with `id` (the lowercase host, with the port when it isn't 443), `name`, `url` and `source_url` (or `null`), run `bun scripts/instances-md.mjs` to regenerate `instances.md`, and open a pull request with both files. Don't edit `instances.md` by hand, `scripts/tests/instances-list.test.cjs` fails when the two files differ. The federation registry imports `instances.json` every hour. An instance that announces itself to the registry gets reviewed without a pull request too, see [docs/self-hosting/registry.md](docs/self-hosting/registry.md). An instance that changed its address keeps its entry, changes `id` and `url`, and lists the old ids in `previous_ids`, see [docs/self-hosting/change-url.md](docs/self-hosting/change-url.md). [docs/self-hosting/verification.md](docs/self-hosting/verification.md) lists what we check before approving an instance.
+
+The registry is a Cloudflare Worker in `extra/registry` with its own `package.json`. Run `bun install` and `bun run test` in that folder after changing it.
+
 ## Development
 
 You need Bun 1.4, PostgreSQL or SQLite and, for voice and video, Go 1.24 or newer. PostgreSQL remains the backend used by `dev:setup`; SQLite uses Bun's built-in driver. See [databases.md](docs/self-hosting/databases.md) for selecting either backend. Bun installs the packages, runs the server and runs every script. The browser scripts below use `playwright-core` and Google Chrome or another Chromium build.
@@ -68,7 +74,9 @@ bun scripts/ops/operator.mjs grant <account-id>
 | `PORT=3001 bun scripts/dev/parity-probe.mjs`        | Runs the parity checks against the API. A word after it runs only the checks whose name contains it, but many checks reuse what earlier ones created, so a filtered run can fail where the full run passes. |
 | `PORT=3001 bun scripts/dev/e2ee-test.mjs`           | Drives several browser profiles through encrypted DMs, key backup, recovery codes and device approval. Takes about five minutes.                                                                            |
 | `PORT=3001 bun scripts/dev/voice-probe.mjs`         | Joins two browsers to a voice channel and prints the audio each side sent and received. `--browser <path>` picks the browser.                                                                               |
+| `PORT=3001 bun scripts/dev/security-probe.mjs`      | Registers two accounts and runs the attacks from [the security review](docs/development/security.md) against the server. Prints `pass` for each blocked attack. `bun scripts/dev/route-audit.mjs --flagged` lists routes worth reading by hand. |
 | `PORT=3001 bun scripts/dev/probe.mjs <path>`        | Opens a client page as the test user and prints its text, console errors and failed requests. `--shot <file>` saves a screenshot and `--as friend` switches account.                                        |
+| `PORT=3001 bun scripts/dev/collectibles-sweep.mjs` | Requests every static and animated avatar decoration, profile effect, nameplate and profile frame asset the client asks for, and lists each one that fails. A word after it, such as `decoration`, checks one kind. |
 | `PORT=3001 bun run check:client`                     | Builds Equicord's reporter and checks that every patch still finds its target in the cached client. The first run checks out Equicord into `.vencord`, about 300 MB.                                          |
 
 The browser scripts load `playwright-core` from `~/.cache/fosscord-tools`. Install it there once:

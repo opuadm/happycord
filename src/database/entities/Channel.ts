@@ -175,6 +175,9 @@ export class Channel extends BaseClass {
     @Column()
     flags: number = 0;
 
+    @Column({ type: "varchar", nullable: true })
+    federated_instance?: string | null;
+
     @Column({ nullable: true })
     default_thread_rate_limit_per_user?: number = 0;
 
@@ -341,7 +344,7 @@ export class Channel extends BaseClass {
     }
 
     static async ensureDefaultPrivateEncryption(channel: Channel, actor_id?: string) {
-        if (![ChannelType.DM, ChannelType.GROUP_DM].includes(channel.type) || channel.e2ee_enabled_at) return;
+        if (![ChannelType.DM, ChannelType.GROUP_DM].includes(channel.type) || channel.e2ee_enabled_at || channel.federated_instance) return;
         const enabled_at = new Date();
         const result = await Channel.update({ id: channel.id, e2ee_enabled_at: IsNull() }, { e2ee_enabled_at: enabled_at });
         if (!result.affected) {

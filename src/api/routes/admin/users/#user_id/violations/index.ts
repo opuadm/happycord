@@ -3,7 +3,16 @@ import { In } from "typeorm";
 import { route } from "@spacebar/api/middlewares";
 import { User } from "@spacebar/database";
 import { AdminViolationCreateSchema } from "@spacebar/schemas";
-import { accountStanding, automaticAccountStanding, getUserViolations, isActiveViolation, issueViolation, PERMANENT_VIOLATION_EXPIRY } from "@spacebar/api/util";
+import { assertShadowUserEditable } from "@spacebar/api/util/utility/federatedAdmin";
+import {
+    accountStanding,
+    assertCanActOnUser,
+    automaticAccountStanding,
+    getUserViolations,
+    isActiveViolation,
+    issueViolation,
+    PERMANENT_VIOLATION_EXPIRY,
+} from "@spacebar/api/util";
 
 const router = Router({ mergeParams: true });
 
@@ -52,7 +61,7 @@ export async function describeStanding(user_id: string) {
 router.get(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_MODERATION",
         spacebarOnly: true,
         description: "A user's account standing and violations",
     }),
@@ -64,7 +73,7 @@ router.get(
 router.post(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "MODERATE_USERS",
         spacebarOnly: true,
         requestBody: "AdminViolationCreateSchema",
         description: "Add a violation to a user's account standing",
@@ -72,7 +81,8 @@ router.post(
     async (req: Request, res: Response) => {
         const body = req.body as AdminViolationCreateSchema;
         const user_id = req.params.user_id as string;
-        await User.findOneOrFail({ where: { id: user_id }, select: { id: true } });
+        assertShadowUserEditable(await User.findOneOrFail({ where: { id: user_id }, select: { id: true, federated_instance: true } }), ["account standing"]);
+        await assertCanActOnUser(req, user_id);
         await issueViolation(user_id, body, req.user_id);
 
         res.status(201).json(await describeStanding(user_id));

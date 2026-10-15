@@ -1,7 +1,7 @@
 import { isSqlite } from "@spacebar/database/Sql";
 import { IsNull } from "typeorm";
 import { MessageType } from "@spacebar/schemas";
-import { Config, emitEvent } from "@spacebar/util/util";
+import { Config, emitEvent, FederatedVoice } from "@spacebar/util/util";
 import { DmChannelDTO } from "../../util/dtos/DmChannelDTO";
 import { CallCreateEvent, CallDeleteEvent, CallUpdateEvent, ChannelCreateEvent, MessageCreateEvent, MessageUpdateEvent } from "../../util/interfaces/Event";
 import { Channel } from "../entities/Channel";
@@ -32,7 +32,9 @@ export class PrivateCalls {
                         ? `json_set("call", '$.ended_timestamp', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
                         : `jsonb_set("call", '{ended_timestamp}', to_jsonb(to_char(now() at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')))`,
             })
-            .where(`"type" = ${MessageType.CALL} AND "call" IS NOT NULL AND ("call"->>'ended_timestamp') IS NULL`)
+            .where(
+                `"type" = ${MessageType.CALL} AND "call" IS NOT NULL AND ("call"->>'ended_timestamp') IS NULL AND "channel_id" NOT IN (SELECT "id" FROM "channels" WHERE "federated_instance" IS NOT NULL)`,
+            )
             .execute();
     }
 
@@ -102,7 +104,9 @@ export class PrivateCalls {
             where: channelIds.map((channel_id) => ({ channel_id, guild_id: IsNull() })),
             select: { channel_id: true },
         });
-        const payloads = await Promise.all([...new Set(states.map((state) => state.channel_id))].map((channelId) => PrivateCalls.createPayload(channelId)));
+        const payloads = await Promise.all(
+            [...new Set(states.map((state) => state.channel_id))].map((channelId) => FederatedVoice.remoteCall(channelId) ?? PrivateCalls.createPayload(channelId)),
+        );
         return payloads.filter((payload) => payload !== null);
     }
 

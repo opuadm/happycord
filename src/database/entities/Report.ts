@@ -38,6 +38,7 @@ export interface ReportContextMessage {
     name: "reports",
 })
 @Index("IDX_reports_status_created_at", ["status", "created_at"])
+@Index("IDX_reports_resolved_at", ["resolved_at"])
 export class Report extends BaseClass {
     @Column()
     type: string;

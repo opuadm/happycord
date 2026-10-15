@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import { Router, Response, Request } from "express";
 import { fileTypeFromBuffer } from "file-type";
 import { HTTPError } from "lambert-server/HTTPError";
-import { Config } from "@spacebar/util";
-import { storage, internalUpload, setCacheControl } from "../util";
+import { Config, isRequestSignature } from "@spacebar/util";
+import { storage, internalUpload, setCacheControl, safeMediaType } from "../util";
 
 //Role icons ---> avatars.ts modified
 
@@ -19,7 +19,7 @@ const router = Router({ mergeParams: true });
 router.post(
     "/:role_id",
     internalUpload(async (req: Request, res: Response) => {
-        if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+        if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
         if (!req.file) throw new HTTPError("Missing file");
         const { buffer, size } = req.file;
         const { role_id } = req.params as { [key: string]: string };
@@ -52,7 +52,7 @@ router.get("/:role_id", setCacheControl, async (req: Request, res: Response) => 
     if (!file) throw new HTTPError("not found", 404);
     const type = await fileTypeFromBuffer(file);
 
-    res.set("Content-Type", type?.mime);
+    res.set("Content-Type", safeMediaType(type?.mime));
 
     return res.send(file);
 });
@@ -74,13 +74,13 @@ router.get("/:role_id/:hash", setCacheControl, async (req: Request, res: Respons
     if (!file) throw new HTTPError("not found", 404);
     const type = await fileTypeFromBuffer(file);
 
-    res.set("Content-Type", type?.mime);
+    res.set("Content-Type", safeMediaType(type?.mime));
 
     return res.send(file);
 });
 
 router.delete("/:role_id/:id", async (req: Request, res: Response) => {
-    if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+    if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
     const { role_id, id } = req.params as { [key: string]: string };
     const path = `role-icons/${role_id}/${id}`;
 

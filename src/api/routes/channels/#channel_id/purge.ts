@@ -2,6 +2,7 @@ import { Request, Response, Router } from "express";
 import { HTTPError } from "lambert-server/HTTPError";
 import { Between, FindManyOptions, FindOperator, Not } from "typeorm";
 import { route } from "@spacebar/api/middlewares";
+import { noteRightsBypass, permitted } from "@spacebar/api/util";
 import { Channel, Message } from "@spacebar/database";
 import { MessageDeleteBulkEvent, emitEvent, getPermission, getRights } from "@spacebar/util";
 import { isTextChannel, PurgeSchema } from "@spacebar/schemas";
@@ -38,7 +39,8 @@ router.post(
             const permissions = await getPermission(req.user_id, channel.guild_id, channel_id);
             permissions.hasThrow("MANAGE_MESSAGES");
             permissions.hasThrow("MANAGE_CHANNELS");
-        }
+        } else if (!(await permitted(async () => (await getPermission(req.user_id, channel.guild_id, channel_id)).has(["MANAGE_MESSAGES", "MANAGE_CHANNELS"]))))
+            await noteRightsBypass(req, "MANAGE_MESSAGES");
 
         const { before, after } = req.body as PurgeSchema;
 

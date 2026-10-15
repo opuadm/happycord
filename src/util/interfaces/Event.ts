@@ -1,5 +1,15 @@
 import { ConnectedAccount, Invite, Role, Emoji, Channel, User, Sticker, UserSettings, ReadState, PublicThreadMember } from "@spacebar/database";
-import { Activity, Presence, IReadyGuildDTO, ReadyUserGuildSettingsEntries, ReadyPrivateChannel, GuildOrUnavailable, Snowflake, getApexExperiments } from "@spacebar/util";
+import {
+    Activity,
+    Presence,
+    IReadyGuildDTO,
+    ReadyUserGuildSettingsEntries,
+    ReadyPrivateChannel,
+    GuildOrUnavailable,
+    Snowflake,
+    getApexExperiments,
+    UserExperimentAssignment,
+} from "@spacebar/util";
 import { JsonValue } from "@protobuf-ts/runtime";
 import {
     ApplicationCommand,
@@ -23,6 +33,7 @@ export interface Event {
     guild_id?: string;
     user_id?: string;
     session_id?: string;
+    session_user_id?: string;
     channel_id?: string;
     created_at?: Date;
     event: EVENT;
@@ -63,7 +74,7 @@ export interface ReadyEventData {
     country_code?: string; // e.g. DE
     friend_suggestion_count?: number;
     geo_ordered_rtc_regions?: string[]; // ["europe","russie","india","us-east","us-central"]
-    experiments?: [number, number, number, number, number][];
+    experiments?: UserExperimentAssignment[];
     guild_experiments?: [
         // ? what are guild_experiments?
         // this is the structure of it:

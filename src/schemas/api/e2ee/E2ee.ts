@@ -15,6 +15,7 @@ export interface E2eeEnvelope {
     ct: string;
     keys: E2eeEnvelopeKey[];
     backup?: E2eeEnvelopeBackupKey[];
+    mentions?: string[];
     sig: string;
 }
 

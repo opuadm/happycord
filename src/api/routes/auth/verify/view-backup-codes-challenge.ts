@@ -4,11 +4,14 @@ import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { signTicket } from "@spacebar/api/util";
 import { User } from "@spacebar/database";
-import { Config, Email, FieldErrors } from "@spacebar/util";
+import { Config, Email, FieldErrors, JwtKeypairManager, escapeHtml } from "@spacebar/util";
 
 const router = Router({ mergeParams: true });
 
-export const hashKey = (key: string) => crypto.createHash("sha256").update(key.trim().toLowerCase()).digest("base64url");
+export const hashKey = (key: string, user_id: string) => {
+    const secret = crypto.hkdfSync("sha256", JwtKeypairManager.keypair.privateKey.export({ format: "der", type: "pkcs8" }), user_id, "backup-codes-challenge", 32);
+    return crypto.createHmac("sha256", Buffer.from(secret)).update(key.trim().toLowerCase()).digest("base64url");
+};
 
 router.post(
     "/",
@@ -35,7 +38,7 @@ router.post(
             });
 
         const key = crypto.randomBytes(4).toString("hex");
-        const kh = hashKey(key);
+        const kh = hashKey(key, user.id);
         if (!Email.transporter || !user.email) console.log(`[Email] Skipped backup codes verification delivery for user ${user.id}: email delivery is unavailable`);
         else {
             const { instanceName } = Config.get().general;
@@ -44,7 +47,7 @@ router.post(
                 to: user.email,
                 subject: `Your ${instanceName} backup codes verification key`,
                 text: `Hey ${user.username},\n\nUse this key to view or regenerate your backup codes: ${key}\n\nThis key expires in 30 minutes.`,
-                html: `<p>Hey ${user.username},</p><p>Use this key to view or regenerate your backup codes:</p><p style="font-size:24px;font-weight:bold;letter-spacing:2px">${key}</p><p>This key expires in 30 minutes.</p>`,
+                html: `<p>Hey ${escapeHtml(user.username)},</p><p>Use this key to view or regenerate your backup codes:</p><p style="font-size:24px;font-weight:bold;letter-spacing:2px">${key}</p><p>This key expires in 30 minutes.</p>`,
             });
         }
 

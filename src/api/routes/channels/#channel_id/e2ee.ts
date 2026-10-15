@@ -1,8 +1,7 @@
 import { Request, Response, Router } from "express";
-import { In } from "typeorm";
 import { route } from "@spacebar/api/middlewares";
-import { E2eeErrors, e2eeRateLimit, isE2eeChannelType } from "@spacebar/api/util";
-import { Channel, E2eeDevice } from "@spacebar/database";
+import { e2eeDevicesOf, E2eeErrors, e2eeRateLimit, isE2eeChannelType } from "@spacebar/api/util";
+import { Channel } from "@spacebar/database";
 import { ChannelE2eeResponse, ChannelE2eeUpdateSchema, MessageType } from "@spacebar/schemas";
 import { emitEvent } from "@spacebar/util";
 
@@ -54,10 +53,7 @@ router.put(
         if (channel.e2ee_enabled_at) return res.json(toResponse(channel));
 
         const members = channel.recipients?.map((r) => r.user_id) ?? [];
-        const devices = await E2eeDevice.find({
-            where: { user_id: In(members), status: "active" },
-            select: { user_id: true },
-        });
+        const devices = (await e2eeDevicesOf(members, { channel_id: channel.id })).filter((d) => d.status === "active");
         const missing = members.filter((id) => !devices.some((d) => d.user_id === id));
         if (missing.length)
             return res.status(400).json({

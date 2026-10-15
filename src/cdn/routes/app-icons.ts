@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import { Router, Response, Request } from "express";
 import { fileTypeFromBuffer } from "file-type";
 import { HTTPError } from "lambert-server/HTTPError";
-import { Config } from "@spacebar/util";
-import { storage, internalUpload, setCacheControl, setCacheControlNotFound, fetchUpstreamAsset } from "../util";
+import { Config, isRequestSignature } from "@spacebar/util";
+import { storage, internalUpload, setCacheControl, setCacheControlNotFound, fetchUpstreamAsset, safeMediaType } from "../util";
 
 // TODO: check premium and animated pfp are allowed in the config
 // TODO: generate different sizes of icon
@@ -20,7 +20,7 @@ const pathPrefix = "app-icons";
 router.post(
     "/:guild_id",
     internalUpload(async (req: Request, res: Response) => {
-        if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+        if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
         if (!req.file) throw new HTTPError("Missing file");
         const { buffer, size } = req.file;
         const { guild_id } = req.params as { [key: string]: string };
@@ -54,7 +54,7 @@ router.get("/:guild_id", setCacheControl, async (req: Request, res: Response) =>
     if (!file) return setCacheControlNotFound(req, res);
     const type = await fileTypeFromBuffer(file);
 
-    res.set("Content-Type", type?.mime);
+    res.set("Content-Type", safeMediaType(type?.mime));
 
     return res.send(file);
 });
@@ -73,7 +73,7 @@ export const getAvatar = async (req: Request, res: Response) => {
     if (!file) return setCacheControlNotFound(req, res);
     const type = await fileTypeFromBuffer(file);
 
-    res.set("Content-Type", type?.mime);
+    res.set("Content-Type", safeMediaType(type?.mime));
 
     return res.send(file);
 };
@@ -81,7 +81,7 @@ export const getAvatar = async (req: Request, res: Response) => {
 router.get("/:guild_id/:hash", setCacheControl, getAvatar);
 
 router.delete("/:guild_id/:id", async (req: Request, res: Response) => {
-    if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+    if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
     const { guild_id, id } = req.params as { [key: string]: string };
     const path = `${pathPrefix}/${guild_id}/${id}`;
 

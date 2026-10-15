@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const ts = require("typescript");
 const jwt = require("jsonwebtoken");
+const { loadFederatedAdmin } = require("./federated-admin-module.cjs");
 class HTTPError extends Error {
     constructor(message, code) {
         super(message);
@@ -77,6 +78,7 @@ function tokenFixture() {
             OrmUtils: { keysToObject: (keys) => Object.fromEntries(keys.map((key) => [key, true])) },
         },
         "@spacebar/util/util/ProcessLifecycle": { ProcessLifecycle: {} },
+        "./StaffRoles": { isStaffAccount: () => false, loadStaffRoles: async () => ({}) },
     });
     const token = jwt.sign({ id: user.id, iat: Math.floor(Date.now() / 1000) }, "isolated-regression-secret");
     return {
@@ -153,6 +155,8 @@ test("admin suspension deletes only target sessions and emits invalidation befor
         "@spacebar/database": database,
         "@spacebar/util": utilities,
         "@spacebar/schemas": {},
+        "./adminTargets": { isProtectedStaffTarget: () => false },
+        "./staffDisable": { staffDisableColumns: () => ({ disabled: true }) },
     });
     const util = load("src/api/routes/admin/users/#user_id/index.ts", {
         "@spacebar/util/util/IdentityModeration": load("src/util/util/IdentityModeration.ts", {
@@ -184,8 +188,10 @@ test("admin suspension deletes only target sessions and emits invalidation befor
             currentStanding: async () => user.account_standing ?? 100,
             notifyStandingDrop: async () => actions.push("notice"),
             endUserSessions,
+            withStaffDisabled: (flags) => flags,
         },
-        "../index": { ADMIN_USER_COLUMNS: ["id"], pickAdminUser: (user) => user },
+        "../index": { ADMIN_USER_COLUMNS: ["id"], pickAdminUser: (user) => user, assertCanManage: () => undefined },
+        "@spacebar/api/util/utility/federatedAdmin": loadFederatedAdmin(HTTPError),
     });
     assert.ok(util.default);
     await handler(

@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const ts = require("typescript");
+const { loadStaffModules } = require("./helpers/staff-roles.cjs");
 
 const load = (file, imports) => {
     const module = { exports: {} };
@@ -25,6 +26,16 @@ class HTTPError extends Error {
 }
 
 const typeorm = { In: (value) => ({ in: value }), Not: (value) => ({ not: value }) };
+
+class OperatorRights {
+    static FLAGS = { OPERATOR: 1n };
+    constructor(value) {
+        this.value = BigInt(value ?? 0);
+    }
+    has(right) {
+        return right === "OPERATOR" && (this.value & 1n) === 1n;
+    }
+}
 
 const removalHarness = ({ users = [], messages = [] } = {}) => {
     const calls = { events: [], updates: [], sessionDeletes: [], messageDeletes: [], removed: [] };
@@ -49,18 +60,14 @@ const removalHarness = ({ users = [], messages = [] } = {}) => {
     const module = load("src/api/util/utility/accountRemoval.ts", {
         typeorm,
         "@spacebar/database": database,
-        "@spacebar/util": {
-            emitEvent: async (event) => calls.events.push(event),
-            Rights: class {
-                constructor(value) {
-                    this.value = BigInt(value ?? 0);
-                }
-                has(right) {
-                    return right === "OPERATOR" && (this.value & 1n) === 1n;
-                }
-            },
-        },
+        "@spacebar/util": { emitEvent: async (event) => calls.events.push(event), Rights: OperatorRights },
         "@spacebar/schemas": { ChannelType: { GROUP_DM: 3 }, PrivateUserProjection: [] },
+        "./adminTargets": load("src/api/util/utility/adminTargets.ts", {
+            "@spacebar/util": loadStaffModules().util,
+            "@spacebar/database": {},
+            "lambert-server/HTTPError": { HTTPError },
+        }),
+        "./staffDisable": load("src/api/util/utility/staffDisable.ts", { "@spacebar/schemas": { UserFlags: { FLAGS: { DISABLED: 1n << 41n } } } }),
     });
     return { module, calls };
 };
@@ -142,9 +149,11 @@ const ipHarness = (bans = []) => {
         "@spacebar/database": {
             getDatabase: () => null,
             InstanceBan: {
-                exists: async ({ where }) => {
+                sharedAddress: (ip) => /^(?:127\.|10\.|192\.168\.|::1$)/.test(ip),
+                live: (ban) => !ban.is_allowlisted,
+                find: async ({ where }) => {
                     queries.push(where);
-                    return bans.some((ban) => where.ip_address.in.includes(ban.ip_address) && ban.is_allowlisted === where.is_allowlisted);
+                    return bans.filter((ban) => where.ip_address.in.includes(ban.ip_address) && ban.is_allowlisted === where.is_allowlisted);
                 },
             },
         },
@@ -179,11 +188,68 @@ test("a banned address is refused in either IPv4 spelling and an allowlist entry
     await module.assertIpNotBanned("192.0.2.1", "blocked");
 });
 
+test("a private or loopback address never counts as banned, so a reverse proxy can't lock everyone out", async () => {
+    const { module, queries } = ipHarness([{ ip_address: "127.0.0.1", is_allowlisted: false }]);
+    assert.equal(await module.isIpBanned("127.0.0.1"), false);
+    assert.equal(queries.length, 0);
+});
+
 test("instance ban lookups without any identifier match nothing instead of every ban", async () => {
     const lookups = [];
+    const { InstanceBan } = loadInstanceBan(lookups, [{ id: "1", ip_address: "203.0.113.7", is_allowlisted: false, is_from_other_instance_ban: false, created_at: new Date() }]);
+    assert.equal(await InstanceBan.hasInstanceBans({}), false);
+    same(await InstanceBan.findInstanceBans({}), []);
+    assert.equal(lookups.length, 0);
+    assert.equal(await InstanceBan.hasInstanceBans({ ipAddress: "203.0.113.7" }), true);
+    same(lookups[0], [{ ip_address: "203.0.113.7" }]);
+});
+
+test("bans never spread to addresses, never match private, loopback or Cloudflare addresses, and spread bans name their source", async () => {
+    const saved = [];
+    const origin = { id: "9", user_id: "5", is_allowlisted: false, is_from_other_instance_ban: false };
+    const { InstanceBan } = loadInstanceBan([], [origin], saved);
+    assert.equal(InstanceBan.sharedAddress("127.0.0.1"), true);
+    assert.equal(InstanceBan.sharedAddress("::1"), true);
+    assert.equal(InstanceBan.sharedAddress("172.18.0.2"), true);
+    assert.equal(InstanceBan.sharedAddress("203.0.113.7"), false);
+    same(await InstanceBan.findInstanceBans({ userId: "5", ipAddress: "127.0.0.1", propagateBan: true }), ["userId"]);
+    assert.equal(saved.length, 0);
+    assert.equal(InstanceBan.sharedAddress("162.158.1.1"), true, "a Cloudflare address is shared by everyone behind it");
+    assert.equal(InstanceBan.sharedAddress("2606:4700::1"), true);
+    await InstanceBan.findInstanceBans({ userId: "5", ipAddress: "93.184.216.34", fingerprint: "browser", propagateBan: true });
+    assert.ok(
+        saved.every((ban) => !ban.ip_address),
+        "a banned account never bans the address it used",
+    );
+    same(
+        saved.map((ban) => ban.fingerprint),
+        ["browser"],
+    );
+    assert.match(saved[0].reason, /banned account 5, ban 9/);
+    assert.doesNotMatch(saved[0].reason, /other instance/);
+});
+
+test("a spread ban blocks but never spreads again, and spread address bans expire after a week", async () => {
+    const saved = [];
+    const day = 24 * 60 * 60 * 1000;
+    const spreadAddress = { id: "20", user_id: "5", ip_address: "93.184.216.34", is_allowlisted: false, is_from_other_instance_ban: true, created_at: new Date() };
+    const { InstanceBan } = loadInstanceBan([], [spreadAddress], saved);
+    same(await InstanceBan.findInstanceBans({ userId: "6", ipAddress: "93.184.216.34", fingerprint: "browser", propagateBan: true }), ["ipAddress"]);
+    assert.equal(saved.length, 0, "a bystander on the same address gets no account ban");
+    assert.equal(InstanceBan.live(spreadAddress), true);
+    assert.equal(InstanceBan.live({ ...spreadAddress, created_at: new Date(Date.now() - 8 * day) }), false);
+    assert.equal(InstanceBan.live({ ...spreadAddress, ip_address: null, created_at: new Date(Date.now() - 80 * day) }), true, "a spread account ban doesn't expire");
+    assert.equal(InstanceBan.live({ ...spreadAddress, is_from_other_instance_ban: false, created_at: new Date(Date.now() - 80 * day) }), true);
+    const stale = loadInstanceBan([], [{ ...spreadAddress, created_at: new Date(Date.now() - 8 * day) }]).InstanceBan;
+    assert.equal(await stale.hasInstanceBans({ userId: "6", ipAddress: "93.184.216.34" }), false);
+});
+
+function loadInstanceBan(lookups, found = [], saved = []) {
     const decorator = () => () => {};
-    const { InstanceBan } = load("src/database/entities/InstanceBan.ts", {
-        typeorm: { Column: decorator, CreateDateColumn: decorator, Entity: decorator, Index: decorator, JoinColumn: decorator, OneToOne: decorator },
+    return load("src/database/entities/InstanceBan.ts", {
+        typeorm: { Column: decorator, CreateDateColumn: decorator, Entity: decorator, Index: decorator, JoinColumn: decorator, ManyToOne: decorator },
+        "../../util/util/networking/PublicNetwork": { isPrivateAddress: (ip) => /^(?:127\.|10\.|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.|::1$)/.test(ip) },
+        "../../util/util/networking/Cloudflare": require("../../src/util/util/networking/Cloudflare.ts"),
         "./BaseClass": {
             BaseClass: class {
                 static async exists({ where }) {
@@ -192,22 +258,21 @@ test("instance ban lookups without any identifier match nothing instead of every
                 }
                 static async find({ where }) {
                     lookups.push(where);
-                    return [];
+                    return found;
+                }
+                static create(fields) {
+                    return { ...fields, save: async () => saved.push(fields) };
                 }
             },
         },
     });
-    assert.equal(await InstanceBan.hasInstanceBans({}), false);
-    same(await InstanceBan.findInstanceBans({}), []);
-    assert.equal(lookups.length, 0);
-    assert.equal(await InstanceBan.hasInstanceBans({ ipAddress: "203.0.113.7" }), true);
-    same(lookups[0], [{ ip_address: "203.0.113.7" }]);
-});
+}
 
-test("register and login refuse banned addresses before doing anything else", () => {
+test("register refuses banned addresses first, and login checks the address after the password so staff can still sign in", () => {
     const register = fs.readFileSync("src/api/routes/auth/register.ts", "utf8");
     const login = fs.readFileSync("src/api/routes/auth/login.ts", "utf8");
     assert.ok(register.indexOf("assertIpNotBanned(ip") < register.indexOf("checkRegistrationCaptcha(captchaKey, false)"));
     assert.match(register, /registration_ip: normalizeIp\(ip\)/);
-    assert.ok(login.indexOf("assertIpNotBanned(req.ip") < login.indexOf("checkCaptcha("));
+    assert.ok(login.indexOf("bcrypt.compare(") < login.indexOf("assertIpNotBanned(req.ip"));
+    assert.match(login, /if \(!isStaffAccount\(user, await loadStaffRoles\(\)\)\) await assertIpNotBanned\(req\.ip/);
 });

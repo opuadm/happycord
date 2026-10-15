@@ -12,6 +12,7 @@ export async function onResume(this: WebRtcWebSocket, data: VoicePayload) {
     };
     const previous = VoiceSessions.find(server_id, session_id);
     if (!previous || previous.token !== token || previous.sessionEnded || previous.resumedBy || !previous.webRtcClient) return this.close(4006, "Session no longer valid");
+    if (previous.federation?.sender !== this.federation?.sender) return this.close(4006, "Session no longer valid");
     if (!(await VoiceSessions.isValid(previous))) {
         await VoiceSessions.end(previous);
         return this.close(4006, "Session no longer valid");

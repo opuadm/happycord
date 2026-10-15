@@ -1,8 +1,17 @@
 import { Badge, User } from "@spacebar/database";
 import { Config, Rights } from "@spacebar/util";
 
-// rights that open at least one area of the admin dashboard
-export const ADMIN_PANEL_RIGHTS = ["OPERATOR", "MANAGE_USERS", "MANAGE_GUILDS"] as const;
+export const ADMIN_PANEL_RIGHTS = [
+    "OPERATOR",
+    "MANAGE_USERS",
+    "MANAGE_GUILDS",
+    "VIEW_USERS",
+    "MODERATE_USERS",
+    "VIEW_MODERATION",
+    "SUPPORT_USERS",
+    "MANAGE_STAFF",
+    "VIEW_AUDIT_LOG",
+] as const;
 
 // fixed so the badge can be found again; snowflakes never get this low. Its text and icon stay editable
 export const STAFF_BADGE_ID = "1";

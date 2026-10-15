@@ -136,10 +136,13 @@ func handleJoin(clientID string) error {
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		log.Printf("Client %s peer connection state: %s", p.id, state.String())
 		if state == webrtc.PeerConnectionStateConnected {
+			remote := selectedRemote(p)
+			log.Printf("Client %s media from %s", p.id, remote)
 			// Notify the signaling server that this client's WebRTC session is fully established.
 			sendErr := ipcConn.sendReply("", SignalMessage{
 				Type:     "connected",
 				ClientID: p.id,
+				Remote:   remote,
 			}, "")
 			if sendErr != nil {
 				log.Printf("Failed to send 'connected' event for %s: %v", p.id, sendErr)
@@ -555,6 +558,16 @@ func main() {
 	settingEngine.SetICEUDPMux(mux)
 	log.Printf("WebRTC Public IP: %s", publicIP)
 	log.Printf("WebRTC UDP port: %d", *webrtcPort)
+
+	if cfg, enabled, err := turnConfigFromEnv(publicIP); err != nil {
+		log.Printf("TURN disabled: %v", err)
+	} else if enabled {
+		if turnServer, err := startTurn(cfg, logFactory); err != nil {
+			log.Printf("TURN disabled: %v", err)
+		} else {
+			defer turnServer.Close()
+		}
+	}
 
 	// Create an InterceptorRegistry. This is the user configurable RTP/RTCP Pipeline.
 	// This provides NACKs, RTCP Reports and other features. If you use `webrtc.NewPeerConnection`

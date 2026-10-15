@@ -7,6 +7,15 @@ import { applyWebhookUpdate, webhookToJSON } from "@spacebar/api/util/handlers/W
 
 const router = Router({ mergeParams: true });
 
+const assertCanManageWebhook = async (user_id: string, webhook: { guild_id?: string | null; channel_id?: string | null; user_id?: string | null }) => {
+    if (!webhook.guild_id) {
+        if (webhook.user_id !== user_id) throw DiscordApiErrors.UNKNOWN_WEBHOOK;
+        return;
+    }
+    const permission = await getPermission(user_id, webhook.guild_id, webhook.channel_id ?? undefined);
+    if (!permission.has("MANAGE_WEBHOOKS")) throw DiscordApiErrors.UNKNOWN_WEBHOOK;
+};
+
 router.get(
     "/",
     route({
@@ -32,11 +41,7 @@ router.get(
             },
         });
 
-        if (webhook.guild_id) {
-            const permission = await getPermission(req.user_id, webhook.guild_id);
-
-            if (!permission.has("MANAGE_WEBHOOKS")) throw DiscordApiErrors.UNKNOWN_WEBHOOK;
-        } else if (webhook.user_id != req.user_id) throw DiscordApiErrors.UNKNOWN_WEBHOOK;
+        await assertCanManageWebhook(req.user_id, webhook);
 
         return res.json(webhookToJSON(webhook));
     },
@@ -68,11 +73,7 @@ router.delete(
             },
         });
 
-        if (webhook.guild_id) {
-            const permission = await getPermission(req.user_id, webhook.guild_id);
-
-            if (!permission.has("MANAGE_WEBHOOKS")) throw DiscordApiErrors.UNKNOWN_WEBHOOK;
-        } else if (webhook.user_id != req.user_id) throw DiscordApiErrors.UNKNOWN_WEBHOOK;
+        await assertCanManageWebhook(req.user_id, webhook);
 
         const channel_id = webhook.channel_id;
         await Webhook.delete({ id: webhook_id });
@@ -130,11 +131,8 @@ router.patch(
             },
         });
 
-        if (webhook.guild_id) {
-            const permission = await getPermission(req.user_id, webhook.guild_id);
-
-            if (!permission.has("MANAGE_WEBHOOKS")) throw DiscordApiErrors.UNKNOWN_WEBHOOK;
-        } else if (webhook.user_id != req.user_id) throw DiscordApiErrors.UNKNOWN_WEBHOOK;
+        await assertCanManageWebhook(req.user_id, webhook);
+        if (webhook.guild_id && body.channel_id && body.channel_id !== webhook.channel_id) await assertCanManageWebhook(req.user_id, { ...webhook, channel_id: body.channel_id });
 
         const previousChannelId = webhook.channel_id;
         const before = {

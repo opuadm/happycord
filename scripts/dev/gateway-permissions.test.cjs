@@ -253,3 +253,15 @@ test("partial relationship events do not crash or retain subscriptions after blo
     assert.equal(h.socket.events.friend, undefined);
     assert.equal(h.cancels.filter((id) => id === "friend").length, 1);
 });
+
+test("an event sent to a session only reaches it when the session belongs to the named user", async () => {
+    const h = harness();
+    await h.setup();
+    const before = h.sends.length;
+    await h.event("SESSIONS_REPLACE", [], { session_id: "session", session_user_id: "someone-else" });
+    assert.equal(h.sends.length, before);
+    await h.event("SESSIONS_REPLACE", [], { session_id: "session", session_user_id: "user" });
+    assert.equal(h.sends.length, before + 1);
+    const route = fs.readFileSync(path.resolve(__dirname, "../..", "src/api/routes/guilds/#guild_id/members/#member_id/index.ts"), "utf8");
+    assert.match(route, /session_id: sessionId, session_user_id: member_id/);
+});

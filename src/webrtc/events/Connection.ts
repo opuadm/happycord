@@ -6,12 +6,22 @@ import { VoiceOPCodes, WebRtcWebSocket, Send } from "../util";
 import { onClose } from "./Close";
 import { onMessage } from "./Message";
 
+const MAX_QUEUED_MESSAGES = 32;
+
 export async function Connection(this: WS.Server, socket: WebRtcWebSocket, request: IncomingMessage) {
     try {
         socket.remoteAddress = request.socket.remoteAddress;
         socket.on("error", (error) => console.error("[WebRTC]", error));
         socket.on("close", onClose.bind(socket));
-        socket.on("message", onMessage.bind(socket));
+        socket.on("message", (buffer: Buffer, isBinary: boolean) => {
+            if ((socket.queuedMessages ?? 0) >= MAX_QUEUED_MESSAGES) return socket.close(4008, "Too many pending commands");
+            socket.queuedMessages = (socket.queuedMessages ?? 0) + 1;
+            socket.inbox = (socket.inbox ?? Promise.resolve())
+                .then(() => onMessage.call(socket, buffer, isBinary))
+                .finally(() => {
+                    socket.queuedMessages = (socket.queuedMessages ?? 1) - 1;
+                });
+        });
         console.log("[WebRTC] new connection", request.url);
 
         if (process.env.WS_LOGEVENTS) {

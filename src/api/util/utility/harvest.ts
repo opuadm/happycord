@@ -2,7 +2,7 @@ import zlib from "node:zlib";
 import { In, LessThan } from "typeorm";
 import { storage } from "@spacebar/cdn/util/Storage";
 import { Channel, ConnectedAccount, Guild, HarvestRecord, Member, Message, Relationship, User, UserSettings, UserSettingsProtos } from "@spacebar/database";
-import { Config, Email, Snowflake } from "@spacebar/util";
+import { Config, Email, Snowflake, escapeHtml } from "@spacebar/util";
 import { PrivateUserProjection } from "@spacebar/schemas";
 import { signTicket } from "./mfa";
 
@@ -271,7 +271,7 @@ export async function createHarvest(user_id: string, requested: unknown) {
                 to: user.email,
                 subject: `Your ${instanceName} data package is ready`,
                 text: `Hey ${user.username},\n\nYour data package is ready. Download it here within 14 days: ${url}`,
-                html: `<p>Hey ${user.username},</p><p>Your data package is ready. <a href="${url}">Download it here</a> within 14 days.</p>`,
+                html: `<p>Hey ${escapeHtml(user.username)},</p><p>Your data package is ready. <a href="${escapeHtml(url)}">Download it here</a> within 14 days.</p>`,
             });
         } catch {
             console.error(`[Harvest] Failed to build or deliver data package for user ${user_id}`);

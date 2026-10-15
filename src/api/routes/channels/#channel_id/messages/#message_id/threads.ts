@@ -37,6 +37,7 @@ router.post(
             type: channel.type === ChannelType.GUILD_NEWS ? ChannelType.GUILD_NEWS_THREAD : ChannelType.GUILD_PUBLIC_THREAD,
             auto_archive_duration: body.auto_archive_duration,
             rate_limit_per_user: body.rate_limit_per_user,
+            reason: req.headers["x-audit-log-reason"],
         });
 
         await sendMessage({

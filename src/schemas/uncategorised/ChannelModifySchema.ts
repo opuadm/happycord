@@ -5,6 +5,7 @@ export interface ChannelModifySchema {
     type?: ChannelType;
     topic?: string | null;
     icon?: string | null;
+    owner?: string;
     bitrate?: number;
     user_limit?: number;
     rate_limit_per_user?: number;

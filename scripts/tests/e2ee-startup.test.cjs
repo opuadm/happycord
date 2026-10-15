@@ -110,7 +110,7 @@ test("failed member requests retry after a bounded delay, and navigation cancels
     assert.equal(calls, 2);
     assert.equal(retries, 1);
 });
-function startupHarness() {
+function startupHarness({ token = "stored-token" } = {}) {
     const timers = [];
     let now = 100000;
     const module = { exports: {} };
@@ -158,7 +158,7 @@ function startupHarness() {
         if (name === "./hooks") return { createHooks: () => ({ retryAll() {} }) };
         if (name === "./link") return { createLink: () => ({ start() {}, stop() {}, outgoing: () => null }) };
         if (name === "./ui") return { createUi: () => ui };
-        if (name === "./store") return { browserStorage: null };
+        if (name === "./store") return { browserStorage: { getItem: (key) => (key === "token" && token ? JSON.stringify(token) : null) } };
         if (name === "./webpack") return { scan() {}, findStore: () => null };
         if (name === "./i18n") return { t: (s) => s };
         throw new Error(name);
@@ -294,6 +294,24 @@ test("gateway-free authenticated bootstrap succeeds and failed probes remain bou
     await flush();
     assert.equal(calls, 2);
     assert.equal(h.api.initialized(), true);
+});
+
+test("signed out pages never probe the current user", async () => {
+    const h = startupHarness({ token: null });
+    let calls = 0;
+    h.api.setHttp({
+        get: async () => {
+            calls++;
+            return { ok: false, status: 401, body: {} };
+        },
+    });
+    for (let i = 0; i < 5; i++) {
+        h.api.startWhenReady();
+        await flush();
+        h.advance(10000);
+    }
+    assert.equal(calls, 0);
+    assert.equal(h.api.initialized(), false);
 });
 
 test("anonymous unauthorized probes do not permanently disable authenticated bootstrap", async () => {

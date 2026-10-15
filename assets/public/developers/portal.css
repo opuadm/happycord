@@ -1228,3 +1228,8 @@ select {
     order: -1;
   }
 }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, currentColor 32%, transparent) transparent;
+}

@@ -8,6 +8,7 @@ import { handleMessage, postHandleMessage } from "./Message";
 import { reopenDirectMessage } from "./DirectMessage";
 import { onThreadMessage } from "./Thread";
 import { persistWithMessageSlowmode } from "./Slowmode";
+import { applyExplicitContentFilter } from "../utility/safety";
 
 export async function publishUserMessage(opts: {
     channel: Channel;
@@ -16,6 +17,8 @@ export async function publishUserMessage(opts: {
     message_id: string;
     attachments: MessageOptionAttachment[];
     permission?: Permissions;
+    attachmentHashes?: (string | null)[];
+    authorship?: string;
 }) {
     const { channel, user_id, body, message_id, attachments, permission } = opts;
     const last_message_id = channel.last_message_id || null;
@@ -36,6 +39,7 @@ export async function publishUserMessage(opts: {
         { channel, permission, deferChannelUpdates: true },
     );
     Object.assign(message, { edited_timestamp: null });
+    if (opts.authorship) message.authorship = opts.authorship;
 
     if (message.guild_id) {
         if (!message.member) {
@@ -49,6 +53,7 @@ export async function publishUserMessage(opts: {
         Object.assign(message.member, {
             roles: message.member.roles.filter((x) => x.id != x.guild_id).map((x) => x.id),
         });
+        if (message.attachments?.length) await applyExplicitContentFilter(message, channel, (message.member.roles as unknown as string[]).length > 0, opts.attachmentHashes);
     }
 
     const authorPermission = permission ?? (channel.guild_id && channel.rate_limit_per_user ? await getPermission(user_id, channel.guild_id, channel) : Permissions.NONE);

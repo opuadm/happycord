@@ -1,5 +1,5 @@
 import { NextFunction, Response, Request } from "express";
-import { Config } from "@spacebar/util";
+import { isRequestSignature } from "@spacebar/util";
 import { HTTPError } from "lambert-server";
 
 export function setCacheControl(req: Request, res: Response, next: NextFunction) {
@@ -15,6 +15,6 @@ export function setCacheControlNotFound(req: Request, res: Response) {
 }
 
 export function validateServerAuth(req: Request, res: Response, next: NextFunction) {
-    if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+    if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
     next();
 }

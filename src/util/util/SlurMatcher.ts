@@ -168,7 +168,7 @@ export function findTerm(text: string | null | undefined, terms: readonly string
     return null;
 }
 
-export type AutomodListAction = "delete" | "suspend" | "name";
+export type AutomodListAction = "log" | "delete" | "timeout" | "hold" | "suspend" | "disable" | "name";
 
 export interface AutomodMatchOptions {
     slurs?: boolean;

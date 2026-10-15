@@ -7,6 +7,11 @@ import { Snowflake } from "@spacebar/util";
 
 const router = Router({ mergeParams: true });
 
+const pruneDays = (value: unknown) => {
+    const days = Number.parseInt(String(value ?? 7), 10);
+    return Number.isNaN(days) ? 7 : Math.min(30, Math.max(1, days));
+};
+
 //Returns all inactive members, respecting role hierarchy
 const inactiveMembers = async (guild_id: string, user_id: string, days: number, roles: string[] = []) => {
     const date = new Date();
@@ -55,6 +60,7 @@ const inactiveMembers = async (guild_id: string, user_id: string, days: number, 
 router.get(
     "/",
     route({
+        permission: "KICK_MEMBERS",
         responses: {
             "200": {
                 body: "GuildPruneResponse",
@@ -62,7 +68,7 @@ router.get(
         },
     }),
     async (req: Request, res: Response) => {
-        const days = parseInt(req.query.days as string);
+        const days = pruneDays(req.query.days);
 
         let roles = req.query.include_roles ?? [];
         if (typeof roles === "string") roles = roles.split(",");
@@ -88,7 +94,7 @@ router.post(
         },
     }),
     async (req: Request, res: Response) => {
-        const days = parseInt(req.body.days ?? req.query.days ?? 7);
+        const days = pruneDays(req.body.days ?? req.query.days);
 
         let roles = req.body.include_roles ?? req.query.include_roles ?? [];
         if (typeof roles === "string") roles = roles.split(",");

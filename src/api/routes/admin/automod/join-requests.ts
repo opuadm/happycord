@@ -4,7 +4,8 @@ import { In, IsNull, MoreThan, Not } from "typeorm";
 import { route } from "@spacebar/api/middlewares";
 import { JoinStatus, User } from "@spacebar/database";
 import { AdminJoinRequestActionSchema } from "@spacebar/schemas";
-import { revokeUserSessions } from "@spacebar/api/util";
+import { canActOn, revokeUserSessions } from "@spacebar/api/util";
+import { loadStaffRoles } from "@spacebar/util";
 import { JOIN_REASON_SIGNAL_LABELS, joinReasonSignals, normalizeJoinReason } from "@spacebar/util/util/JoinReason";
 
 const router = Router({ mergeParams: true });
@@ -16,7 +17,7 @@ const LOW_EFFORT_SCAN = 1000;
 router.get(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_MODERATION",
         spacebarOnly: true,
         description: "Accounts that gave a reason for joining or wait for approval, newest first, with low-effort signals",
         query: {
@@ -89,15 +90,15 @@ router.get(
 router.post(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "MODERATE_USERS",
         spacebarOnly: true,
         requestBody: "AdminJoinRequestActionSchema",
         description: "Approve or reject accounts. Rejected accounts can't sign in.",
     }),
     async (req: Request, res: Response) => {
         const { user_ids, action } = req.body as AdminJoinRequestActionSchema;
-        const users = await User.find({ where: { id: In(user_ids) }, select: { id: true } });
-        const ids = users.map((user) => user.id).filter((id) => id !== req.user_id);
+        const [users, snap] = await Promise.all([User.find({ where: { id: In(user_ids) }, select: { id: true, rights: true } }), loadStaffRoles()]);
+        const ids = users.filter((user) => user.id !== req.user_id && canActOn({ id: req.user_id, rights: req.rights.bitfield }, user, snap)).map((user) => user.id);
         if (ids.length) await User.update({ id: In(ids) }, { join_status: action === "approve" ? "approved" : "rejected" });
         if (action === "reject") for (const id of ids) await revokeUserSessions(id, "Account not approved");
         res.json({ updated: ids });

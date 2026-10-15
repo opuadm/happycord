@@ -3,7 +3,7 @@ import { In } from "typeorm";
 import { getDatabase, Member } from "@spacebar/database";
 import { WebSocket, Payload, OPCODES, Send, handleOffloadedGatewayRequest } from "@spacebar/gateway";
 import { PublicUser, RequestGuildMembersSchema } from "@spacebar/schemas";
-import { Config, getPermission, getUserPresences, GuildMembersChunkEvent, Presence } from "@spacebar/util";
+import { Config, getPermission, getUserPresences, GuildMembersChunkEvent, Intents, Presence } from "@spacebar/util";
 import { check } from "./instanceOf";
 
 const FullMemberRequestWindow = 30_000;
@@ -48,8 +48,14 @@ export async function onRequestGuildMembers(this: WebSocket, { d }: Payload) {
     const permissions = await getPermission(this.user_id, guild_id);
     permissions.hasThrow("VIEW_CHANNEL");
 
-    if (!query && !user_ids?.length && !limit && !this.isBot) {
-        if (!permissions.has("MANAGE_ROLES") && !permissions.has("KICK_MEMBERS") && !permissions.has("BAN_MEMBERS")) return;
+    const fullList = !query && !user_ids?.length;
+    const moderator = permissions.has("MANAGE_ROLES") || permissions.has("KICK_MEMBERS") || permissions.has("BAN_MEMBERS");
+    if (this.isBot && fullList && !this.intents?.has(Intents.FLAGS.GUILD_MEMBERS)) return;
+    const withPresences = !!presences && (!this.isBot || !!this.intents?.has(Intents.FLAGS.GUILD_PRESENCES));
+    if (fullList && limit && !this.isBot && !moderator) limit = Math.min(Math.abs(Number(limit)) || 100, 100);
+
+    if (fullList && !limit && !this.isBot) {
+        if (!moderator) return;
         const now = Date.now();
         this.fullMemberRequests ??= {};
         const last = this.fullMemberRequests[guild_id] ?? 0;
@@ -112,7 +118,7 @@ export async function onRequestGuildMembers(this: WebSocket, { d }: Payload) {
         if (user_ids?.length) notFound = user_ids.filter((id) => !byId.has(id));
 
         let presenceList: Presence[] = [];
-        if (presences) {
+        if (withPresences) {
             const presenceMap = await getUserPresences(chunk.map((m) => m.id));
             presenceList = chunk.filter((m) => presenceMap.has(m.id)).map((m) => ({ user: { id: m.id } as PublicUser, ...presenceMap.get(m.id)! }));
         }

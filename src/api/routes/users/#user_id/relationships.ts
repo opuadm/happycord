@@ -1,5 +1,6 @@
 import { route } from "@spacebar/api/middlewares";
 import { User } from "@spacebar/database";
+import { mutualFriendIds, remoteMutualFriends } from "@spacebar/api/util/utility/federationRelay";
 import { Request, Response, Router } from "express";
 import { UserMutualRelationsResponse } from "@spacebar/schemas";
 
@@ -17,32 +18,14 @@ router.get(
         },
     }),
     async (req: Request, res: Response) => {
+        const target = await User.findOneOrFail({ where: { id: req.params.user_id as string }, select: { id: true, federated_instance: true } });
+        const relayed = target.federated_instance ? await remoteMutualFriends(req.user_id, target.id) : [];
+        const ids = await mutualFriendIds(req.user_id, target.id, relayed);
         const mutual_relations: UserMutualRelationsResponse = [];
-
-        const requested_relations = await User.findOneOrFail({
-            where: { id: req.params.user_id as string },
-            relations: { relationships: true },
-        });
-        const self_relations = await User.findOneOrFail({
-            where: { id: req.user_id },
-            relations: { relationships: true },
-        });
-
-        for (const rmem of requested_relations.relationships) {
-            for (const smem of self_relations.relationships)
-                if (rmem.to_id === smem.to_id && rmem.type === 1 && rmem.to_id !== req.user_id) {
-                    const relation_user = await User.getPublicUser(rmem.to_id);
-
-                    mutual_relations.push({
-                        id: relation_user.id,
-                        username: relation_user.username,
-                        avatar: relation_user.avatar,
-                        discriminator: relation_user.discriminator,
-                        public_flags: relation_user.public_flags,
-                    });
-                }
+        for (const id of ids) {
+            const user = await User.getPublicUser(id);
+            mutual_relations.push({ id: user.id, username: user.username, avatar: user.avatar, discriminator: user.discriminator, public_flags: user.public_flags });
         }
-
         res.json(mutual_relations);
     },
 );

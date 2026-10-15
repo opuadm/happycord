@@ -69,7 +69,18 @@ function fixture(files = new Map(), hooks = {}) {
             require: (name) => {
                 if (Object.hasOwn(imports, name)) return imports[name];
                 if (name.startsWith("node:") || name === "jsonwebtoken") return require(name);
-                if (["lambert-server/HTTPError", "typeorm", "@spacebar/schemas", "@spacebar/database", "@spacebar/extensions", "./Config", "@spacebar/util"].includes(name))
+                if (
+                    [
+                        "lambert-server/HTTPError",
+                        "typeorm",
+                        "@spacebar/schemas",
+                        "@spacebar/database",
+                        "@spacebar/extensions",
+                        "./Config",
+                        "./StaffRoles",
+                        "@spacebar/util",
+                    ].includes(name)
+                )
                     return {};
                 throw Error(name);
             },

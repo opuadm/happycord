@@ -164,6 +164,24 @@ const decodeChunked = (raw: Buffer, limit: number) => {
     }
 };
 
+export const socksTunnel = async (proxy: OutboundProxy, target: URL, address: string, signal: AbortSignal): Promise<Socket> => {
+    const secure = target.protocol === "https:" || target.protocol === "wss:";
+    const tunnel = await socksConnect(proxy, address, Number(target.port || (secure ? 443 : 80)), signal);
+    if (!secure) return tunnel;
+    const socket = connectTls({ socket: tunnel, servername: isIP(target.hostname.replace(/^\[|\]$/g, "")) ? undefined : target.hostname, ALPNProtocols: ["http/1.1"] });
+    socket.once("close", () => tunnel.destroy());
+    try {
+        await new Promise<void>((resolve, reject) => {
+            socket.once("secureConnect", resolve);
+            socket.once("error", reject);
+        });
+    } catch (error) {
+        socket.destroy();
+        throw error;
+    }
+    return socket;
+};
+
 export const socksExchange = async (
     proxy: OutboundProxy,
     target: URL,
@@ -174,18 +192,8 @@ export const socksExchange = async (
     signal: AbortSignal,
     maxBytes: number,
 ): Promise<RawExchange> => {
-    const https = target.protocol === "https:";
-    const port = Number(target.port || (https ? 443 : 80));
-    const tunnel = await socksConnect(proxy, address, port, signal);
-    const socket = https
-        ? connectTls({ socket: tunnel, servername: isIP(target.hostname.replace(/^\[|\]$/g, "")) ? undefined : target.hostname, ALPNProtocols: ["http/1.1"] })
-        : tunnel;
+    const socket = await socksTunnel(proxy, target, address, signal);
     try {
-        if (https)
-            await new Promise<void>((resolve, reject) => {
-                socket.once("secureConnect", resolve);
-                socket.once("error", reject);
-            });
         const reader = new SocketReader(socket);
         const lines = [`${method} ${target.pathname}${target.search} HTTP/1.1`, `Host: ${target.host}`, "Connection: close"];
         for (const [name, value] of Object.entries(headers)) if (!/[\r\n]/.test(name + value)) lines.push(`${name}: ${value}`);
@@ -211,6 +219,5 @@ export const socksExchange = async (
         return { status, headers: responseHeaders, body: await reader.rest(maxBytes) };
     } finally {
         socket.destroy();
-        tunnel.destroy();
     }
 };

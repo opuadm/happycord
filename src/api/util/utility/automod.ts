@@ -1,4 +1,4 @@
-import { AuditLog, AutomodRule, Channel, Guild, Member, Message, User, VoiceChannels } from "@spacebar/database";
+import { AuditLog, AutomodRule, Channel, Guild, Member, User, VoiceChannels } from "@spacebar/database";
 import { ApiError, Config, emitEvent, ErrorList, FieldError, Permissions, Snowflake } from "@spacebar/util";
 import {
     AuditLogEvents,
@@ -14,8 +14,9 @@ import {
     EmbedType,
     MessageType,
 } from "@spacebar/schemas";
-import { In, MoreThan } from "typeorm";
+import { In } from "typeorm";
 import { emitMemberUpdate, mentionRaidActive, postGuildSystemMessage, recordGuildJoin, recordMentionSpam } from "./safety";
+import { spamDetector } from "./spamGuard";
 
 export const AUTOMOD_QUARANTINE_FLAGS = 128 | 256 | 1024;
 const QUARANTINED_NAME = 128;
@@ -166,19 +167,11 @@ export function assertNoHarmfulLinks(content?: string | null) {
     throw new ApiError("Your message could not be delivered because it contains a link that has been flagged as harmful.", 200000, 400);
 }
 
-async function looksLikeSpam(content: string, opts: { guild_id: string; user_id: string }) {
+function looksLikeSpam(content: string, opts: { guild_id: string; user_id: string; message_id?: string }) {
     if (SCAM_PHRASES.some((regex) => regex.test(content))) return true;
     const normalized = content.trim();
     if (normalized.length < 10 && !linkHosts(normalized).length) return false;
-    const repeats = await Message.count({
-        where: {
-            guild_id: opts.guild_id,
-            author_id: opts.user_id,
-            content: normalized,
-            timestamp: MoreThan(new Date(Date.now() - 60_000)),
-        },
-    });
-    return repeats >= 2;
+    return spamDetector.recentSameContent(opts.user_id, opts.guild_id, normalized, 60_000, Date.now(), opts.message_id) >= 2;
 }
 
 interface AutomodMatch {
@@ -264,7 +257,7 @@ export async function checkAutomod(opts: MessageContext) {
                     await recordMentionSpam(opts.guild_id, opts.user_id).catch((e) => console.error("[AutoMod] mention raid check failed", e));
             }
         } else if (rule.trigger_type === AutomodRuleTriggerType.SPAM && !opts.title) {
-            if (await looksLikeSpam(content, opts)) matches.push({ rule, keyword: null, content: null });
+            if (looksLikeSpam(content, opts)) matches.push({ rule, keyword: null, content: null });
         }
     }
     if (!matches.length) return;
@@ -484,8 +477,8 @@ export async function checkMemberProfile(guild_id: string, user_id: string, even
         });
 }
 
-export async function onGuildMemberJoin(guild_id: string, user_id: string) {
-    await recordGuildJoin(guild_id).catch((e) => console.error("[Safety] raid check failed", e));
+export async function onGuildMemberJoin(guild_id: string, user_id: string, invite?: string | null) {
+    await recordGuildJoin(guild_id, user_id, invite).catch((e) => console.error("[Safety] raid check failed", e));
     await checkMemberProfile(guild_id, user_id, "guild_join").catch((e) => console.error("[AutoMod] profile check failed", e));
 }
 

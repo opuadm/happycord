@@ -17,7 +17,7 @@ import {
     UserApplicationUpdateEvent,
 } from "@spacebar/util";
 import { emitCommandIndexUpdate } from "@spacebar/api/util/handlers/ApplicationCommands";
-import { issueOAuth2Token, signTicket } from "@spacebar/api/util";
+import { isAllowedRedirectUri, issueOAuth2Token, signTicket } from "@spacebar/api/util";
 import { toPublicApplication } from "@spacebar/api/util/handlers/Application";
 import { randomBytes } from "node:crypto";
 import { In } from "typeorm";
@@ -76,11 +76,11 @@ const invalidRedirect = () =>
 
 const redirectFor = (app: Application, redirect_uri: unknown) => {
     if (typeof redirect_uri === "string" && redirect_uri) {
-        if (!app.redirect_uris?.includes(redirect_uri)) throw invalidRedirect();
+        if (!app.redirect_uris?.includes(redirect_uri) || !isAllowedRedirectUri(redirect_uri)) throw invalidRedirect();
         return redirect_uri;
     }
     if (redirect_uri !== undefined) throw invalidRedirect();
-    return app.redirect_uris?.length === 1 ? app.redirect_uris[0] : null;
+    return app.redirect_uris?.length === 1 && isAllowedRedirectUri(app.redirect_uris[0]) ? app.redirect_uris[0] : null;
 };
 
 router.get(

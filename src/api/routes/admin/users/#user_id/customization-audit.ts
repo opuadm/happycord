@@ -4,7 +4,7 @@ import { adminCustomizationTarget, ADMIN_USER_CUSTOMIZATION_ACTION } from "@spac
 import { AuditLog } from "@spacebar/database";
 import { IsNull } from "typeorm";
 const router = Router({ mergeParams: true });
-router.get("/", route({ right: "MANAGE_USERS", spacebarOnly: true }), async (req: Request, res: Response) => {
+router.get("/", route({ right: "VIEW_USERS", spacebarOnly: true }), async (req: Request, res: Response) => {
     const target = await adminCustomizationTarget(req);
     const entries = await AuditLog.find({
         where: {

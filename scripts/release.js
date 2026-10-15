@@ -15,7 +15,7 @@ const files = git("ls-tree", "-rz", "--name-only", "HEAD").split("\0").filter(Bo
 const forbidden = files.filter(
     (file) =>
         /^(?:assets\/(?:cache(?:_compressed)?|cacheMisses|cacheFailures|vencord)(?:\/|$)|(?:\.vencord|db|files|dump|\.e2ee-system|\.announcement-spool)(?:\/|$))/.test(file) ||
-        /(?:^|\/)(?:config\.json|http-client\.private\.env\.json|jwt\.key[^/]*|\.e2ee-recovery\.key[^/]*|\.test-account|\.e2ee-test-accounts|\.test-bot|\.scale-tokens\.json|database\.db(?:-[^/]*)?)$/.test(
+        /(?:^|\/)(?:config\.json|http-client\.private\.env\.json|jwt\.key[^/]*|federation\.key[^/]*|\.e2ee-recovery\.key[^/]*|\.test-account|\.e2ee-test-accounts|\.test-bot|\.scale-tokens\.json|database\.db(?:-[^/]*)?)$/.test(
             file,
         ) ||
         (/(?:^|\/)\.env(?:$|\.)/.test(file) && path.posix.basename(file) !== ".env.example"),

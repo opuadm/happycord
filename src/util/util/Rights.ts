@@ -1,11 +1,11 @@
 import { BitField, BitFieldResolvable, BitFlag } from "./BitField";
 import { User } from "../../database/entities";
 import { HTTPError } from "lambert-server/HTTPError";
+import { effectiveRights } from "./StaffRoles";
 
 export type RightResolvable = bigint | number | Rights | RightResolvable[] | RightString;
 
-type RightString = keyof typeof Rights.FLAGS;
-// TODO: just like roles for members, users should have priviliges which combine multiple rights into one and make it easy to assign
+export type RightString = keyof typeof Rights.FLAGS;
 
 export class Rights extends BitField {
     constructor(bits: BitFieldResolvable = 0) {
@@ -13,6 +13,7 @@ export class Rights extends BitField {
         if (this.bitfield & Rights.FLAGS.OPERATOR) {
             this.bitfield = ALL_RIGHTS;
         }
+        for (const [right, implied] of Rights.IMPLIED) if (this.bitfield & right) this.bitfield |= implied;
     }
 
     static FLAGS = {
@@ -70,7 +71,18 @@ export class Rights extends BitField {
         VIEW_SERVER_STATS: BitFlag(48), // added per @chrischrome's request - can view server stats)
         RESEND_VERIFICATION_EMAIL: BitFlag(49), // can resend verification emails (/auth/verify/resend)
         CREATE_REGISTRATION_TOKENS: BitFlag(50), // can create registration tokens (/auth/generate-registration-tokens)
+        VIEW_USERS: BitFlag(51),
+        MODERATE_USERS: BitFlag(52),
+        VIEW_MODERATION: BitFlag(53),
+        SUPPORT_USERS: BitFlag(54),
+        MANAGE_STAFF: BitFlag(55),
+        VIEW_AUDIT_LOG: BitFlag(56),
     };
+
+    static IMPLIED: [bigint, bigint][] = [
+        [BitFlag(7), BitFlag(51) | BitFlag(52) | BitFlag(53) | BitFlag(54)],
+        [BitFlag(52), BitFlag(53)],
+    ];
 
     any(permission: RightResolvable, checkOperator = true) {
         return (checkOperator && super.any(Rights.FLAGS.OPERATOR)) || super.any(permission);
@@ -88,12 +100,7 @@ export class Rights extends BitField {
 
 const ALL_RIGHTS = Object.values(Rights.FLAGS).reduce((total, val) => total | val, BigInt(0));
 
-export async function getRights(
-    user_id: string,
-    /**, opts: {
-		in_behalf?: (keyof User)[];
-	} = {} **/
-) {
-    const user = await User.findOneOrFail({ where: { id: user_id } });
-    return new Rights(user.rights);
+export async function getRights(user_id: string) {
+    const user = await User.findOneOrFail({ where: { id: user_id }, select: { id: true, rights: true } });
+    return effectiveRights(user.id, user.rights);
 }

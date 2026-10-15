@@ -8,6 +8,9 @@ import { pipeline } from "node:stream/promises";
 import { ClientAssetCompression, clientAssetVersion } from "./ClientAssetCompression";
 import { compressedStatic } from "../util/util/CompressedStatic";
 import { inviteCodeFromPath, invitePage } from "@spacebar/api/util";
+import { instanceId } from "@spacebar/api/util/utility/federation";
+import { User } from "@spacebar/database";
+import { IsNull } from "typeorm";
 import {
     APP_THEME_COLOR,
     appIconPng,
@@ -16,6 +19,8 @@ import {
     brandImageUrls,
     brandPage,
     clanBadgeColorCount,
+    escapeHtml,
+    instanceName,
     clanBadgePack,
     Config,
     CUSTOM_CLAN_BADGE_PACK,
@@ -257,6 +262,7 @@ const buildHtml = () => {
         LOADING_TIPS: ${json(client.loadingTips)},
         LOADING_SVG: ${json(client.loadingSvg)},
         INSTANCE_NAME: ${json(client.instanceName)},
+        INSTANCE_ID: ${json(instanceId())},
         INSTANCE_ICON: ${json(images.icon)},
         INSTANCE_LOGO: ${json(images.logo)},
         HELP_URL: ${json(helpUrl())},
@@ -343,6 +349,22 @@ const clientRoots = () => {
     return roots.size > EXTRA_ROOTS.length ? roots : null;
 };
 
+const FRIEND_NAME = /^[\p{L}\p{N}_.-]{1,32}$/u;
+
+const renderAddFriend = (origin: string, name: string) => {
+    const handle = `${name}@${instanceId() ?? new URL(origin).host}`;
+    const preview = openGraphTags(origin, {
+        title: `Add ${name} on ${instanceName()}`,
+        description: `Add ${handle} as a friend from any Meowcord instance.`,
+        url: `/add/${encodeURIComponent(name)}`,
+    });
+    return brandPage(fs.readFileSync(path.join(ASSET_FOLDER_PATH, "public", "add-friend.html"), "utf8"))
+        .replace("__OPEN_GRAPH__", preview)
+        .replaceAll("__FRIEND_NAME__", escapeHtml(name))
+        .replaceAll("__FRIEND_HANDLE__", escapeHtml(handle))
+        .replaceAll("__OPEN_HREF__", escapeHtml(`/channels/@me?add=${encodeURIComponent(name)}`));
+};
+
 const renderNotFound = () => brandPage(fs.readFileSync(path.join(ASSET_FOLDER_PATH, "public", "not-found.html"), "utf8"));
 
 const renderPage = () => {
@@ -414,6 +436,18 @@ export default function TestClient(app: Application) {
             .map((x) => fs.statSync(x, { throwIfNoEntry: false })?.mtimeMs ?? 0)
             .join();
     let stamp = DEVELOPMENT ? sourceStamp() : "";
+
+    app.get("/add/:name", async (req, res, next) => {
+        const name = String(req.params.name);
+        if (!FRIEND_NAME.test(name)) return next();
+        const user = await User.findOne({ where: { username: name, federated_instance: IsNull(), bot: false, deleted: false }, select: { id: true, username: true } }).catch(
+            () => null,
+        );
+        if (!user) return next();
+        res.set("Cache-Control", "no-cache")
+            .type("html")
+            .send(renderAddFriend(requestOrigin(req), name));
+    });
 
     app.get("/gift/:code", (req, res) => res.redirect(`/gifts/${encodeURIComponent(req.params.code)}`));
 

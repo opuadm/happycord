@@ -40,6 +40,8 @@ const forbidden = [
     "nested/config.json",
     "jwt.key",
     "nested/jwt.key.pub",
+    "federation.key",
+    "nested/federation.key",
     ".e2ee-recovery.key.backup",
     "nested/.e2ee-recovery.key",
     "files/object",

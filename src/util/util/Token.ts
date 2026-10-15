@@ -12,6 +12,7 @@ import { Config } from "./Config";
 import { OrmUtils } from "@spacebar/util";
 import { clearInterval, setInterval } from "node:timers";
 import { ProcessLifecycle } from "@spacebar/util/util/ProcessLifecycle";
+import { isStaffAccount, loadStaffRoles } from "./StaffRoles";
 
 /// Change history:
 /// 1 - Initial version with HS256
@@ -58,6 +59,8 @@ export const checkToken = (
         relations?: string[]; // TODO: clean up
         ipAddress?: string;
         fingerprint?: string;
+        federationRelay?: boolean;
+        propagateBans?: boolean;
     },
 ): Promise<UserTokenData> =>
     new Promise((resolve, reject) => {
@@ -91,6 +94,8 @@ export const checkToken = (
                         "data",
                         "flags",
                         "verified",
+                        "federated_instance",
+                        "created_at",
                     ]), // TODO: clean up
                     relations: !opts?.relations ? undefined : OrmUtils.keysToObject(opts.relations), // TODO: clean up
                 }),
@@ -105,6 +110,11 @@ export const checkToken = (
             if (!user) {
                 logAuth("validateUser rejected: User not found");
                 return rejectAndLog(reject, 401, "User not found");
+            }
+
+            if (!!user.federated_instance !== (!!opts?.federationRelay && (decoded as { fed?: number }).fed === 1)) {
+                logAuth("validateUser rejected: federation relay tokens only work for shadow users through the relay");
+                return rejectAndLog(reject, 401, "Invalid Token");
             }
 
             if (decoded.did && !session) {
@@ -134,14 +144,7 @@ export const checkToken = (
                 return rejectAndLog(reject, 401, "User not found");
             }
 
-            const banReasons = banned
-                ? await InstanceBan.findInstanceBans({
-                      userId: user.id,
-                      ipAddress: opts?.ipAddress,
-                      fingerprint: opts?.fingerprint,
-                      propagateBan: true,
-                  })
-                : [];
+            const banReasons = banned ? await InstanceBan.findInstanceBans({ ...(await banLookup(user, opts)), propagateBan: opts?.propagateBans ?? true }) : [];
             if (banReasons.length > 0) {
                 logAuth("validateUser rejected: User banned for reasons: " + banReasons.join(", "));
                 return rejectAndLog(reject, 418, "Invalid Token");
@@ -221,7 +224,12 @@ export const hashOAuth2Token = (token: string) => crypto.createHash("sha256").up
 
 export const isOAuth2AccessToken = (authorization: string) => /^Bearer [A-Za-z0-9_-]{20,}$/.test(authorization);
 
-export async function checkOAuth2Token(authorization: string, opts?: { ipAddress?: string; fingerprint?: string }): Promise<UserTokenData> {
+async function banLookup(user: User, opts?: { ipAddress?: string; fingerprint?: string; federationRelay?: boolean }) {
+    if (opts?.federationRelay || user.federated_instance || isStaffAccount(user, await loadStaffRoles())) return { userId: user.id };
+    return { userId: user.id, ipAddress: opts?.ipAddress, fingerprint: opts?.fingerprint };
+}
+
+export async function checkOAuth2Token(authorization: string, opts?: { ipAddress?: string; fingerprint?: string; propagateBans?: boolean }): Promise<UserTokenData> {
     const token = await OAuth2Token.findOne({
         where: {
             access_token_hash: hashOAuth2Token(authorization.slice("Bearer ".length)),
@@ -238,12 +246,7 @@ export async function checkOAuth2Token(authorization: string, opts?: { ipAddress
             fingerprint: opts?.fingerprint,
         })
     ) {
-        const banReasons = await InstanceBan.findInstanceBans({
-            userId: user.id,
-            ipAddress: opts?.ipAddress,
-            fingerprint: opts?.fingerprint,
-            propagateBan: true,
-        });
+        const banReasons = await InstanceBan.findInstanceBans({ ...(await banLookup(user, opts)), propagateBan: opts?.propagateBans ?? true });
         if (banReasons.length > 0) throw new HTTPError("Invalid Token", 418);
     }
     return {
@@ -277,6 +280,32 @@ const compactTokenSecret = () => {
     }
     return compactSecret;
 };
+
+let relaySecretKeypair: KeyObject | undefined;
+let relaySecret: string;
+export const federationRelaySecret = () => {
+    const privateKey = JwtKeypairManager.keypair.privateKey;
+    if (relaySecretKeypair !== privateKey) {
+        relaySecret = crypto
+            .createHash("sha256")
+            .update("federation-relay")
+            .update(privateKey.export({ format: "pem", type: "sec1" }))
+            .digest("base64url");
+        relaySecretKeypair = privateKey;
+    }
+    return relaySecret;
+};
+
+const federationTokens = new Map<string, { token: string; until: number }>();
+export function generateFederationToken(id: string) {
+    const cached = federationTokens.get(id);
+    if (cached && cached.until > Date.now()) return cached.token;
+    const iat = Math.floor(Date.now() / 1000);
+    const token = jwt.sign({ id, iat, exp: iat + 300, ver: CurrentTokenFormatVersion, fed: 1 }, JwtKeypairManager.keypair.privateKey, { algorithm: "ES512" });
+    if (federationTokens.size > 5000) federationTokens.clear();
+    federationTokens.set(id, { token, until: Date.now() + 240_000 });
+    return token;
+}
 
 async function assertNotSuspended(id: string) {
     const user = await User.findOneOrFail({

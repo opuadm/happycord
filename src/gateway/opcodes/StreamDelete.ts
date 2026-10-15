@@ -1,6 +1,6 @@
 import { Member, Stream, VoiceState } from "@spacebar/database";
 import { parseStreamKey, Payload, WebSocket } from "@spacebar/gateway";
-import { emitEvent, StreamDeleteEvent, VoiceStateUpdateEvent } from "@spacebar/util";
+import { emitEvent, FederatedVoice, StreamDeleteEvent, VoiceStateUpdateEvent } from "@spacebar/util";
 import { check } from "./instanceOf";
 import { StreamDeleteSchema } from "@spacebar/schemas";
 
@@ -8,6 +8,7 @@ export async function onStreamDelete(this: WebSocket, data: Payload) {
     const startTime = Date.now();
     check.call(this, StreamDeleteSchema, data.d);
     const body = data.d as StreamDeleteSchema;
+    if (await FederatedVoice.relayStream(this.user_id, this.session_id, "delete", { ...body })) return;
 
     let parsedKey: {
         type: "guild" | "call";

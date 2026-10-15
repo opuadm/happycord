@@ -1,10 +1,12 @@
 import { Request, Response, Router } from "express";
 import { HTTPError } from "lambert-server/HTTPError";
 import { route } from "@spacebar/api/middlewares";
-import { Channel, Guild, Member, User } from "@spacebar/database";
-import { Config, handleFile, emitEvent, GuildDeleteEvent } from "@spacebar/util";
+import { Channel, FederatedObject, Guild, Member, User } from "@spacebar/database";
+import { Config, dropGuildTags, handleFile, emitEvent, GuildDeleteEvent } from "@spacebar/util";
 import { AdminGuildUpdateSchema } from "@spacebar/schemas";
 import { applyGuildTag, purgeDeletedChannels, syncTagAdopters } from "@spacebar/api/util";
+import { reindexDiscoverySoon } from "@spacebar/api/util/handlers/Discovery";
+import { assertMirrorGuildEditable } from "@spacebar/api/util/utility/federatedAdmin";
 import { pickOwner } from "../index";
 
 const router = Router({ mergeParams: true });
@@ -30,6 +32,7 @@ const describeGuild = async (guild_id: string) => {
             default_message_notifications: true,
             preferred_locale: true,
             afk_timeout: true,
+            federated_instance: true,
         },
     });
     const [memberCount, channelCount, owner] = await Promise.all([
@@ -64,6 +67,10 @@ const describeGuild = async (guild_id: string) => {
         default_message_notifications: guild.default_message_notifications ?? null,
         preferred_locale: guild.preferred_locale ?? null,
         afk_timeout: guild.afk_timeout ?? null,
+        federated_instance: guild.federated_instance ?? null,
+        canonical: guild.federated_instance
+            ? ((await FederatedObject.findOne({ where: { local_id: guild.id }, select: { local_id: true, canonical: true } }))?.canonical ?? null)
+            : null,
         member_count: memberCount,
         channel_count: channelCount,
         tag: guild.profile?.tag
@@ -103,6 +110,7 @@ router.patch(
         const body = req.body as AdminGuildUpdateSchema;
         const guild_id = req.params.guild_id as string;
         const guild = await Guild.findOneOrFail({ where: { id: guild_id } });
+        assertMirrorGuildEditable(guild);
 
         if (body.owner_id !== undefined && body.owner_id !== guild.owner_id) {
             if (!(await Member.findOne({ where: { id: body.owner_id, guild_id }, select: { id: true } }))) throw new HTTPError("The new owner must be a member of the server", 400);
@@ -150,6 +158,7 @@ router.patch(
         );
 
         await guild.save();
+        reindexDiscoverySoon(guild_id);
         if (tagChanged) await syncTagAdopters(guild);
         await Guild.emitUpdate(guild_id);
 
@@ -171,6 +180,7 @@ router.delete(
 
         await Promise.all([
             Guild.delete({ id: guild_id }), // cascades to all guild related data
+            dropGuildTags(guild_id),
             emitEvent({
                 event: "GUILD_DELETE",
                 data: { id: guild_id },

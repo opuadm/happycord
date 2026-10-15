@@ -32,7 +32,7 @@ router.post(
         const allowed = await sharesE2eeContext(req.user_id, requested);
         channelMembers?.forEach((id) => allowed.add(id));
         const ids = requested.filter((id) => allowed.has(id));
-        const users = await e2eeUserKeys(ids);
+        const users = await e2eeUserKeys(ids, { channel_id });
         res.json({
             users,
             ...(channelMembers && { channel_members: channelMembers }),

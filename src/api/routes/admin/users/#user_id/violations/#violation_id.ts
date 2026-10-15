@@ -3,20 +3,22 @@ import { HTTPError } from "lambert-server/HTTPError";
 import { route } from "@spacebar/api/middlewares";
 import { UserViolation } from "@spacebar/database";
 import { AdminViolationUpdateSchema, AppealStatusValue } from "@spacebar/schemas";
-import { resolveAppeal } from "@spacebar/api/util";
+import { assertCanActOnUser, resolveAppeal } from "@spacebar/api/util";
 import { describeStanding } from "./index";
 
 const router = Router({ mergeParams: true });
 
-const findViolation = (req: Request) =>
-    UserViolation.findOneOrFail({
+const findViolation = async (req: Request) => {
+    await assertCanActOnUser(req, req.params.user_id as string);
+    return UserViolation.findOneOrFail({
         where: { id: req.params.violation_id as string, user_id: req.params.user_id as string },
     });
+};
 
 router.patch(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "MODERATE_USERS",
         spacebarOnly: true,
         requestBody: "AdminViolationUpdateSchema",
         description: "Resolve an appeal on a violation or change when it expires",
@@ -38,7 +40,7 @@ router.patch(
     },
 );
 
-router.delete("/", route({ right: "MANAGE_USERS", spacebarOnly: true, description: "Remove a violation entirely" }), async (req: Request, res: Response) => {
+router.delete("/", route({ right: "MODERATE_USERS", spacebarOnly: true, description: "Remove a violation entirely" }), async (req: Request, res: Response) => {
     const violation = await findViolation(req);
     await UserViolation.delete({ id: violation.id });
     res.json(await describeStanding(violation.user_id));

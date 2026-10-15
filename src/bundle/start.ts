@@ -51,11 +51,7 @@ if (cluster.isPrimary) {
             }
 
             cluster.on("message", (sender: Worker, message) => {
-                for (const id in cluster.workers) {
-                    const worker = cluster.workers[id];
-                    if (worker === sender || !worker) continue;
-                    worker.send(message);
-                }
+                for (const worker of Object.values(cluster.workers ?? {})) worker?.send(message);
             });
 
             cluster.on("exit", (worker) => {

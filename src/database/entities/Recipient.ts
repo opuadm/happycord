@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, Index } from "typeorm";
+import { BaseEntity, Column, Entity, JoinColumn, ManyToOne, Index, PrimaryColumn } from "typeorm";
 import { BaseClass } from "./BaseClass";
 
 @Entity({
@@ -32,4 +32,20 @@ export class Recipient extends BaseClass {
     message_request_timestamp?: Date | null;
 
     // TODO: settings/mute/nick/added at/encryption keys/read_state
+}
+
+@Entity({ name: "former_recipients" })
+export class FormerRecipient extends BaseEntity {
+    @PrimaryColumn({ type: "int8" })
+    channel_id: string;
+
+    @PrimaryColumn({ type: "int8" })
+    @Index("IDX_former_recipients_user_id")
+    user_id: string;
+
+    @Column({ type: "varchar", nullable: true })
+    host_instance: string | null;
+
+    @Column({ type: "timestamptz" })
+    left_at: Date;
 }

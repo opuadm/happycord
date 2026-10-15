@@ -7,6 +7,8 @@ import { ForgotPasswordSchema } from "@spacebar/schemas";
 
 const router = Router({ mergeParams: true });
 
+const minimumResponseMs = 400;
+
 router.post(
     "/",
     route({
@@ -32,24 +34,20 @@ router.post(
         const captcha = await checkCaptcha(config.passwordReset.requireCaptcha, captchaKeyFrom(req), "password_reset");
         if (captcha) return res.status(400).json(captcha);
 
+        const started = Date.now();
         const user = await User.findOne({
             where: User.loginWhere(login),
             select: { username: true, discriminator: true, id: true, email: true, deleted: true },
         });
 
-        if (!user?.email || user.deleted)
-            throw FieldErrors({
-                login: {
-                    code: "EMAIL_DOES_NOT_EXIST",
-                    message: "Email does not exist.",
-                },
-            });
+        const email = user?.deleted ? undefined : user?.email;
+        if (user && email)
+            Promise.resolve()
+                .then(() => Email.sendResetPassword(user, email))
+                .catch((e) => console.error(`Failed to send password reset email to ${user.tag} (${user.id}): ${e}`));
 
+        await new Promise((resolve) => setTimeout(resolve, Math.max(0, started + minimumResponseMs - Date.now())));
         res.json({ method: "password_reset" });
-
-        Email.sendResetPassword(user, user.email).catch((e) => {
-            console.error(`Failed to send password reset email to ${user.tag} (${user.id}): ${e}`);
-        });
     },
 );
 

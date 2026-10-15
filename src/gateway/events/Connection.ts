@@ -8,10 +8,10 @@ import { setHeartbeat } from "../util/Heartbeat";
 import { IncomingMessage } from "node:http";
 import { Close } from "./Close";
 import { Message } from "./Message";
-import { Deflate, Inflate } from "fast-zlib";
+import { Deflate } from "fast-zlib";
 import { URL } from "node:url";
 import { Config } from "@spacebar/util";
-import { Decoder, Encoder } from "@toondepauw/node-zstd";
+import { Encoder } from "@toondepauw/node-zstd";
 import { ProcessLifecycle } from "@spacebar/util/util/ProcessLifecycle";
 import { Monitoring } from "../../util/monitoring/Monitoring";
 import { Gauge } from "prom-client";
@@ -70,8 +70,8 @@ export async function Connection(this: WS.Server, socket: WebSocket, request: In
     if (ProcessLifecycle.state == "stopping" || ProcessLifecycle.state == "stopped") return await onShutdown();
     shutdownConnections.set(socket, onShutdown);
 
-    const forwardedFor = Config.get().security.forwardedFor;
-    const ipAddress = clientAddress(request, forwardedFor);
+    const { forwardedFor, trustedProxies } = Config.get().security;
+    const ipAddress = clientAddress(request, forwardedFor, trustedProxies);
 
     socket.ipAddress = ipAddress;
     socket.userAgent = request.headers["user-agent"] as string;
@@ -133,10 +133,8 @@ export async function Connection(this: WS.Server, socket: WebSocket, request: In
         if (socket.compress) {
             if (socket.compress === "zlib-stream") {
                 socket.deflate = new Deflate();
-                socket.inflate = new Inflate();
             } else if (socket.compress === "zstd-stream") {
                 socket.zstdEncoder = new Encoder(6);
-                socket.zstdDecoder = new Decoder();
             } else {
                 console.error(`[Gateway/${socket.user_id}] Unknown compression: ${socket.compress}`);
                 return socket.close(CLOSECODES.Decode_error);

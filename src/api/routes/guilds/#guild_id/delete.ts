@@ -3,7 +3,7 @@ import { HTTPError } from "lambert-server/HTTPError";
 import { route } from "@spacebar/api/middlewares";
 import { purgeDeletedChannels } from "@spacebar/api/util";
 import { Guild } from "@spacebar/database";
-import { GuildDeleteEvent, emitEvent } from "@spacebar/util";
+import { GuildDeleteEvent, dropGuildTags, emitEvent } from "@spacebar/util";
 
 const router = Router({ mergeParams: true });
 
@@ -33,6 +33,7 @@ router.post(
 
         await Promise.all([
             Guild.delete({ id: guild_id }), // this will also delete all guild related data
+            dropGuildTags(guild_id),
             emitEvent({
                 event: "GUILD_DELETE",
                 data: {

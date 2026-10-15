@@ -10,7 +10,7 @@ const router = Router({ mergeParams: true });
 router.post(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "MODERATE_USERS",
         spacebarOnly: true,
         requestBody: "AdminUserInviteBranchSchema",
         description: "Disable every account a user brought in, directly or further down the invite tree, and revoke their invites. Staff accounts are skipped",

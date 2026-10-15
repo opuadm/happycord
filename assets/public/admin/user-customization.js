@@ -1,4 +1,4 @@
-export async function mountUserCustomization(container, user, { api, toast }) {
+export async function mountUserCustomization(container, user, { api, toast, editable = true }) {
   const card = document.createElement("section");
   card.className = "card stack";
   card.setAttribute("aria-label", "User customization");
@@ -40,7 +40,7 @@ export async function mountUserCustomization(container, user, { api, toast }) {
         button.disabled = false;
       }
     });
-    form.append(button, status);
+    if (editable) form.append(button, status);
     card.append(form);
     return form;
   };
@@ -165,6 +165,8 @@ export async function mountUserCustomization(container, user, { api, toast }) {
       );
       preferenceForm.insertBefore(advancedLabel, preferenceForm.querySelector("button"));
     }
+    if (!editable)
+      for (const control of card.querySelectorAll("form input, form select, form textarea")) control.disabled = true;
     const history = element("details", "", "stack");
     history.append(element("summary", "Customization history"));
     const refresh = element("button", "Refresh customization history", "btn ghost");

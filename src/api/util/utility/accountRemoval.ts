@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { In, Not } from "typeorm";
 import { Channel, Emoji, Guild, InstanceBan, Member, Message, Recipient, Session, Sticker, User, UserSettingsProtos } from "@spacebar/database";
-import { ChannelDeleteEvent, ChannelRecipientRemoveEvent, emitEvent, Event, MessageDeleteBulkEvent, Rights, UserDeleteEvent } from "@spacebar/util";
+import { ChannelDeleteEvent, ChannelRecipientRemoveEvent, dropGuildTags, emitEvent, Event, MessageDeleteBulkEvent, Rights, UserDeleteEvent } from "@spacebar/util";
 import { ChannelType, PrivateUserProjection } from "@spacebar/schemas";
+import { isProtectedStaffTarget } from "./adminTargets";
+import { staffDisableColumns } from "./staffDisable";
 
 export const BULK_ACCOUNT_LIMIT = 500;
 export const BULK_ACCOUNT_BATCH = 50;
@@ -103,6 +105,7 @@ export async function removeAccount(user_id: string, opts: { actor_id: string; r
         const heir = members.sort((a, b) => highest(b) - highest(a))[0];
         if (!heir) {
             await guild.remove();
+            await dropGuildTags(guild.id);
             continue;
         }
         guild.owner_id = heir.id;
@@ -131,6 +134,7 @@ export async function bulkRemoveAccounts(opts: {
     reason?: string;
     actor_id: string;
     actor_is_operator: boolean;
+    actor_rights?: bigint;
 }) {
     const ids = [...new Set(opts.user_ids)];
     const users = ids.length ? await User.find({ where: { id: In(ids) }, select: { id: true, rights: true } }) : [];
@@ -141,7 +145,8 @@ export async function bulkRemoveAccounts(opts: {
         const user = known.get(id);
         if (!user) skipped.push({ id, reason: "unknown" });
         else if (id === opts.actor_id) skipped.push({ id, reason: "self" });
-        else if (!opts.actor_is_operator && new Rights(user.rights).has("OPERATOR")) skipped.push({ id, reason: "operator" });
+        else if (isProtectedStaffTarget({ id: opts.actor_id, rights: opts.actor_rights ?? (opts.actor_is_operator ? Rights.FLAGS.OPERATOR : 0n) }, user))
+            skipped.push({ id, reason: "operator" });
         else targets.push(id);
     }
 
@@ -151,7 +156,7 @@ export async function bulkRemoveAccounts(opts: {
     for (let start = 0; start < targets.length; start += BULK_ACCOUNT_BATCH) {
         const batch = targets.slice(start, start + BULK_ACCOUNT_BATCH);
         if (opts.action === "disable") {
-            await User.update({ id: In(batch) }, { disabled: true });
+            await User.update({ id: In(batch) }, staffDisableColumns());
             sessions_ended += await endUserSessions(batch, "Account disabled");
             if (opts.delete_messages) messages_deleted += await deleteAuthoredMessages(batch);
             processed.push(...batch);

@@ -12,6 +12,7 @@ export interface IpcPayload {
     blockAudio?: boolean;
     blockVideo?: boolean;
     deaf?: boolean;
+    remote?: string;
 }
 
 interface IpcMessage {

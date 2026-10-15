@@ -61,7 +61,7 @@ const databaseImports = {
     Attachment: {},
     getDatabase: () => ({ transaction: (callback) => callback(manager) }),
 };
-const utilityImports = { Config: { get: () => config }, Snowflake: { generate: () => "123456" } };
+const utilityImports = { Config: { get: () => config }, Snowflake: { generate: () => "123456" }, isRequestSignature: (value) => value === config.security.requestSignature };
 const guard = compile("src/cdn/util/cloudUploads.ts", {
     "@spacebar/database": databaseImports,
     "@spacebar/util": utilityImports,

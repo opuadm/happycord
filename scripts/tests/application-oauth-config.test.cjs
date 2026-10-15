@@ -72,7 +72,7 @@ const fixture = (tags = ["base", "stale", "older"]) => {
             },
         },
         "@spacebar/api/util/handlers/ApplicationCommands": {},
-        "@spacebar/api/util": {},
+        "@spacebar/api/util": { isAllowedRedirectUri: require("../../dist/api/util/utility/redirectUri.js").isAllowedRedirectUri },
     };
     const module = { exports: {} };
     vm.runInNewContext(source, {

@@ -31,7 +31,7 @@ export const resolveBadgeIcon = async (body: { icon?: string; icon_data?: string
 router.get(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_USERS",
         spacebarOnly: true,
         description: "List instance profile badges with how many users have each",
     }),

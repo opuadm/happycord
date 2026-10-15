@@ -7,7 +7,7 @@ let cached: { snapshot: Awaited<ReturnType<typeof Collectibles.get>>; body: stri
 router.get(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_USERS",
         spacebarOnly: true,
         description: "Compact local catalog for choosing profile cosmetics in the admin dashboard",
     }),

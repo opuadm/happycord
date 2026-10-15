@@ -41,7 +41,7 @@ test("compact admin catalog reuses one snapshot, revalidates HTTP and invalidate
                 if (name === "@spacebar/api/middlewares")
                     return {
                         route: (options) => {
-                            assert.equal(options.right, "MANAGE_USERS");
+                            assert.equal(options.right, "VIEW_USERS");
                             return (_req, _res, next) => next();
                         },
                     };

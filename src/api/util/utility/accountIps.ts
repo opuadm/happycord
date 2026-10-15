@@ -28,9 +28,10 @@ export const ipVariants = (value: string) => {
 export const sqlNormalizedIp = (column: string) => `CASE WHEN ${column} LIKE '::ffff:%.%' THEN substr(${column}, 8) ELSE ${column} END`;
 
 export const isIpBanned = async (value: string | undefined | null) => {
-    const variants = value ? ipVariants(value) : [];
+    const variants = value && !InstanceBan.sharedAddress(value) ? ipVariants(value) : [];
     if (!variants.length) return false;
-    return InstanceBan.exists({ where: { ip_address: In(variants), is_allowlisted: false } });
+    const bans = await InstanceBan.find({ where: { ip_address: In(variants), is_allowlisted: false } });
+    return bans.some((ban) => InstanceBan.live(ban));
 };
 
 export const assertIpNotBanned = async (value: string | undefined | null, message: string) => {

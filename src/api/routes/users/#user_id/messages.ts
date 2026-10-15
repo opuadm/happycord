@@ -21,10 +21,12 @@ router.get(
     async (req: Request, res: Response) => {
         const user = await User.findOneOrFail({ where: { id: req.params.user_id as string } });
         const channel = await user.getDmChannelWith(req.user_id);
+        if (!channel) return res.status(200).send([]);
 
         const messages = (
             await Message.find({
-                where: { channel_id: channel?.id },
+                where: { channel_id: channel.id },
+                relations: { author: true },
                 order: { timestamp: "DESC" },
                 take: Math.min(Math.max(req.query.limit ? Number(req.query.limit) : 50, 1), Config.get().limits.message.maxPreloadCount),
             })

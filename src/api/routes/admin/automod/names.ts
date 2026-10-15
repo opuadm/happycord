@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { Request, Response, Router } from "express";
-import { In, MoreThan } from "typeorm";
+import { In, IsNull, MoreThan } from "typeorm";
 import { HTTPError } from "lambert-server/HTTPError";
 import { route } from "@spacebar/api/middlewares";
 import { User } from "@spacebar/database";
-import { Rights } from "@spacebar/util";
 import { AdminAutomodUsersSchema } from "@spacebar/schemas";
-import { revokeUserSessions } from "@spacebar/api/util";
+import { canActOn, revokeUserSessions, staffDisableColumns } from "@spacebar/api/util";
 import { findIdentityNameBlock } from "@spacebar/util/util/IdentityModeration";
 
 const router = Router({ mergeParams: true });
@@ -17,7 +16,7 @@ const SCAN_LIMIT = 10000;
 router.get(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_MODERATION",
         spacebarOnly: true,
         description: "Scan up to 10000 accounts after `after` (an id) for usernames or display names the automod rules or the blocked name words would refuse",
         query: { after: { type: "string", required: false } },
@@ -29,7 +28,7 @@ router.get(
         let done = false;
         while (scanned < SCAN_LIMIT) {
             const users = await User.find({
-                where: { id: MoreThan(after), deleted: false },
+                where: { id: MoreThan(after), deleted: false, federated_instance: IsNull() },
                 select: { id: true, username: true, discriminator: true, global_name: true, avatar: true, disabled: true, bot: true, created_at: true },
                 order: { id: "ASC" },
                 take: BATCH,
@@ -70,7 +69,7 @@ router.get(
 router.post(
     "/disable",
     route({
-        right: "MANAGE_USERS",
+        right: "MODERATE_USERS",
         spacebarOnly: true,
         requestBody: "AdminAutomodUsersSchema",
         description: "Disable accounts and sign them out everywhere",
@@ -79,8 +78,8 @@ router.post(
         const { user_ids } = req.body as AdminAutomodUsersSchema;
         const users = await User.find({ where: { id: In(user_ids) }, select: { id: true, rights: true } });
         if (users.some((user) => user.id === req.user_id)) throw new HTTPError("You can't disable your own account", 400);
-        const allowed = users.filter((user) => req.rights.has("OPERATOR") || !new Rights(user.rights).has("OPERATOR"));
-        if (allowed.length) await User.update({ id: In(allowed.map((user) => user.id)) }, { disabled: true });
+        const allowed = users.filter((user) => canActOn({ id: req.user_id, rights: req.rights.bitfield }, user));
+        if (allowed.length) await User.update({ id: In(allowed.map((user) => user.id)) }, staffDisableColumns());
         for (const user of allowed) await revokeUserSessions(user.id, "Account disabled");
         res.json({ disabled: allowed.map((user) => user.id) });
     },

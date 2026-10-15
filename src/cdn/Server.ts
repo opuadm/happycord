@@ -3,12 +3,13 @@ import morgan from "morgan";
 import { Server, ServerOptions } from "lambert-server/Server";
 import { CORS, BodyParser, Authentication } from "@spacebar/api/middlewares";
 import { Attachment, initDatabase } from "@spacebar/database";
-import { Config, JwtKeypairManager, registerRoutes } from "@spacebar/util";
+import { Config, JwtKeypairManager, registerRoutes, useClientAddress } from "@spacebar/util";
 import { ProcessLifecycle, SystemdLifecycle } from "../util/util/ProcessLifecycle";
 import { Monitoring } from "../util/monitoring/Monitoring";
 import guildProfilesRoute from "./routes/guild-profiles";
 import { storageOwnership } from "./util/storageOwnership";
-import { storage } from "./util";
+import { cdnResponseSafety, storage } from "./util";
+import { readdirSync } from "node:fs";
 import { ErrorHandler } from "@spacebar/cdn/util/ErrorHandler";
 
 export type CDNServerOptions = ServerOptions;
@@ -46,8 +47,7 @@ export class CDNServer extends Server {
             );
         }
 
-        const trustedProxies = Config.get().security.trustedProxies;
-        if (trustedProxies) this.app.set("trust proxy", trustedProxies);
+        useClientAddress(this.app, () => Config.get().security);
 
         this.app.disable("x-powered-by");
 
@@ -62,6 +62,14 @@ export class CDNServer extends Server {
         });
         this.app.use(ErrorHandler);
         this.app.use(BodyParser({ inflate: true, limit: "10mb" }));
+
+        const routesFolder = path.join(__dirname, "routes");
+        const publicPrefixes = readdirSync(routesFolder, { withFileTypes: true })
+            .map((entry) => entry.name.replace(/\.(js|ts)$/, ""))
+            .filter((name) => !name.endsWith(".map") && !name.endsWith(".d") && !name.startsWith("_") && !name.startsWith("federation-") && name !== "ping")
+            .sort()
+            .map((name) => `/${name}`);
+        this.app.use([...new Set(publicPrefixes), "/guilds/:guild_id/users/:user_id/avatars", "/guilds/:guild_id/users/:user_id/banners"], cdnResponseSafety);
 
         await registerRoutes(this, path.join(__dirname, "routes/"));
 

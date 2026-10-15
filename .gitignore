@@ -28,6 +28,7 @@ build
 tmp/
 dump/
 jwt.key*
+federation.key*
 
 # optional generated outputs from schema.js
 schemas_orig/

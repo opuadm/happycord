@@ -106,8 +106,9 @@ export async function emitInteractionFailure(interaction: Pick<PendingInteractio
     } satisfies InteractionFailureEvent);
 }
 
-export async function fetchInteractionMessage(id: string) {
-    return Message.findOne({ where: { id, flags: undefined }, relations: messageRelations });
+export async function fetchInteractionMessage(id: string | undefined) {
+    if (!id) return null;
+    return Message.findOne({ where: { id }, relations: messageRelations });
 }
 
 export function canReadInteractionMessage(message: Message, channelId: string, userId: string) {
@@ -466,7 +467,7 @@ export async function processInteractionCallback(interaction: PendingInteraction
                 interaction.responseMessageId = interaction.messageId;
                 break;
             case InteractionCallbackType.UPDATE_MESSAGE: {
-                const target = await fetchInteractionMessage(interaction.messageId!);
+                const target = await fetchInteractionMessage(interaction.messageId);
                 if (!target) throw DiscordApiErrors.UNKNOWN_MESSAGE;
                 message = await editInteractionMessage(interaction, target, body.data);
                 interaction.responseMessageId = message.id;

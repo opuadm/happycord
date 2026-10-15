@@ -1,6 +1,7 @@
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { applyTemplateSettings, enforceNameAutomod, resolveGuildTemplate } from "@spacebar/api/util";
+import { reindexDiscoverySoon } from "@spacebar/api/util/handlers/Discovery";
 import { Guild, Member, Template } from "@spacebar/database";
 import { Config, DiscordApiErrors } from "@spacebar/util";
 import { GuildTemplateCreateSchema } from "@spacebar/schemas";
@@ -56,6 +57,7 @@ router.post("/:template_code", route({ requestBody: "GuildTemplateCreateSchema" 
     await applyTemplateSettings(guild.id, template.serialized_source_guild);
 
     await Member.addToGuild(req.user_id, guild.id);
+    reindexDiscoverySoon(guild.id);
     if (template instanceof Template) await Template.update({ code: template.code }, { usage_count: (template.usage_count ?? 0) + 1 });
 
     res.status(201).json(

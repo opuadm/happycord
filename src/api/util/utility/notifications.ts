@@ -1,8 +1,8 @@
 import { sqlArrayAggregate, sqlArrayIncludes } from "@spacebar/database/Sql";
 import { In } from "typeorm";
-import { Channel, Guild, Member, PushDevice, Role, ThreadMember, ThreadMemberFlags, WebPushKeys } from "@spacebar/database";
-import { Config, MessageFlags, Permissions, PRESENCE_STALE_AFTER_MS } from "@spacebar/util";
-import { ChannelOverride, ChannelType, DefaultUserGuildSettings, MuteConfig, RelationshipType, UserGuildSettings } from "@spacebar/schemas";
+import { Channel, Guild, Member, PushDevice, ReadState, Role, ThreadMember, ThreadMemberFlags, WebPushKeys } from "@spacebar/database";
+import { Config, MessageFlags, Permissions, PRESENCE_STALE_AFTER_MS, Snowflake } from "@spacebar/util";
+import { ChannelOverride, ChannelType, DefaultUserGuildSettings, MuteConfig, ReadStateType, RelationshipType, UserGuildSettings } from "@spacebar/schemas";
 import { sendWebPush, vapidPublicKey } from "./webPush";
 
 export interface AudienceMember {
@@ -110,7 +110,35 @@ export async function getMentionedUsers(target: MentionTarget) {
     return new Set(mentioned.filter((id) => !blocked.has(id)));
 }
 
-interface PushMessage {
+export async function fillReadStates(channel_id: string, user_ids: Iterable<string>) {
+    const ids = [...new Set(user_ids)];
+    for (let offset = 0; offset < ids.length; offset += 1000) {
+        const chunk = ids.slice(offset, offset + 1000);
+        const existing = new Set(
+            (await ReadState.find({ where: { user_id: In(chunk), channel_id, read_state_type: ReadStateType.CHANNEL }, select: { user_id: true } })).map((state) => state.user_id),
+        );
+        const missing = chunk.filter((id) => !existing.has(id));
+        if (missing.length)
+            await ReadState.createQueryBuilder()
+                .insert()
+                .values(missing.map((user_id) => ({ id: Snowflake.generate(), user_id, channel_id, read_state_type: ReadStateType.CHANNEL })))
+                .orIgnore()
+                .execute();
+    }
+    return ids;
+}
+
+export async function addMentions(channel_id: string, user_ids: Iterable<string>) {
+    const ids = await fillReadStates(channel_id, user_ids);
+    if (!ids.length) return;
+    await ReadState.query(`UPDATE read_states SET mention_count = mention_count + 1 WHERE channel_id = $1 AND read_state_type = $2 AND ${sqlArrayIncludes("user_id", "$3")}`, [
+        channel_id,
+        ReadStateType.CHANNEL,
+        ids,
+    ]);
+}
+
+export interface PushMessage {
     id: string;
     channel_id: string;
     guild_id?: string | null;
@@ -272,14 +300,15 @@ async function pushPayload(channel: Channel, message: PushMessage) {
     };
 }
 
-export async function dispatchMessagePush(message: PushMessage) {
+export async function dispatchMessagePush(message: PushMessage, only?: string[]) {
     if (!vapidPublicKey() || !message?.channel_id || Number(message.flags ?? 0) & SILENT) return;
     const author_id = message.author?.id ?? null;
     const audience = message.guild_id ? `SELECT id FROM members WHERE guild_id = $2` : `SELECT user_id FROM recipients WHERE channel_id = $2`;
-    const devices: PushDeviceRow[] = await PushDevice.query(
+    const rows: PushDeviceRow[] = await PushDevice.query(
         `SELECT CAST(d.id AS text) AS id, CAST(d.user_id AS text) AS user_id, d.token, d.keys FROM push_devices d WHERE d.provider = 'webpush' AND d.user_id IS DISTINCT FROM CAST($1 AS bigint) AND d.user_id IN (${audience})`,
         [author_id, message.guild_id ?? message.channel_id],
     );
+    const devices = only ? rows.filter((device) => only.includes(device.user_id)) : rows;
     if (!devices.length) return;
 
     const candidates = [...new Set(devices.map((d) => d.user_id))];

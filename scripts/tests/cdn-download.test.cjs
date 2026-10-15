@@ -62,6 +62,7 @@ async function fixture(storage, signed = false) {
             Config: {
                 get: () => ({ security: { requestSignature: "fixture-signature", cdnSignUrls: signed } }),
             },
+            isRequestSignature: (value) => value === "fixture-signature",
             extractVideoFrame: async () => {
                 metrics.previews++;
                 return Buffer.from("jpeg");

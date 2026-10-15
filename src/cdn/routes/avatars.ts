@@ -3,9 +3,10 @@ import fs from "node:fs/promises";
 import { join } from "node:path";
 import { Router, Response, Request } from "express";
 import { fileTypeFromBuffer } from "file-type";
-import { Config, DEFAULT_AVATARS_FOLDER, defaultAvatarSvg } from "@spacebar/util";
+import { Config, DEFAULT_AVATARS_FOLDER, defaultAvatarSvg, isRequestSignature } from "@spacebar/util";
 import { HTTPError } from "lambert-server/HTTPError";
-import { storage, internalUpload, setCacheControl } from "../util";
+import { storage, internalUpload, setCacheControl, safeMediaType } from "../util";
+import { sendRemoteFallback } from "../util/federationMedia";
 
 // TODO: check premium and animated pfp are allowed in the config
 // TODO: generate different sizes of icon
@@ -23,7 +24,7 @@ const router = Router({ mergeParams: true });
 router.post(
     "/:user_id",
     internalUpload(async (req: Request, res: Response) => {
-        if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+        if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
         if (!req.file) throw new HTTPError("Missing file");
         const { buffer, size } = req.file;
         const { user_id } = req.params as { [key: string]: string };
@@ -57,7 +58,7 @@ router.get("/:user_id", setCacheControl, async (req: Request, res: Response) => 
     if (!file) throw new HTTPError("not found", 404);
     const type = await fileTypeFromBuffer(file);
 
-    res.set("Content-Type", type?.mime);
+    res.set("Content-Type", safeMediaType(type?.mime));
 
     return res.send(file);
 });
@@ -69,6 +70,7 @@ export const getAvatar = async (req: Request, res: Response) => {
     const path = `avatars/${user_id}/${hash}`;
 
     const file = await storage.get(path);
+    if (!file && (await sendRemoteFallback(req, res, user_id, (remote) => `/avatars/${remote}/${req.params.hash}`))) return;
     if (!file && user_id === CLIENT_WUMPUS_USER_ID) {
         const fallback = join(DEFAULT_AVATARS_FOLDER, "0.png");
         if (await fs.stat(fallback).catch(() => null)) return res.type("png").sendFile(fallback, { cacheControl: false, dotfiles: "allow" });
@@ -77,7 +79,7 @@ export const getAvatar = async (req: Request, res: Response) => {
     if (!file) throw new HTTPError("not found", 404);
     const type = await fileTypeFromBuffer(file);
 
-    res.set("Content-Type", type?.mime);
+    res.set("Content-Type", safeMediaType(type?.mime));
 
     return res.send(file);
 };
@@ -86,7 +88,7 @@ router.get("/:user_id/:hash", setCacheControl, getAvatar);
 router.get("/:user_id/archived/:avatar_id/:hash", setCacheControl, getAvatar);
 
 router.delete("/:user_id/:id", async (req: Request, res: Response) => {
-    if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+    if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
     const { user_id, id } = req.params as { [key: string]: string };
     const path = `avatars/${user_id}/${id}`;
 

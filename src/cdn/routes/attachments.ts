@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { finished, pipeline } from "node:stream/promises";
 import { admitDownload, admitPreview, inspectDownload } from "../util/downloadAdmission";
 import { Request, Response, Router, raw, NextFunction } from "express";
@@ -6,8 +7,8 @@ import { fileTypeFromBuffer } from "file-type";
 import imageSize from "image-size";
 import { HTTPError } from "lambert-server/HTTPError";
 import { Attachment, CloudAttachment, getDatabase } from "@spacebar/database";
-import { Config, extractVideoFrame, hasValidSignature, readVideoDimensions, NewUrlUserSignatureData, Snowflake, UrlSignResult } from "@spacebar/util";
-import { storage, multer, setCacheControl } from "../util";
+import { Config, extractVideoFrame, hasValidSignature, readVideoDimensions, NewUrlUserSignatureData, Snowflake, UrlSignResult, isRequestSignature } from "@spacebar/util";
+import { storage, multer, setCacheControl, safeMediaType } from "../util";
 import { InternalCdnAttachment } from "@spacebar/util/dtos/MessageOptions";
 
 import { declaredCloudUploadLimit, requireCloudUploadReservation, requireInternalUploadSignature } from "../util/cloudUploads";
@@ -24,7 +25,7 @@ router.post(
         internalUploadBufferLimit,
         multer.single("file"),
         async (req: Request, res: Response) => {
-            if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+            if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
 
             if (!req.file) throw new HTTPError("file missing");
 
@@ -83,7 +84,7 @@ router.get("/:channel_id/:attachment_id/:filename", setCacheControl, async (req:
 
     let hasValidAuth = false;
     if (req.headers.signature) {
-        hasValidAuth = req.headers.signature === Config.get().security.requestSignature;
+        hasValidAuth = isRequestSignature(req.headers.signature);
         if (!hasValidAuth) console.warn("[CDN/Attachments] Client sent invalid signature header");
     } else if (!Config.get().security.cdnSignUrls) {
         hasValidAuth = true;
@@ -143,7 +144,7 @@ router.get("/:channel_id/:attachment_id/:filename", setCacheControl, async (req:
                 releasePreview();
             }
         }
-        if (type) res.set("Content-Type", SANITIZED_CONTENT_TYPE.includes(type.mime) ? "application/octet-stream" : type.mime);
+        if (type) res.set("Content-Type", safeMediaType(type.mime));
         else {
             res.type(filename);
             const guessed = String(res.get("Content-Type"));
@@ -175,7 +176,7 @@ router.get("/:channel_id/:attachment_id/:filename", setCacheControl, async (req:
 });
 
 router.delete("/:channel_id/:attachment_id/:filename", async (req: Request, res: Response) => {
-    if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+    if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
 
     const { channel_id, attachment_id, filename } = req.params as { [key: string]: string };
     const path = `attachments/${channel_id}/${attachment_id}/${filename}`;
@@ -253,6 +254,7 @@ router.put(
 
                 await storage.set(path, buffer, `user:${att.userId}`);
                 att.size = buffer.length;
+                att.contentHash = createHash("sha256").update(buffer).digest("hex");
                 await manager.save(att);
             });
             return res.status(200).end();
@@ -261,7 +263,7 @@ router.put(
 );
 
 router.delete("/:channel_id/:batch_id/:attachment_id/:filename", async (req: Request, res: Response) => {
-    if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+    if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
 
     const { channel_id, batch_id, attachment_id, filename } = req.params as {
         [key: string]: string;
@@ -286,7 +288,7 @@ router.delete("/:channel_id/:batch_id/:attachment_id/:filename", async (req: Req
 });
 
 router.post("/:channel_id/:batch_id/:attachment_id/:filename/clone_to_message/:message_id", async (req: Request, res: Response) => {
-    if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+    if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
 
     const { channel_id, batch_id, attachment_id, filename, message_id } = req.params as {
         [key: string]: string;

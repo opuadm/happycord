@@ -3,6 +3,7 @@ const test = require("node:test");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const ts = require("typescript");
+const { loadFederatedAdmin } = require("./federated-admin-module.cjs");
 const load = (file, imports) => {
     const module = { exports: {} };
     vm.runInNewContext(
@@ -26,7 +27,7 @@ class HTTPError extends Error {
         this.status = status;
     }
 }
-test("customization target uses explicit user and protects other operators", async () => {
+test("customization target uses explicit user and protects staff at or above the actor on writes", async () => {
     const reads = [];
     const utility = load("src/api/util/handlers/AdminUserCustomization.ts", {
         express: {},
@@ -34,51 +35,34 @@ test("customization target uses explicit user and protects other operators", asy
             User: {
                 findOneOrFail: async (options) => {
                     reads.push(options);
-                    return { id: options.where.id, rights: "operator", bot: false };
+                    return { id: options.where.id, rights: "1", bot: false };
                 },
             },
             AuditLog: {},
         },
-        "@spacebar/util": {
-            Rights: class {
-                constructor(value) {
-                    this.value = value;
-                }
-                has() {
-                    return this.value === "operator";
-                }
-            },
-        },
+        "@spacebar/util": { loadStaffRoles: async () => ({ roles: new Map(), members: new Map() }) },
+        "../utility/adminTargets": { canActOn: (actor) => actor.rights === 1n },
         "lambert-server/HTTPError": { HTTPError },
         "@spacebar/schemas": { AuditLogEvents: { ADMIN_USER_CUSTOMIZATION: 2000 } },
         typeorm: {},
+        "../utility/federatedAdmin": loadFederatedAdmin(HTTPError),
     });
     await assert.rejects(
-        utility.adminCustomizationTarget({
-            params: { user_id: "target" },
-            user_id: "actor",
-            rights: { has: () => false },
-        }),
+        utility.adminCustomizationTarget({ method: "PATCH", params: { user_id: "target" }, user_id: "actor", rights: { bitfield: 128n } }),
         (error) => error.status === 403,
     );
-    assert.equal(
-        (
-            await utility.adminCustomizationTarget({
-                params: { user_id: "target" },
-                user_id: "actor",
-                rights: { has: () => true },
-            })
-        ).id,
-        "target",
-    );
+    assert.equal((await utility.adminCustomizationTarget({ method: "GET", params: { user_id: "target" }, user_id: "actor", rights: { bitfield: 128n } })).id, "target");
+    assert.equal((await utility.adminCustomizationTarget({ method: "PATCH", params: { user_id: "target" }, user_id: "actor", rights: { bitfield: 1n } })).id, "target");
     assert.equal(reads[0].where.id, "target");
-    assert.deepEqual(Object.keys(reads[0].select), ["id", "rights", "bot"]);
+    assert.deepEqual(Object.keys(reads[0].select), ["id", "rights", "bot", "federated_instance"]);
 });
-test("every customization API requires MANAGE_USERS before target loading", () => {
+test("customization reads need VIEW_USERS and writes need MANAGE_USERS before target loading", () => {
     for (const name of ["pride-badges", "widgets", "settings", "customization-audit"]) {
         const source = fs.readFileSync(`src/api/routes/admin/users/#user_id/${name}.ts`, "utf8");
-        const matches = source.match(/route\(\{[^}]*right: "MANAGE_USERS"[^}]*spacebarOnly: true/g) || [];
-        assert.equal(matches.length, name === "customization-audit" ? 1 : 2, name);
+        const reads = source.match(/router\.get\("\/", route\(\{[^}]*right: "VIEW_USERS"[^}]*spacebarOnly: true/g) || [];
+        const writes = source.match(/router\.(put|patch)\("\/", route\(\{[^}]*right: "MANAGE_USERS"[^}]*spacebarOnly: true/g) || [];
+        assert.equal(reads.length, 1, name);
+        assert.equal(writes.length, name === "customization-audit" ? 0 : 1, name);
     }
 });
 test("widget eligibility evaluates target account and preserves existing IDs", async () => {
@@ -141,11 +125,18 @@ test("customization audit records actor, target, section and field names only", 
             },
         },
         "@spacebar/util": {},
+        "../utility/adminTargets": { canActOn: () => true },
         "lambert-server/HTTPError": { HTTPError },
         "@spacebar/schemas": { AuditLogEvents: { ADMIN_USER_CUSTOMIZATION: 2000 } },
         typeorm: {},
+        "../utility/federatedAdmin": loadFederatedAdmin(HTTPError),
     });
-    await utility.recordAdminCustomization({ user_id: "actor", headers: {} }, "target", "client_preferences", ["theme"], { save: async (entry) => saved.push(entry) });
+    const locals = {};
+    await utility.recordAdminCustomization({ user_id: "actor", headers: {}, res: { locals } }, "target", "client_preferences", ["theme"], {
+        save: async (entry) => saved.push(entry),
+    });
+    assert.equal(locals.staffAudited, true);
+    assert.equal(input.options.action, "user.customization");
     assert.equal(input.user_id, "actor");
     assert.equal(input.target_id, "target");
     assert.equal(input.options.type, "client_preferences");

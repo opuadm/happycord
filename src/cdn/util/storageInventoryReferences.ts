@@ -21,7 +21,8 @@ export class StorageInventoryReferences {
     async resolve(path: string): Promise<InventoryOwner> {
         if (!path || path.length > 2048 || /[\\\0]/.test(path) || !path.split("/").every((part) => part && part !== "." && part !== ".."))
             throw new HTTPError("Invalid inventory locator", 400);
-        if (/^(?:collectibles-shop-upstream|avatar-decoration-presets|krisp_browser_models|content-assets)\//.test(path)) return { principal: "system:cache", category: "cache" };
+        if (/^(?:collectibles-shop-upstream|avatar-decoration-presets|krisp_browser_models|content-assets|media_channel)\//.test(path))
+            return { principal: "system:cache", category: "cache" };
         if (/^collectibles-shop\//.test(path)) return { principal: "system:managed", category: "managed" };
         if (path.startsWith("attachments/")) {
             const stage = /^attachments\/(\d+)\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(path);

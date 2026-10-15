@@ -24,3 +24,4 @@ export * from "./TemplateConfiguration";
 export * from "./UsersConfiguration";
 export * from "./ComponentConfiguration";
 export * from "./EmbedConfiguration";
+export * from "./FederationConfiguration";

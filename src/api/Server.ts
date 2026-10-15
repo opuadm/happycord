@@ -3,7 +3,7 @@ import { Request, Response, Router } from "express";
 import morgan from "morgan";
 import { Server, ServerOptions } from "lambert-server/Server";
 import { red } from "picocolors";
-import { getDatabase, GuildInsights, initDatabase, ScheduledEvents } from "@spacebar/database";
+import { FederatedObject, getDatabase, GuildInsights, initDatabase, ScheduledEvents } from "@spacebar/database";
 import {
     Config,
     ConnectionConfig,
@@ -16,20 +16,31 @@ import {
     registerRoutes,
     getRevInfoOrFail,
     JwtKeypairManager,
+    FederationKey,
     ASSETS_FOLDER,
     PUBLIC_ASSETS_FOLDER,
+    useClientAddress,
 } from "@spacebar/util";
 import { ProcessLifecycle, SystemdLifecycle } from "../util/util/ProcessLifecycle";
 import { outboundProxyStatus } from "../util/util/networking/SocksTransport";
 import { Monitoring } from "../util/monitoring/Monitoring";
 import { BcryptWorkerPool } from "../util/util/workers/bcrypt/BcryptWorkerPool";
-import { Authentication, CORS, ExternalProxy, ImageProxy, KlipyProxy, BodyParser, ErrorHandler, initRateLimits, initTranslation } from "./middlewares";
+import { Authentication, CORS, ExternalProxy, ImageProxy, KlipyProxy, BodyParser, ErrorHandler, initRateLimits, initTopLevelRateLimits, initTranslation } from "./middlewares";
 import { initInstance } from "./util/handlers/Instance";
 import { initEmbeddedActivities } from "./activities";
 import { recoverPendingPolls, dispatchMessagePush, startMessagePurger, startScheduledMessageSender, startThreadArchiver } from "./util";
 import { route } from "@spacebar/api/middlewares";
 import { DetectableGames } from "./util/utility/games";
 import { startAnnouncementDeliveryWorker } from "./util/utility/announcementDelivery";
+import { startFederation } from "./util/utility/federation";
+import { startDiscoveryIndexer } from "./util/handlers/Discovery";
+import { startScamListRefresh } from "./util/utility/scamGuard";
+import { forwardEvent, startFederationDelivery } from "./util/utility/federationEvents";
+import { authorshipCutoff } from "./util/utility/federationAuthorship";
+import { homeRelay } from "./util/utility/federationRelay";
+import { startFederatedVoice } from "./util/utility/federationVoice";
+import { federationGate, instanceBaseUrl, trustFor } from "./util/utility/federationNetwork";
+import { setInstanceResolver, setRemoteLookup } from "./util/utility/federationMedia";
 import { GifProviderManager } from "@spacebar/integrations/gifs";
 
 export type SpacebarServerOptions = ServerOptions;
@@ -54,7 +65,6 @@ export class SpacebarServer extends Server {
         const logRequests = process.env["LOG_REQUESTS"] != undefined;
         const app = this.app;
         const api = Router({ mergeParams: true });
-        let trustedProxies: ReturnType<typeof Config.get>["security"]["trustedProxies"];
         let outbound: ReturnType<typeof outboundProxyStatus>;
 
         await Monitoring.init();
@@ -64,11 +74,13 @@ export class SpacebarServer extends Server {
         await DetectableGames.load();
         await initEvent();
         onEmitEvent((payload) => (payload.event === "MESSAGE_CREATE" && payload.channel_id ? dispatchMessagePush(payload.data) : undefined));
+        onEmitEvent(forwardEvent);
         await Email.init();
         await ConnectionConfig.init();
         await initInstance();
         await initEmbeddedActivities();
         await JwtKeypairManager.init();
+        FederationKey.init();
         WebAuthn.init();
         // await BcryptWorkerPool.Init(8); // TODO: make configurable
         await GifProviderManager.init();
@@ -89,15 +101,17 @@ export class SpacebarServer extends Server {
         this.app.set("json replacer", JSONReplacer);
         this.app.disable("x-powered-by");
 
-        trustedProxies = Config.get().security.trustedProxies;
-        if (trustedProxies) this.app.set("trust proxy", trustedProxies);
+        useClientAddress(this.app, () => Config.get().security);
 
         this.app.use(CORS);
+        this.app.use("/federation/v2", federationGate);
         this.app.use(BodyParser({ inflate: true, limit: "10mb" }));
         this.app.use(Authentication);
 
         await initRateLimits(api);
+        initTopLevelRateLimits(this.app);
         await initTranslation(api);
+        api.use(homeRelay);
 
         this.routes = [
             ...(await registerRoutes(this, path.join(__dirname, "routes", "/"), api)),
@@ -145,6 +159,17 @@ export class SpacebarServer extends Server {
         startScheduledMessageSender();
         startMessagePurger();
         startAnnouncementDeliveryWorker();
+        startFederation();
+        startDiscoveryIndexer();
+        startScamListRefresh();
+        startFederationDelivery();
+        authorshipCutoff().catch((error) => console.warn("[Federation] Could not record when signed authorship started:", (error as Error).message));
+        startFederatedVoice();
+        setRemoteLookup(async (local_id) => {
+            const row = await FederatedObject.findOne({ where: { local_id }, select: { canonical: true, instance: true } });
+            return row ? { instance: row.instance, remoteId: row.canonical } : null;
+        });
+        setInstanceResolver(async (id) => ((await trustFor(id)) ? { id, url: instanceBaseUrl(id) } : null));
         GuildInsights.startRollups();
         await SystemdLifecycle.setStatus(`Listening on ${this.options.host}:${this.options.port}...`);
         await ProcessLifecycle.Ready();

@@ -4,7 +4,8 @@ import { route } from "@spacebar/api/middlewares";
 import { AuditLog, Channel, Guild, Member } from "@spacebar/database";
 import { ApiError, DiscordApiErrors, FieldErrors, GuildUpdateEvent, Permissions, emitEvent, getPermission, getRights, handleFile } from "@spacebar/util";
 import { AuditLogEvents, GuildCreateResponse, GuildUpdateSchema } from "@spacebar/schemas";
-import { bulkActionJoinRequests, enforceNameAutomod, isApplyGuild } from "@spacebar/api/util";
+import { bulkActionJoinRequests, enforceNameAutomod, isApplyGuild, noteRightsBypass } from "@spacebar/api/util";
+import { reindexDiscoverySoon } from "@spacebar/api/util/handlers/Discovery";
 
 const router = Router({ mergeParams: true });
 
@@ -64,6 +65,7 @@ router.patch(
         const permission = await getPermission(req.user_id, guild_id);
 
         if (!rights.has("MANAGE_GUILDS") && !permission.has("MANAGE_GUILD")) throw DiscordApiErrors.MISSING_PERMISSIONS.withParams("MANAGE_GUILDS");
+        if (!permission.has("MANAGE_GUILD")) await noteRightsBypass(req, "MANAGE_GUILDS");
         if (body.name !== undefined) await enforceNameAutomod({ user_id: req.user_id, name: body.name, field: "name", source: "guild_name", guild_id });
 
         const guild = await Guild.findOneOrFail({
@@ -263,6 +265,7 @@ router.patch(
             await manager.save(guild);
         });
 
+        reindexDiscoverySoon(guild_id);
         const changes = AuditLog.diff(auditBefore, guild, auditKeys);
         if (changes.length)
             await AuditLog.log({

@@ -29,6 +29,7 @@ function fixture({ emailRequired = false, requireVerification = false } = {}) {
         }
     }
     const imports = {
+        "node:net": require("node:net"),
         express: {
             Router: () => ({
                 get() {},

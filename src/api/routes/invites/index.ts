@@ -184,7 +184,7 @@ router.post(
         }
 
         const { new_member } = await Invite.joinGuild(req.user_id, invite_code);
-        if (new_member) await onGuildMemberJoin(guild_id, req.user_id);
+        if (new_member) await onGuildMemberJoin(guild_id, req.user_id, invite_code);
         const invite = await Invite.findOneOrFail({
             where: { code: invite_code },
             relations: Object.fromEntries(PublicInviteRelation.map((i) => [i, true])),

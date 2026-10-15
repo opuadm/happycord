@@ -2,7 +2,7 @@ import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { Report } from "@spacebar/database";
 import { AdminViolationCreateSchema } from "@spacebar/schemas";
-import { describeReports, issueViolation } from "@spacebar/api/util";
+import { assertCanActOnUser, describeReports, issueViolation } from "@spacebar/api/util";
 import { HTTPError } from "lambert-server/HTTPError";
 
 const router = Router({ mergeParams: true });
@@ -10,7 +10,7 @@ const router = Router({ mergeParams: true });
 router.post(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "MODERATE_USERS",
         spacebarOnly: true,
         requestBody: "AdminViolationCreateSchema",
         description: "Issue a violation to the reported user and mark the report resolved",
@@ -18,6 +18,7 @@ router.post(
     async (req: Request, res: Response) => {
         const report = await Report.findOneOrFail({ where: { id: req.params.report_id as string } });
         if (!report.reported_user_id) throw new HTTPError("This report isn't about a user.", 400);
+        await assertCanActOnUser(req, report.reported_user_id);
         const snapshot = report.snapshot;
         const flagged =
             snapshot && report.message_id

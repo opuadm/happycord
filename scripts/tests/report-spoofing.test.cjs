@@ -85,6 +85,7 @@ const harness = ({ members = [], existing = null, viewable = ["200"] } = {}) => 
         },
         "../handlers/ApplicationWidgets": { snapshotWidget: async () => null },
         "./e2ee": { verifyEd25519: () => false },
+        "./federationIds": { canonicalOf: async (id) => id },
         "./reportMenus": { getReportingMenu: () => ({ nodes: {} }) },
         "./instanceAutomod": { automodVerifiedReport: async () => undefined },
     });

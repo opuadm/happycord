@@ -149,6 +149,11 @@ for (const [name, user] of Object.entries(users))
         await inputs.nth(0).fill(user.display);
         await inputs.nth(1).fill(user.username);
         await inputs.nth(2).fill(user.password);
+        const cap = page.locator("cap-widget");
+        if (await cap.count()) {
+            await cap.click();
+            await page.locator("#fosscord-cap-status", { hasText: "Verified" }).waitFor({ timeout: 90_000 });
+        }
         await page.getByRole("button", { name: "Create Account" }).click();
         await page.waitForURL(/\/channels\/@me/, { timeout: 30_000 });
         await page.locator("[role=dialog] [aria-label=Close]").first().waitFor({ timeout: 20_000 });
@@ -261,7 +266,7 @@ await step("thread", async () => {
     await send(A, "thread starter");
     await A.waitForURL(/\/threads\/\d+/);
     await B.getByText("1 Message").click();
-    await B.getByText("thread starter", { exact: true }).waitFor();
+    await B.getByText("thread starter", { exact: true }).last().waitFor();
     await send(B, "bob in thread");
     await sleep(3000);
     const threadId = A.url().split("/").pop();

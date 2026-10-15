@@ -1,12 +1,11 @@
 import { Router, Response, Request } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { AuditLogEntry, AuditLogEvents, AuditLogResponse } from "@spacebar/schemas";
-import { Application, AuditLog, User, Webhook } from "@spacebar/database";
+import { Application, AuditLog, AutomodRule, Channel, GuildScheduledEvent, User, Webhook } from "@spacebar/database";
 import { webhookToJSON } from "@spacebar/api/util/handlers/Webhook";
 import { FindManyOptions, FindOptionsWhere, In, LessThan, MoreThan } from "typeorm";
 const router = Router({ mergeParams: true });
 
-//TODO: implement audit logs
 router.get(
     "/",
     route({
@@ -75,9 +74,15 @@ router.get(
         const targetIds = (types: AuditLogEvents[]) => [...new Set(auditLogEntries.filter((e) => types.includes(e.action_type) && e.target_id).map((e) => e.target_id!))];
         const integrationIds = targetIds([AuditLogEvents.INTEGRATION_CREATE, AuditLogEvents.INTEGRATION_UPDATE, AuditLogEvents.INTEGRATION_DELETE]);
         const webhookIds = targetIds([AuditLogEvents.WEBHOOK_CREATE, AuditLogEvents.WEBHOOK_UPDATE, AuditLogEvents.WEBHOOK_DELETE]);
-        const [applications, webhooks] = await Promise.all([
+        const threadIds = targetIds([AuditLogEvents.THREAD_CREATE, AuditLogEvents.THREAD_UPDATE, AuditLogEvents.THREAD_DELETE]);
+        const eventIds = targetIds([AuditLogEvents.GUILD_SCHEDULED_EVENT_CREATE, AuditLogEvents.GUILD_SCHEDULED_EVENT_UPDATE, AuditLogEvents.GUILD_SCHEDULED_EVENT_DELETE]);
+        const ruleIds = targetIds([AuditLogEvents.AUTO_MODERATION_RULE_CREATE, AuditLogEvents.AUTO_MODERATION_RULE_UPDATE, AuditLogEvents.AUTO_MODERATION_RULE_DELETE]);
+        const [applications, webhooks, threads, events, rules] = await Promise.all([
             integrationIds.length ? Application.find({ where: { id: In(integrationIds) }, select: { id: true, name: true } }) : [],
             webhookIds.length ? Webhook.find({ where: { id: In(webhookIds), guild_id: guildId } }) : [],
+            threadIds.length ? Channel.find({ where: { id: In(threadIds), guild_id: guildId } }) : [],
+            eventIds.length ? GuildScheduledEvent.find({ where: { id: In(eventIds), guild_id: guildId } }) : [],
+            ruleIds.length ? AutomodRule.find({ where: { id: In(ruleIds), guild_id: guildId } }) : [],
         ]);
         const resp: AuditLogResponse = {
             audit_log_entries: auditLogEntries,
@@ -90,10 +95,10 @@ router.get(
                 application_id: app.id,
             })),
             webhooks: webhooks.map((webhook) => webhookToJSON(webhook, { withToken: false, withUser: false })),
-            guild_scheduled_events: [], // TODO once schemas exist
-            threads: [], // TODO once schemas exist
-            application_commands: [], // TODO once schemas exist
-            auto_moderation_rules: [], // TODO once schemas exist
+            guild_scheduled_events: events.map((event) => event.toJSON()),
+            threads: threads.filter((thread) => thread.isThread()).map((thread) => thread.toJSON()),
+            application_commands: [],
+            auto_moderation_rules: rules.map((rule) => rule.toJSON()),
         };
 
         resp.users = (

@@ -18,7 +18,7 @@ const loadTarget = (req: Request) =>
 router.get(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_USERS",
         spacebarOnly: true,
         description: "A user's signed-in sessions, most recently used first",
     }),
@@ -47,7 +47,7 @@ router.get(
 router.post(
     "/logout",
     route({
-        right: "MANAGE_USERS",
+        right: "SUPPORT_USERS",
         spacebarOnly: true,
         requestBody: "AdminSessionsRevokeSchema",
         description: "End some or all of a user's sessions",

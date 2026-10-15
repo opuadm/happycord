@@ -33,6 +33,7 @@ const policy = load("src/util/util/networking/PublicNetwork.ts", {
     "node:https": require("node:https"),
     "../Config": {},
     "./SocksTransport": { outboundProxy: () => "direct" },
+    "./PublicFetchError": require("../../src/util/util/networking/PublicFetchError.ts"),
 });
 const harness = async (reply = (_req, res) => res.end("test"), resolve = async () => [{ address: "93.184.216.34", family: 4 }]) => {
     const calls = { dns: [], connections: [], hits: 0 };

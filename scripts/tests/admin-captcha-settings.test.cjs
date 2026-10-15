@@ -42,6 +42,7 @@ function fixture() {
         }
     }
     const imports = {
+        "node:net": require("node:net"),
         express: {
             Router: () => ({
                 get() {},

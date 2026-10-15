@@ -96,6 +96,7 @@ function middleware(StoredRateLimit, opts) {
         "@spacebar/database": { RateLimit: Tracked },
         express: {},
         typeorm: {},
+        "node:net": require("node:net"),
     }).default(opts);
     return {
         async admit(ip = "fixture") {

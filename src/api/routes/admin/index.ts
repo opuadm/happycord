@@ -2,7 +2,7 @@ import { HTTPError } from "lambert-server/HTTPError";
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { ADMIN_PANEL_RIGHTS } from "@spacebar/api/util";
-import { brandImageUrls, Config, getRevInfoOrFail, instanceName } from "@spacebar/util";
+import { brandImageUrls, Config, getRevInfoOrFail, instanceName, loadStaffRoles, rolesOf } from "@spacebar/util";
 import { adminCounts, ADMIN_COUNTS_TTL_MS } from "@spacebar/api/util/utility/adminCounts";
 
 const router = Router({ mergeParams: true });
@@ -37,12 +37,19 @@ router.get(
                 operator: rights.has("OPERATOR"),
                 settings: rights.has("OPERATOR"),
                 status: rights.has("OPERATOR"),
-                users: rights.has("MANAGE_USERS"),
+                users: rights.has("VIEW_USERS"),
+                manage_users: rights.has("MANAGE_USERS"),
+                moderate: rights.has("MODERATE_USERS"),
+                support: rights.has("SUPPORT_USERS"),
                 guilds: rights.has("MANAGE_GUILDS"),
-                reports: rights.has("MANAGE_USERS"),
+                reports: rights.has("VIEW_MODERATION"),
                 messages: rights.has("MANAGE_MESSAGES"),
+                staff: rights.has("MANAGE_STAFF"),
+                audit: rights.has("VIEW_AUDIT_LOG"),
                 system: rights.has("OPERATOR"),
             },
+            rights: rights.bitfield.toString(),
+            staff_roles: rolesOf(req.user_id, await loadStaffRoles()).map((role) => ({ id: role.id, name: role.name, color: role.color, position: role.position })),
         });
     },
 );

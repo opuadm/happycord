@@ -3,7 +3,7 @@ import { Router, Response, Request } from "express";
 import { fileTypeFromBuffer } from "file-type";
 import { HTTPError } from "lambert-server/HTTPError";
 import { Config } from "@spacebar/util";
-import { storage, internalUpload, setCacheControl, setCacheControlNotFound, validateServerAuth, fetchUpstreamAsset } from "../util";
+import { storage, internalUpload, setCacheControl, setCacheControlNotFound, validateServerAuth, fetchUpstreamAsset, safeMediaType } from "../util";
 
 const DEFAULT_SOUND_IDS = ["1", "2", "3", "4", "5", "6", "7"];
 
@@ -42,7 +42,7 @@ router.get("/:sound_id", setCacheControl, async (req: Request, res: Response) =>
     if (!file) return setCacheControlNotFound(req, res);
     const type = await fileTypeFromBuffer(file);
 
-    res.set("Content-Type", type?.mime ?? "audio/mpeg");
+    res.set("Content-Type", safeMediaType(type?.mime ?? "audio/mpeg"));
     return res.send(file);
 });
 

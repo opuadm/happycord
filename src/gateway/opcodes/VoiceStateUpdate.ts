@@ -1,6 +1,6 @@
 import { Channel, Guild, Member, Recipient, Relationship, User, VoiceChannels, VoiceState } from "@spacebar/database";
 import { Payload, WebSocket, genVoiceToken } from "@spacebar/gateway";
-import { Config, emitEvent, getPermission, requiredAction, VoiceServerUpdateEvent, VoiceStateUpdateEvent } from "@spacebar/util";
+import { Config, emitEvent, FederatedVoice, getPermission, requiredAction, VoiceServerUpdateEvent, VoiceStateRequest, VoiceStateUpdateEvent } from "@spacebar/util";
 import { ChannelType, ConfigVoiceRegion, VoiceStateUpdateSchema } from "@spacebar/schemas";
 import { check } from "./instanceOf";
 
@@ -42,14 +42,19 @@ async function canJoin(userId: string, guildId: string | undefined, channelId: s
 }
 
 export async function onVoiceStateUpdate(this: WebSocket, data: Payload) {
-    const startTime = Date.now();
     check.call(this, VoiceStateUpdateSchema, data.d);
     const body = data.d as VoiceStateUpdateSchema;
+    if (await FederatedVoice.relay(this.user_id, this.session_id, body)) return;
+    await applyVoiceStateUpdate(this.user_id, this.session_id, body);
+}
+
+export async function applyVoiceStateUpdate(user_id: string, session_id: string, body: VoiceStateRequest) {
+    const startTime = Date.now();
     const guildId = body.guild_id ?? undefined;
     const channelId = body.channel_id ?? undefined;
 
-    let voiceState = await VoiceState.findOne({ where: { user_id: this.user_id } });
-    if (voiceState && voiceState.session_id !== this.session_id && !channelId) return;
+    let voiceState = await VoiceState.findOne({ where: { user_id } });
+    if (voiceState && voiceState.session_id !== session_id && !channelId) return null;
 
     const previous = voiceState
         ? {
@@ -58,20 +63,20 @@ export async function onVoiceStateUpdate(this: WebSocket, data: Payload) {
               connected_at: voiceState.connected_at,
           }
         : { guild_id: undefined, channel_id: undefined, connected_at: undefined };
-    const channel = channelId ? await canJoin(this.user_id, guildId, channelId, previous.channel_id) : null;
-    if (channelId && !channel) return;
+    const channel = channelId ? await canJoin(user_id, guildId, channelId, previous.channel_id) : null;
+    if (channelId && !channel) return null;
 
     const member = channel?.guild_id
         ? await Member.findOne({
-              where: { id: this.user_id, guild_id: channel.guild_id },
+              where: { id: user_id, guild_id: channel.guild_id },
               relations: { user: true, roles: true },
           })
         : null;
-    const channelChanged = previous.channel_id !== (channelId ?? null) || (voiceState?.session_id !== this.session_id && !!channelId);
+    const channelChanged = previous.channel_id !== (channelId ?? null) || (voiceState?.session_id !== session_id && !!channelId);
 
     if (previous.guild_id && previous.channel_id && channelChanged && voiceState && (!channelId || previous.guild_id !== channel?.guild_id)) {
         const previousMember = await Member.findOne({
-            where: { id: this.user_id, guild_id: previous.guild_id },
+            where: { id: user_id, guild_id: previous.guild_id },
             relations: { user: true, roles: true },
         });
         await emitEvent({
@@ -101,15 +106,15 @@ export async function onVoiceStateUpdate(this: WebSocket, data: Payload) {
 
     if (!voiceState)
         voiceState = VoiceState.create({
-            user_id: this.user_id,
+            user_id: user_id,
             deaf: false,
             mute: false,
             suppress: false,
             self_video: false,
         });
 
-    if (voiceState.session_id !== this.session_id) voiceState.token = genVoiceToken();
-    voiceState.session_id = this.session_id;
+    if (voiceState.session_id !== session_id) voiceState.token = genVoiceToken();
+    voiceState.session_id = session_id;
     voiceState.guild_id = (channel?.guild_id ?? null) as string;
     voiceState.channel_id = (channelId ?? null) as string;
     voiceState.self_mute = body.self_mute;
@@ -137,13 +142,13 @@ export async function onVoiceStateUpdate(this: WebSocket, data: Payload) {
         await emitEvent({
             event: "VOICE_STATE_UPDATE",
             data: voiceState.toPublicVoiceState(),
-            user_id: this.user_id,
+            user_id: user_id,
         } satisfies VoiceStateUpdateEvent);
     }
 
     if (channelChanged) {
-        if (previous.channel_id) await VoiceChannels.occupancyChanged(previous.guild_id, previous.channel_id, this.user_id, false, previous.connected_at);
-        if (channelId) await VoiceChannels.occupancyChanged(channel?.guild_id, channelId, this.user_id, true);
+        if (previous.channel_id) await VoiceChannels.occupancyChanged(previous.guild_id, previous.channel_id, user_id, false, previous.connected_at);
+        if (channelId) await VoiceChannels.occupancyChanged(channel?.guild_id, channelId, user_id, true);
     }
 
     if (channelChanged && channelId) {
@@ -161,11 +166,12 @@ export async function onVoiceStateUpdate(this: WebSocket, data: Payload) {
                 channel_id: channel?.guild_id ? undefined : channelId,
                 endpoint: guildRegion.endpoint,
             },
-            user_id: this.user_id,
+            user_id: user_id,
         } satisfies VoiceServerUpdateEvent);
     }
 
-    console.log(
-        `[Gateway/${this.user_id}] VOICE_STATE_UPDATE for user ${this.user_id} in channel ${voiceState.channel_id} in guild ${voiceState.guild_id} in ${Date.now() - startTime}ms`,
-    );
+    console.log(`[Gateway/${user_id}] VOICE_STATE_UPDATE for user ${user_id} in channel ${voiceState.channel_id} in guild ${voiceState.guild_id} in ${Date.now() - startTime}ms`);
+    return { ...voiceState.toPublicVoiceState(), guild_id: voiceState.guild_id ?? null } as Record<string, unknown>;
 }
+
+FederatedVoice.setApplier(applyVoiceStateUpdate);

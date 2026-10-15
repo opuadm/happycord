@@ -133,8 +133,11 @@ export class DaveSession {
     async onKeyPackage(socket: WebRtcWebSocket, data: Buffer) {
         const keyPackage = parseKeyPackageMessage(data);
         if (keyPackage.cipherSuite !== CIPHERSUITE_P256_AES128GCM_SHA256_P256) throw new Error(`Unexpected ciphersuite ${keyPackage.cipherSuite}`);
-        if (keyPackage.identity.length !== 8 || keyPackage.identity.readBigUInt64BE(0).toString() !== socket.user_id)
+        if (keyPackage.identity.length !== 8 || keyPackage.identity.readBigUInt64BE(0).toString() !== (socket.daveId ?? socket.user_id))
             throw new Error("Key package identity does not match the authenticated user");
+        for (const [userId, other] of this.sockets)
+            if (userId !== socket.user_id && (other.daveId ?? userId) === (socket.daveId ?? socket.user_id))
+                throw new Error(`DAVE identity of ${socket.user_id} is already used by ${userId} in this call`);
 
         this.sockets.set(socket.user_id, socket);
         this.keyPackages.set(socket.user_id, keyPackage.raw);

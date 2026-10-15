@@ -77,8 +77,11 @@ test("mandatory storage quotas serialize concurrent writers and reconcile failed
     );
     const { QuotaStorage } = fixture.exports;
     await pool.query(`CREATE TABLE storage_runtime_objects(namespace varchar(128),path varchar(2048),principal varchar(128),category varchar,budget_principal varchar(128) NOT NULL,
-        bytes bigint NOT NULL DEFAULT 0 CHECK(bytes>=0),reserved_bytes bigint NOT NULL DEFAULT 0 CHECK(reserved_bytes>=0),pending boolean NOT NULL DEFAULT false,operation_generation varchar NOT NULL DEFAULT '',
+        bytes bigint NOT NULL DEFAULT 0 CHECK(bytes>=0),reserved_bytes bigint NOT NULL DEFAULT 0 CHECK(reserved_bytes>=0),pending boolean NOT NULL DEFAULT false,operation_generation varchar NOT NULL DEFAULT '',last_used_at bigint NOT NULL DEFAULT 0,
         PRIMARY KEY(namespace,path))`);
+    await pool.query(
+        "CREATE TABLE storage_cache_evictions(namespace varchar(128) PRIMARY KEY,objects bigint NOT NULL DEFAULT 0,bytes bigint NOT NULL DEFAULT 0,last_evicted_at bigint)",
+    );
     await pool.query("CREATE TABLE webhooks(id varchar PRIMARY KEY,user_id varchar)");
     await pool.query("CREATE TABLE applications(id varchar PRIMARY KEY,owner_id varchar)");
     await pool.query("INSERT INTO webhooks VALUES('10','1')");
@@ -140,11 +143,10 @@ test("mandatory storage quotas serialize concurrent writers and reconcile failed
     assert.equal((await pool.query("SELECT principal,bytes FROM storage_runtime_objects WHERE path='moved'")).rows[0].principal, "user:2");
     await assert.rejects(restarted.set("spoof", Buffer.alloc(1), "user:999"), (error) => error.code === 403);
     await ownership.run("system:cache", () => restarted.set("cache", Buffer.alloc(4)));
-    await assert.rejects(
-        ownership.run("system:cache", () => restarted.set("cache2", Buffer.alloc(1))),
-        (error) => error.code === 413,
-    );
-    await restarted.delete("cache");
+    await ownership.run("system:cache", () => restarted.set("cache2", Buffer.alloc(1)));
+    assert.equal(objects.has("cache"), false);
+    assert.equal((await pool.query("SELECT objects,bytes FROM storage_cache_evictions")).rows[0].bytes, "4");
+    await restarted.delete("cache2");
     await restarted.set("webhook-file", Buffer.alloc(4), "webhook:10");
     await assert.rejects(restarted.set("app-file", Buffer.alloc(3), "application:20"), (error) => error.code === 413);
     await pool.query("DELETE FROM webhooks WHERE id='10'");

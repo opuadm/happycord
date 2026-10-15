@@ -309,6 +309,9 @@ export class Message extends BaseClass {
     @Column({ type: "jsonb", nullable: true })
     encrypted?: E2eeEnvelope | null;
 
+    @Column({ type: "text", nullable: true, select: false })
+    authorship?: string | null;
+
     @Column({ type: "jsonb", nullable: true })
     soundboard_sounds?: MessageSoundboardSound[] | null;
 
@@ -425,6 +428,7 @@ export class Message extends BaseClass {
 
             author_id: undefined,
             member_id: undefined,
+            authorship: undefined,
             username: undefined,
             avatar: undefined,
             webhook_id: this.webhook_id ?? undefined,
@@ -504,7 +508,7 @@ export class Message extends BaseClass {
             channel_id: this.channel_id!,
             type: this.type,
             content: this.content!,
-            author: { ...this.author!, avatar: this.author?.avatar ?? null },
+            author: this.author?.toPartialUser() as PartialUser,
             flags: this.flags,
             application_id: this.application_id,
             //channel: this.channel, // TODO: ephemeral DM channels
@@ -547,7 +551,10 @@ export class Message extends BaseClass {
         const components = proxyComponentsMedia((this.components ?? json.components ?? []) as BaseMessageComponents[]);
         return {
             ...json,
-            attachments: (this.attachments ?? json.attachments)?.map((attachment) => Attachment.prototype.signUrls.call(attachment, data)),
+            attachments: (this.attachments ?? json.attachments)?.map((attachment) => {
+                const { url } = attachment as { url?: unknown };
+                return typeof url === "string" && cdn && !url.startsWith(`${cdn}/attachments/`) ? attachment : Attachment.prototype.signUrls.call(attachment, data);
+            }),
             components: components
                 ? components.map((comp) => {
                       comp = structuredClone(comp);

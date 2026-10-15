@@ -27,11 +27,22 @@ const remember = (socket: WebRtcWebSocket, seq: number, data: string | Buffer) =
     if (socket.sentMessages.length > REPLAY_BUFFER_SIZE) socket.sentMessages.shift();
 };
 
-export function Send(target: WebRtcWebSocket, data: VoicePayload) {
+const inOrder = (socket: WebRtcWebSocket, send: () => Promise<unknown>) => {
+    const next = (socket.federationOutbox ?? Promise.resolve()).then(send).catch((error) => console.error("[WebRTC] could not send to a federated voice socket", error));
+    socket.federationOutbox = next;
+    return next;
+};
+
+export function Send(target: WebRtcWebSocket, data: VoicePayload): Promise<unknown> | undefined {
     const socket = currentSocket(target);
     if (process.env.WRTC_WS_VERBOSE) console.log(`[WebRTC] Outgoing message: ${JSON.stringify(data)}`);
     if (socket.encoding !== "json") return;
+    const { federation } = socket;
+    if (federation) return inOrder(socket, async () => sendJson(socket, { ...data, d: await federation.outgoing(data.d) }));
+    return sendJson(socket, data);
+}
 
+function sendJson(socket: WebRtcWebSocket, data: VoicePayload) {
     if (socket.version < 8 || unsequenced.has(data.op)) return write(socket, JSON.stringify(data, JSONReplacer));
     const seq = nextSequence(socket);
     const message = JSON.stringify({ ...data, seq }, JSONReplacer);
@@ -39,9 +50,14 @@ export function Send(target: WebRtcWebSocket, data: VoicePayload) {
     return write(socket, message);
 }
 
-export function SendBinary(target: WebRtcWebSocket, op: VoiceOPCodes, payload: Buffer) {
+export function SendBinary(target: WebRtcWebSocket, op: VoiceOPCodes, payload: Buffer): Promise<unknown> {
     const socket = currentSocket(target);
     if (process.env.WRTC_WS_VERBOSE) console.log(`[WebRTC] Outgoing binary op ${op} (${payload.length} bytes)`);
+    if (socket.federation) return inOrder(socket, () => sendBinary(socket, op, payload));
+    return sendBinary(socket, op, payload);
+}
+
+function sendBinary(socket: WebRtcWebSocket, op: VoiceOPCodes, payload: Buffer) {
     if (socket.version < 8) return write(socket, Buffer.concat([Buffer.from([op]), payload]));
 
     const seq = nextSequence(socket);

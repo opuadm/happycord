@@ -26,7 +26,7 @@ router.post(
         };
         const decoded = readTicket<{ typ: string; uid?: string; kh?: string; regenerate?: boolean }>(nonce, "backup_codes");
         if (!decoded || decoded.uid !== req.user_id || !!decoded.regenerate !== !!regenerate) throw new ResponseError(400, { message: "Invalid nonce", code: 60011 });
-        if (!(await guardedMfaAttempt(nonce!, async () => !!decoded.kh && typeof key === "string" && hashKey(key) === decoded.kh)))
+        if (!(await guardedMfaAttempt(nonce!, async () => !!decoded.kh && typeof key === "string" && !!decoded.uid && hashKey(key, decoded.uid) === decoded.kh)))
             throw new ResponseError(400, { message: "Invalid verification key", code: 60011 });
 
         const codes = regenerate ? await freshBackupCodes(req.user_id) : await BackupCode.find({ where: { user: { id: req.user_id }, expired: false } });

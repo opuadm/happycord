@@ -4,6 +4,7 @@ import { AuditLog, Guild, Role } from "@spacebar/database";
 import { Config, DiscordApiErrors, emitEvent, GuildRoleCreateEvent, Permissions, Snowflake } from "@spacebar/util";
 import { AdminRoleCreateSchema, AuditLogEvents } from "@spacebar/schemas";
 import { HTTPError } from "lambert-server/HTTPError";
+import { assertMirrorGuildEditable } from "@spacebar/api/util/utility/federatedAdmin";
 const router = Router({ mergeParams: true });
 router.get(
     "/",
@@ -35,6 +36,7 @@ router.post(
     }),
     async (req: Request, res: Response) => {
         const guild_id = req.params.guild_id as string;
+        assertMirrorGuildEditable(await Guild.findOne({ where: { id: guild_id }, select: { id: true, federated_instance: true } }));
         const body = req.body as AdminRoleCreateSchema;
         const name = body.name.trim();
         if (!name) throw new HTTPError("Enter a role name", 400);

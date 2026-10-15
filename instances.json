@@ -1,0 +1,21 @@
+[
+    { "id": "tabaque.lol", "name": "Tabaque", "url": "https://tabaque.lol", "source_url": "https://github.com/PoZorKino/tabaque" },
+    { "id": "catcord.dev", "name": "Catcord", "url": "https://catcord.dev", "source_url": "https://github.com/braidenhxyz/meowcord" },
+    { "id": "bun.social", "name": "Buncord", "url": "https://bun.social", "source_url": "https://github.com/april83c/meowcord-patches" },
+    { "id": "fleep.space", "name": "Fleep", "url": "https://fleep.space", "source_url": "https://github.com/sy62e/dihcord" },
+    { "id": "meow.soccera.uk", "name": "Meowcerra", "url": "https://meow.soccera.uk", "source_url": "https://github.com/soccera1/meowcord" },
+    { "id": "ang.taild5450d.ts.net", "name": "idkcord", "url": "https://ang.taild5450d.ts.net", "source_url": "https://github.com/anamelessguy1/meowcord" },
+    { "id": "cord.yuri.llc", "name": "Yuricord", "url": "https://cord.yuri.llc", "source_url": "https://github.com/hazelcaffe/meowcord" },
+    { "id": "orcbin.com", "name": "ORCBin", "url": "https://orcbin.com", "source_url": null },
+    { "id": "solarcord.xyz", "name": "Solarcord", "url": "https://solarcord.xyz", "source_url": null },
+    { "id": "voidcord.lab-xp.ovh", "name": "Voidcord", "url": "https://voidcord.lab-xp.ovh", "source_url": "https://github.com/NixLeVrai/voidcord" },
+    { "id": "cord.area12.lol", "name": "12Cord", "url": "https://cord.area12.lol", "source_url": null },
+    { "id": "gazeee.xyz", "name": "Gacord", "url": "https://gazeee.xyz", "source_url": null },
+    { "id": "meowcord.m5rcel.com", "name": "m5rcord", "url": "https://meowcord.m5rcel.com", "source_url": null },
+    { "id": "nandrochat.duckdns.org", "name": "NandroChat", "url": "https://nandrochat.duckdns.org", "source_url": "https://github.com/meowcorded/meowcord", "previous_ids": ["chat.nandroserver.duckdns.org"] },
+    { "id": "fluff.linux-user.fyi", "name": "Fluffcord", "url": "https://fluff.linux-user.fyi", "source_url": "https://github.com/anice-guy/fluffcord" },
+    { "id": "dc.polo.beer", "name": "Hola Quetal", "url": "https://dc.polo.beer", "source_url": null },
+    { "id": "chat.gtdmc.org", "name": "GTDcord", "url": "https://chat.gtdmc.org", "source_url": null },
+    { "id": "chat.femboy.cyou", "name": "FemCord", "url": "https://chat.femboy.cyou", "source_url": null },
+    { "id": "happycord.opuadm.com", "name": "Happycord", "url": "https://happycord.opuadm.com", "source_url": "https://github.com/opuadm/happycord" }
+]

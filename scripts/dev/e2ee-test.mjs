@@ -107,7 +107,7 @@ const launchAll = async (...specs) => {
     throw failed.reason;
 };
 
-const open = async (context, user, { login = false, extraInit, strictSafety = false } = {}) => {
+const open = async (context, user, { login = false, extraInit, strictSafety = false, channel = dm.id } = {}) => {
     if (login)
         await context.addInitScript(
             ({ nonce, strictSafety }) => {
@@ -155,7 +155,7 @@ const open = async (context, user, { login = false, extraInit, strictSafety = fa
         if (message?.[1] === dm.id && ((r.method() === "POST" && !message[2]) || (r.method() === "PATCH" && message[2]))) sent.push(r.postDataJSON());
     });
     if (!login) {
-        await page.goto(`${origin}/channels/@me/${dm.id}`);
+        await page.goto(`${origin}/channels/@me/${channel}`);
         return { context, page, sent, errors, network, gateway, user };
     }
     try {
@@ -163,11 +163,11 @@ const open = async (context, user, { login = false, extraInit, strictSafety = fa
         await page.locator('input[name="email"]').fill(user.email, { timeout: 20000 });
         await page.locator('input[name="password"]').fill(user.password);
         await page.locator('button[type="submit"]').click();
-        const link = page.locator(`a[href="/channels/@me/${dm.id}"]`).first();
+        const link = page.locator(`a[href="/channels/@me/${channel}"]`).first();
         await link.waitFor({ timeout: 20000 });
         const unlock = page.locator("dialog.fe2ee-dialog[open]");
         let askedToUnlock = false;
-        for (let i = 0; i < 40 && !page.url().endsWith(dm.id); i++) {
+        for (let i = 0; i < 40 && !page.url().endsWith(channel); i++) {
             if (await unlock.count()) {
                 askedToUnlock = true;
                 await unlock
@@ -644,6 +644,102 @@ try {
         const disable = await call("PUT", `/channels/${dm.id}/e2ee`, tester.token, { enabled: false });
         assert.equal(disable.body.message, "E2EE_CANNOT_DISABLE", "encryption can't be turned off");
         log("server checks passed");
+    });
+
+    await phase("a group DM keeps a former member's history readable, highlights mentions and sends past a member with no keys", async () => {
+        const third = await account("third");
+        const idle = await account("idle");
+        const group = (await call("POST", "/users/@me/channels", friend.token, { recipients: [tester.id, third.id] })).body;
+        assert.equal(group?.type, 3, "friend created a group DM with tester and a stranger to tester");
+        const fromThird = `from the member who leaves ${suffix}`;
+        const c = await launch(third, { login: true, channel: group.id });
+        try {
+            await waitReady(c);
+            await send(c, fromThird);
+            await waitDecrypted(c, fromThird);
+        } catch (error) {
+            await diagnose(c);
+            throw error;
+        } finally {
+            await close(c);
+        }
+        assert.equal((await call("DELETE", `/channels/${group.id}`, third.token)).status, 200, "the stranger left the group");
+        assert.equal(sql(`select count(*) from former_recipients where channel_id = '${group.id}' and user_id = '${third.id}'`), "1", "the server remembers who left");
+        const served = (await call("POST", "/e2ee/keys/query", tester.token, { user_ids: [third.id] })).body.users?.[third.id];
+        assert.ok(
+            served?.devices?.some((device) => device.status === "active"),
+            "a remaining member still gets the keys of the member who left",
+        );
+        assert.equal((await call("POST", "/e2ee/keys/query", idle.token, { user_ids: [third.id] })).body.users?.[third.id], undefined, "an outsider gets nothing");
+
+        const [a, b] = await launchAll([tester, { channel: group.id }], [friend, { channel: group.id }]);
+        try {
+            await Promise.all([waitReady(a), waitReady(b)]);
+            await waitDecrypted(a, fromThird);
+            log("a member who was never friends with the member who left reads their old message");
+
+            const pinged = `mention for tester ${suffix}`;
+            const sent = await b.page.evaluate(
+                ({ channel, content }) =>
+                    window.Vencord.Webpack.Common.RestAPI.post({ url: `/channels/${channel}/messages`, body: { content, nonce: `${Date.now()}` } }).then(
+                        (res) => res.body,
+                        (error) => ({ error: String(error?.body ? JSON.stringify(error.body) : error) }),
+                    ),
+                { channel: group.id, content: `<@${tester.id}> ${pinged}` },
+            );
+            assert.ok(sent?.id, `friend sent a mention: ${JSON.stringify(sent)}`);
+            const stored = (await call("GET", `/channels/${group.id}/messages?limit=5`, tester.token)).body.find((m) => m.id === sent.id);
+            assert.deepEqual(stored.encrypted.mentions, [tester.id], "the envelope names the mentioned member");
+            assert.deepEqual(
+                stored.mentions.map((user) => user.id),
+                [tester.id],
+                "the server lists the mention",
+            );
+            assert.ok(!JSON.stringify(stored).includes(pinged), "the text stays encrypted");
+            await waitDecrypted(a, pinged);
+            await a.page.waitForFunction(
+                ({ channel, id }) => window.Vencord.Webpack.findStore("MessageStore").getMessage(channel, id)?.mentioned === true,
+                { channel: group.id, id: sent.id },
+                { timeout: 10000 },
+            );
+            assert.ok(
+                await a.page.evaluate(({ channel, id }) => !!document.querySelector(`#chat-messages-${channel}-${id} [class*="mentioned"]`), { channel: group.id, id: sent.id }),
+                "the mention is highlighted",
+            );
+            log("an encrypted mention is highlighted for the member it names");
+
+            assert.equal((await call("PUT", `/channels/${group.id}/recipients/${idle.id}`, friend.token)).status, 204, "friend added a member with no keys");
+            await a.page.waitForFunction(
+                ({ channel, id }) => window.Vencord.Webpack.findStore("ChannelStore").getChannel(channel)?.recipients?.includes(id),
+                { channel: group.id, id: idle.id },
+                { timeout: 10000 },
+            );
+            const pastIdle = `sent past the member with no keys ${suffix}`;
+            await send(a, pastIdle);
+            await a.page.locator(".fe2ee-notice[data-tone='warning']", { hasText: `e2eeidle${suffix}` }).waitFor({ timeout: 10000 });
+            await waitDecrypted(b, pastIdle);
+            const latest = (await call("GET", `/channels/${group.id}/messages?limit=1`, friend.token)).body[0];
+            assert.ok(latest.encrypted && !latest.encrypted.keys.some((key) => key.user_id === idle.id), "the message went to everyone who can read it");
+            log("a group send went through with a notice naming the member who can't read it");
+
+            const lonely = (await call("POST", "/users/@me/channels", tester.token, { recipients: [idle.id] })).body;
+            await a.page.goto(`${origin}/channels/@me/${lonely.id}`);
+            await waitReady(a);
+            await send(a, `nobody could read this ${suffix}`);
+            await a.page.locator(".fe2ee-notice[data-tone='danger']", { hasText: `e2eeidle${suffix}` }).waitFor({ timeout: 10000 });
+            await a.page.waitForTimeout(1500);
+            assert.equal(
+                (await call("GET", `/channels/${lonely.id}/messages?limit=5`, tester.token)).body.filter((m) => m.encrypted).length,
+                0,
+                "nothing was sent to a DM nobody could read",
+            );
+            log("a DM with someone who has no keys shows an error and keeps the draft");
+        } catch (error) {
+            await diagnose(a, b);
+            throw error;
+        } finally {
+            await close(a, b);
+        }
     });
 
     await phase("tester sends an image and a file, friend sees the image and downloads the file", async () => {

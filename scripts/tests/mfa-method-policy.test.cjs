@@ -26,6 +26,7 @@ function harness({ mfa = false, keys = 0 } = {}) {
         typeorm: { In: (values) => values },
         "@spacebar/database": {
             getDatabase: () => ({}),
+            RateLimit: { hit: async () => ({ hits: 1, blocked: false }) },
             User: {
                 findOneOrFail: async () => user,
                 findOne: async () => user,

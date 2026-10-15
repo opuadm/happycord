@@ -62,5 +62,17 @@
                 "useIterableCallbackReturn": "off"
             }
         }
-    }
+    },
+    "overrides": [
+        {
+            "includes": ["client/plugins/**", "client/equicord-patches/**"],
+            "linter": {
+                "rules": {
+                    "complexity": {
+                        "noUselessEscapeInRegex": "off"
+                    }
+                }
+            }
+        }
+    ]
 }

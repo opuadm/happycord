@@ -3,11 +3,12 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const ts = require("typescript");
+const { loadFederatedAdmin } = require("./federated-admin-module.cjs");
 function harness() {
     let handler;
     const calls = [],
         query = {};
-    for (const name of ["select", "addSelect", "orderBy", "limit", "offset", "where"])
+    for (const name of ["select", "addSelect", "orderBy", "addOrderBy", "limit", "offset", "where", "andWhere"])
         query[name] = (...args) => {
             calls.push([name, ...args]);
             return query;
@@ -38,6 +39,15 @@ function harness() {
             if (name === "typeorm") return { In: (ids) => ids };
             if (name === "@spacebar/api/middlewares") return { route: (options) => options };
             if (name === "@spacebar/database") return { Guild: { createQueryBuilder: () => query }, Member: {}, User: {} };
+            if (name === "@spacebar/api/util/utility/federatedAdmin")
+                return loadFederatedAdmin(
+                    class extends Error {
+                        constructor(message, status) {
+                            super(message);
+                            this.status = status;
+                        }
+                    },
+                );
             if (name === "lambert-server/HTTPError")
                 return {
                     HTTPError: class extends Error {
@@ -103,4 +113,36 @@ test("server search escapes wildcard characters and preserves exact ids", async 
     const exact = id.calls.find(([name]) => name === "where");
     assert.equal(exact[1], "guild.id = :id");
     assert.equal(exact[2].id, "123456789012345678");
+});
+
+test("the server list shows servers hosted here by default and mirrors only when asked", async () => {
+    const clauses = async (parameters) => {
+        const h = harness();
+        await h.run(parameters);
+        return h.calls.filter(([name]) => name === "andWhere").map(([, clause]) => clause);
+    };
+    assert.deepEqual(await clauses({}), ["guild.federated_instance IS NULL"]);
+    assert.deepEqual(await clauses({ origin: "remote", q: "cats" }), ["guild.federated_instance IS NOT NULL"]);
+    assert.deepEqual(await clauses({ origin: "all" }), []);
+    assert.deepEqual(await clauses({ q: "123456789012345678" }), []);
+    const h = harness();
+    await assert.rejects(h.run({ origin: "mirrors" }), (error) => error.status === 400);
+    assert.equal(h.calls.length, 0);
+});
+
+test("server search sorts by age, name or member count and refuses unknown sorts", async () => {
+    const order = async (sort) => {
+        const h = harness();
+        await h.run({ sort });
+        return h.calls.filter(([name]) => name === "orderBy" || name === "addOrderBy").map(([, column, direction]) => `${column} ${direction}`);
+    };
+    assert.deepEqual(await order(undefined), ["guild.id DESC"]);
+    assert.deepEqual(await order("oldest"), ["guild.id ASC"]);
+    assert.deepEqual(await order("name"), ["guild.name ASC", "guild.id ASC"]);
+    assert.deepEqual(await order("members"), ["member_count DESC", "guild.id DESC"]);
+    for (const sort of ["owner", ["name", "members"], "__proto__"]) {
+        const h = harness();
+        await assert.rejects(h.run({ sort }), (error) => error.status === 400);
+        assert.equal(h.calls.length, 0);
+    }
 });

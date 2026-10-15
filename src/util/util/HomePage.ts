@@ -6,7 +6,7 @@ import { PUBLIC_ASSETS_FOLDER } from "./Constants";
 import { brandPage, instanceName } from "./Branding";
 import { instanceDescription, instancePage, openGraphTags } from "./OpenGraph";
 
-const escapeHtml = (text: string) => text.replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`);
+export const escapeHtml = (text: string) => text.replace(/[<>&"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export const homePage = (origin?: string) => {
     const { general, register } = Config.get();

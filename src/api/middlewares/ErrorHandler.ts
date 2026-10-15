@@ -1,8 +1,16 @@
 import { NextFunction, Request, Response } from "express";
 import { HTTPError } from "lambert-server/HTTPError";
-import { ApiError, DiscordApiErrors, FieldError, FieldErrors } from "@spacebar/util";
+import { ApiError, DiscordApiErrors, FederationRequestError, FieldError, FieldErrors } from "@spacebar/util";
 import { StringLengthOutOfBoundsException } from "@spacebar/extensions";
 const EntityNotFoundErrorRegex = /"(\w+)"/;
+const SECRET_BODY_KEY = /pass|token|secret|code|ticket|key|credential|nonce|otp|hash|authorization|private|e2ee|ciphertext|content|email|phone|login/i;
+
+export function redactBody(body: unknown, depth = 0): unknown {
+    if (Array.isArray(body)) return depth > 4 ? "[array]" : body.map((value) => redactBody(value, depth + 1));
+    if (!body || typeof body !== "object" || Buffer.isBuffer(body)) return Buffer.isBuffer(body) ? `[${body.length} bytes]` : body;
+    if (depth > 4) return "[object]";
+    return Object.fromEntries(Object.entries(body).map(([key, value]) => [key, SECRET_BODY_KEY.test(key) ? "[redacted]" : redactBody(value, depth + 1)]));
+}
 const UNKNOWN_ENTITY_ERRORS: Record<string, ApiError> = {
     Channel: DiscordApiErrors.UNKNOWN_CHANNEL,
     Message: DiscordApiErrors.UNKNOWN_MESSAGE,
@@ -39,8 +47,8 @@ export function ErrorHandler(error: Error & { type?: string }, req: Request, res
         let code = 400;
         let httpcode = code;
         let message = error?.toString();
-        let errors = undefined;
-        let _ajvErrors = undefined;
+        let errors;
+        let _ajvErrors;
 
         if (process.env.LOG_API_ERRORS === "true") console.error("[ErrorHandler] Uncaught exception:", error);
 
@@ -57,6 +65,10 @@ export function ErrorHandler(error: Error & { type?: string }, req: Request, res
             message = known?.message ?? `${entity} could not be found`;
             code = known?.code ?? 404;
             httpcode = 404;
+        } else if (error instanceof FederationRequestError) {
+            code = 0;
+            httpcode = error.status === 401 ? 502 : error.status;
+            message = error.message;
         } else if (error instanceof FieldError) {
             code = Number(error.code);
             message = error.message;
@@ -72,7 +84,7 @@ export function ErrorHandler(error: Error & { type?: string }, req: Request, res
             code = 50109;
             message = "The request body contains invalid JSON.";
         } else {
-            console.error(`[Error] ${code} ${req.url}\n`, errors ?? error, "\nbody:", req.body);
+            console.error(`[Error] ${code} ${req.url}\n`, errors ?? error, "\nbody:", redactBody(req.body));
             message = "500: Internal Server Error";
             code = 0;
             httpcode = 500;

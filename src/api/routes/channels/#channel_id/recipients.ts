@@ -1,5 +1,6 @@
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
+import { e2eeDevicesOf, E2eeErrors } from "@spacebar/api/util";
 import { Channel, Recipient, Relationship, User } from "@spacebar/database";
 import { ChannelDeleteEvent, ChannelRecipientAddEvent, ChannelUpdateEvent, Config, DiscordApiErrors, DmChannelDTO, emitEvent } from "@spacebar/util";
 import { ChannelType, MessageType, PublicUserProjection } from "@spacebar/schemas";
@@ -101,6 +102,13 @@ router.put(
             throw DiscordApiErrors.UNKNOWN_CHANNEL; // TODO: is this the right error
         }
 
+        const added = await User.findOne({ where: { id: user_id }, select: { id: true, federated_instance: true } });
+        if (added?.federated_instance && (channel.e2ee_enabled_at || channel.type !== ChannelType.GROUP_DM)) {
+            const devices = await e2eeDevicesOf([user_id], { channel_id, force: true });
+            if (!devices.some((device) => device.status === "active"))
+                return res.status(400).json({ code: E2eeErrors.RECIPIENT_NO_DEVICES.code, message: E2eeErrors.RECIPIENT_NO_DEVICES.message, user_ids: [user_id] });
+        }
+
         if (channel.type !== ChannelType.GROUP_DM) {
             const recipients = [...new Set([...(channel.recipients?.map((r) => r.user_id) || []), user_id])];
 
@@ -111,8 +119,9 @@ router.put(
                 throw DiscordApiErrors.INVALID_RECIPIENT; //TODO is this the right error?
             }
             if (await Relationship.isBlockedBetween(req.user_id, user_id)) throw DiscordApiErrors.CANNOT_MESSAGE_USER;
-            const { maxGroupDmRecipients } = Config.get().limits.channel;
-            if ((channel.recipients?.length ?? 0) >= maxGroupDmRecipients) throw DiscordApiErrors.MAXIMUM_NUMBER_OF_RECIPIENTS_REACHED.withParams(String(maxGroupDmRecipients));
+            const { maxGroupDmRecipients, maxStaffGroupDmRecipients } = Config.get().limits.channel;
+            const limit = req.rights?.has("BYPASS_RATE_LIMITS") ? Math.max(maxGroupDmRecipients, maxStaffGroupDmRecipients ?? 0) : maxGroupDmRecipients;
+            if ((channel.recipients?.length ?? 0) >= limit) throw DiscordApiErrors.MAXIMUM_NUMBER_OF_RECIPIENTS_REACHED.withParams(String(limit));
 
             channel.recipients?.push(Recipient.create({ channel_id: channel_id, user_id: user_id }));
             await channel.save();

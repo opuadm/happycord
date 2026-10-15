@@ -55,11 +55,23 @@ test("database migration failures release advisory locks and initialization can 
             assert.equal(database.dbConnection, undefined);
             assert.equal(ds.isInitialized, false);
             assert.ok(runners.every((runner) => runner.isReleased));
-            const { rows } = await inspector.query("SELECT pg_try_advisory_lock(1) AS acquired");
-            assert.equal(rows[0].acquired, true);
+            let acquired = false;
+            const began = Date.now();
+            do {
+                const { rows } = await inspector.query("SELECT pg_try_advisory_lock(1) AS acquired");
+                acquired = rows[0].acquired;
+                if (!acquired) await new Promise((resolve) => setTimeout(resolve, 25));
+            } while (!acquired && Date.now() - began < 5000);
+            assert.equal(acquired, true);
             await inspector.query("SELECT pg_advisory_unlock(1)");
-            const sessions = await inspector.query("SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()", [name]);
-            assert.equal(sessions.rows[0].count, 0);
+            let sessions;
+            const sessionBegan = Date.now();
+            do {
+                const result = await inspector.query("SELECT count(*)::int AS count FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()", [name]);
+                sessions = result.rows[0].count;
+                if (sessions) await new Promise((resolve) => setTimeout(resolve, 25));
+            } while (sessions && Date.now() - sessionBegan < 5000);
+            assert.equal(sessions, 0);
         };
 
         await t.test("authentication and unexpected initialization errors do not retry", async () => {

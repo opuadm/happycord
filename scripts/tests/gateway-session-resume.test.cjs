@@ -192,6 +192,7 @@ test("legacy gateway token refresh preserves the existing auth session and yield
         "./Config": { Config: { get: () => ({ security: { jwtSecret: null } }) } },
         "@spacebar/util": { OrmUtils: { keysToObject: () => ({}) } },
         "@spacebar/util/util/ProcessLifecycle": {},
+        "./StaffRoles": { isStaffAccount: () => false, loadStaffRoles: async () => ({}) },
     };
     const filename = path.join(__dirname, "../../src/util/util/Token.ts");
     vm.runInNewContext(

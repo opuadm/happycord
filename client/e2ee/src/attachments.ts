@@ -98,7 +98,7 @@ const renderPoster = (blob: Blob, type: string) =>
         video.src = src;
     });
 
-export const createAttachments = () => {
+export const createAttachments = (canonicalOf?: (id: string) => string | undefined) => {
     const registry = new Map<string, FileEntry>();
     const uploads = new Map<string, Upload>();
     const names = new Map<string, string>();
@@ -251,7 +251,7 @@ export const createAttachments = () => {
             message.attachments = message.attachments.map((attachment) => {
                 const meta = metas.find((m) => m.name === attachment.filename);
                 if (!meta || typeof attachment.url !== "string") return attachment;
-                const ciphertextUrl = attachmentCiphertextUrl(attachment.url, message.channel_id, meta.name, location.origin);
+                const ciphertextUrl = attachmentCiphertextUrl(attachment.url, message.channel_id, meta.name, location.origin, canonicalOf?.(message.channel_id));
                 if (!ciphertextUrl) return attachment;
                 const path = new URL(`${FILE_PREFIX}${message.channel_id}/${attachment.id}/${encodeURIComponent(meta.filename)}`, location.origin).pathname;
                 names.set(String(attachment.id), meta.name);

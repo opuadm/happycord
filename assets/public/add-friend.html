@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Add __FRIEND_NAME__ on __INSTANCE_NAME__</title>
+    __OPEN_GRAPH__
+    <link rel="icon" href="/favicon.svg" />
+    <style>
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in oklab, currentColor 32%, transparent) transparent;
+      }
+
+      @font-face {
+        font-family: "gg sans";
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url(/assets/66d715454104d24e.woff2) format("woff2");
+      }
+      @font-face {
+        font-family: "gg sans";
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url(/assets/b272b33815319bae.woff2) format("woff2");
+      }
+      @font-face {
+        font-family: "gg sans";
+        font-style: normal;
+        font-weight: 800;
+        font-display: swap;
+        src: url(/assets/b2fdbe507d6ce9ef.woff2) format("woff2");
+      }
+      :root {
+        color-scheme: dark;
+        --bg: #121214;
+        --text: #dfe0e2;
+        --muted: #94959c;
+        --accent: #5865f2;
+        --accent-hover: #4752c4;
+        --surface: #1e1f22;
+        --surface-hover: #2b2d31;
+        font-family: "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          color-scheme: light;
+          --bg: #f3f3f5;
+          --text: #2f3035;
+          --muted: #5c5d64;
+          --surface: #e3e5e8;
+          --surface-hover: #d4d7dc;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+        font-size: 16px;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      main {
+        max-width: 440px;
+        padding: 48px 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+      .brand-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 20px;
+        object-fit: cover;
+      }
+      h1 {
+        margin: 24px 0 8px;
+        font-size: 28px;
+        font-weight: 800;
+        line-height: 1.2;
+        text-wrap: balance;
+      }
+      .sr-status {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+        text-wrap: pretty;
+      }
+      .handle {
+        margin-top: 24px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 6px 6px 16px;
+        border-radius: 14px;
+        background: var(--surface);
+        max-width: 100%;
+      }
+      .handle code {
+        font: inherit;
+        font-weight: 500;
+        color: var(--text);
+        overflow-wrap: anywhere;
+        text-align: left;
+      }
+      .actions {
+        margin-top: 32px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+      }
+      button,
+      a {
+        padding: 10px 20px;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 500;
+        text-decoration: none;
+        transition:
+          background-color 0.15s ease,
+          scale 0.2s ease-out;
+      }
+      button {
+        border: 0;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .handle button {
+        padding: 8px 14px;
+        background: var(--accent);
+      }
+      button:active,
+      a:active {
+        scale: 0.97;
+      }
+      button:focus-visible,
+      a:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      a.secondary {
+        background: var(--surface);
+        color: var(--text);
+      }
+      @media (hover: hover) {
+        button:hover,
+        a:hover {
+          background: var(--accent-hover);
+        }
+        a.secondary:hover {
+          background: var(--surface-hover);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      __INSTANCE_ICON__
+      <h1>Add __FRIEND_NAME__ on __INSTANCE_NAME__</h1>
+      <p>
+        Meowcord instances talk to each other, so you can add __FRIEND_NAME__ from your own instance.
+        Open Add Friend there and paste this username or this page's link.
+      </p>
+      <div class="handle">
+        <code id="handle">__FRIEND_HANDLE__</code>
+        <button type="button" id="copy">Copy username</button>
+      </div>
+      <p class="sr-status" role="status" id="status"></p>
+      <div class="actions">
+        <a class="secondary" href="__OPEN_HREF__">Add them on __INSTANCE_NAME__</a>
+      </div>
+    </main>
+    <script>
+      const button = document.getElementById("copy");
+      const status = document.getElementById("status");
+      button.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(document.getElementById("handle").textContent);
+          button.textContent = "Copied";
+          status.textContent = "Username copied";
+        } catch {
+          status.textContent = "Select the username and copy it";
+        }
+      });
+    </script>
+  </body>
+</html>

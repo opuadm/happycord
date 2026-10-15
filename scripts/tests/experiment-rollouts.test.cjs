@@ -56,7 +56,7 @@ function fixture() {
                 put: (path, ...handlers) => routes.set(`PUT ${path}`, handlers.at(-1)),
             }),
         },
-        typeorm: { MoreThan: (value) => ({ after: value }) },
+        typeorm: { MoreThan: (value) => ({ after: value }), IsNull: () => ({ isNull: true }) },
         "lambert-server/HTTPError": { HTTPError },
         "@spacebar/api/middlewares": {
             route: (options) => {

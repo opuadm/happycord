@@ -40,20 +40,19 @@ router.post(
 
         const user = await User.findOne({
             where: { id: decoded.uid },
-            select: { id: true, email: true, verified: true, disabled: true, deleted: true },
+            select: { id: true, email: true, verified: true, disabled: true, deleted: true, mfa_enabled: true },
         });
         if (!user || user.disabled || user.deleted || !user.email || user.email !== decoded.email) throw invalid();
 
-        if (!user.verified) {
-            await User.update({ id: user.id }, { verified: true });
+        const firstUse = !user.verified && ((await User.update({ id: user.id, verified: false }, { verified: true })).affected ?? 0) > 0;
+        if (firstUse) {
             await emitUserUpdate(user.id);
             await emitRequiredAction(user.id);
         }
 
-        res.json({
-            user_id: user.id,
-            token: req.user_id === user.id && req.headers.authorization ? req.headers.authorization : await generateToken(user.id),
-        });
+        if (req.user_id === user.id && req.headers.authorization) return res.json({ user_id: user.id, token: req.headers.authorization });
+        if (!firstUse || user.mfa_enabled) return res.json({ user_id: user.id });
+        res.json({ user_id: user.id, token: await generateToken(user.id) });
     },
 );
 

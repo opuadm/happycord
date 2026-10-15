@@ -20,10 +20,17 @@ const harness = async (reply, dns = async () => [{ address: "93.184.216.34", fam
     const request = (url, options, callback) => {
         assert.equal(options.agent, false);
         assert.equal(options.headers["accept-encoding"], "identity");
+        let pinned;
         options.lookup(url.hostname, { all: false }, (error, address, family) => {
             assert.equal(error, null);
             calls.pinned.push({ address, family });
+            pinned = family;
         });
+        if (pinned === 6) {
+            const refused = new (require("node:events").EventEmitter)();
+            refused.end = () => setTimeout(() => refused.emit("error", Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" })));
+            return refused;
+        }
         return http.request(
             {
                 hostname: "127.0.0.1",
@@ -54,6 +61,7 @@ const harness = async (reply, dns = async () => [{ address: "93.184.216.34", fam
             Config: { get: () => ({ security: { allowPrivateNetworkRequests: privateOverride } }) },
         },
         "./SocksTransport": { outboundProxy: () => "direct" },
+        "./PublicFetchError": require("../../src/util/util/networking/PublicFetchError.ts"),
     };
     vm.runInNewContext(
         ts.transpileModule(fs.readFileSync("src/util/util/networking/PublicNetwork.ts", "utf8"), {
@@ -359,3 +367,52 @@ test("malformed response headers and undefined status reject without escaping th
         }
     }
 });
+
+test("an unreachable IPv6 address falls back to the next validated address", () =>
+    run(
+        (_req, res) => res.end("over ipv4"),
+        async (h) => {
+            const res = await h.fetchPublicUrl("https://public.example/art");
+            assert.equal(await res.text(), "over ipv4");
+            assert.deepEqual(
+                h.calls.pinned.map((p) => p.family),
+                [6, 4],
+            );
+        },
+        async () => [
+            { address: "2606:2800:220:1:248:1893:25c8:1946", family: 6 },
+            { address: "93.184.216.34", family: 4 },
+        ],
+    ));
+
+test("after IPv6 fails, the next requests to the host start with the family that worked", () =>
+    run(
+        (_req, res) => res.end("over ipv4"),
+        async (h) => {
+            await (await h.fetchPublicUrl("https://public.example/one")).text();
+            await (await h.fetchPublicUrl("https://public.example/two")).text();
+            assert.deepEqual(
+                h.calls.pinned.map((p) => p.family),
+                [6, 4, 4],
+            );
+        },
+        async () => [
+            { address: "2606:2800:220:1:248:1893:25c8:1946", family: 6 },
+            { address: "2606:2800:220:1:248:1893:25c8:1947", family: 6 },
+            { address: "93.184.216.34", family: 4 },
+        ],
+    ));
+
+test("addresses alternate between families so a broken family costs one attempt", () =>
+    run(
+        (_req, res) => res.end(""),
+        async (h) => {
+            const ordered = h.orderAddresses("fresh.example", [
+                { address: "a", family: 6 },
+                { address: "b", family: 6 },
+                { address: "c", family: 4 },
+                { address: "d", family: 4 },
+            ]);
+            assert.equal(ordered.map((entry) => entry.address).join(","), "a,c,b,d");
+        },
+    ));

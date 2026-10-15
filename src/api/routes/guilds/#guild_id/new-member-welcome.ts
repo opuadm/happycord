@@ -2,6 +2,7 @@ import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { Guild } from "@spacebar/database";
 import { GuildHomeSettings } from "@spacebar/schemas";
+import { getPermission } from "@spacebar/util";
 
 const router = Router({ mergeParams: true });
 
@@ -15,6 +16,7 @@ const toResponse = (guild_id: string, settings?: Partial<GuildHomeSettings> | nu
 
 router.get("/", route({}), async (req: Request, res: Response) => {
     const { guild_id } = req.params as { [key: string]: string };
+    await getPermission(req.user_id, guild_id);
     const guild = await Guild.findOneOrFail({
         where: { id: guild_id },
         select: { id: true, home_settings: true },

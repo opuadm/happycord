@@ -9,6 +9,7 @@ import {
     purgeDeletedChannels,
     sendMessage,
     setThreadArchived,
+    threadAuditState,
 } from "@spacebar/api/util";
 import { AuditLog, Channel, Guild, Recipient, Tag, ThreadMember, VoiceChannels } from "@spacebar/database";
 import {
@@ -185,18 +186,6 @@ router.delete(
 
 const THREAD_FIELDS = ["archived", "locked", "auto_archive_duration", "invitable"] as const;
 
-const threadAuditState = (channel: Channel) => ({
-    name: channel.name,
-    type: channel.type,
-    archived: channel.thread_metadata?.archived,
-    locked: channel.thread_metadata?.locked,
-    auto_archive_duration: channel.thread_metadata?.auto_archive_duration,
-    invitable: channel.thread_metadata?.invitable,
-    rate_limit_per_user: channel.rate_limit_per_user,
-    flags: channel.flags,
-    applied_tags: channel.applied_tags,
-});
-
 router.patch(
     "/",
     route({
@@ -340,6 +329,15 @@ router.patch(
         req.permission!.hasThrow("MANAGE_CHANNELS");
         for (const key of THREAD_FIELDS) delete payload[key];
         delete payload.applied_tags;
+
+        if (payload.owner !== undefined) {
+            if (channel.type !== ChannelType.GROUP_DM) throw DiscordApiErrors.CANNOT_EXECUTE_ON_THIS_CHANNEL_TYPE;
+            if (channel.owner_id !== req.user_id) throw DiscordApiErrors.MISSING_PERMISSIONS;
+            if (!(await Recipient.exists({ where: { channel_id, user_id: payload.owner } }))) throw DiscordApiErrors.INVALID_RECIPIENT;
+            channel.owner_id = payload.owner;
+            await Channel.update({ id: channel_id }, { owner_id: payload.owner });
+            delete payload.owner;
+        }
 
         if (payload.available_tags) {
             if (!channel.isForum()) throw DiscordApiErrors.CANNOT_EXECUTE_ON_THIS_CHANNEL_TYPE;

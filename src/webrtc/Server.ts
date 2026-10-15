@@ -11,6 +11,9 @@ import { DaveSession } from "./dave/DaveSession";
 import { AfkMover } from "./util/AfkMover";
 import { loadWebRtcLibrary, mediaServer, resolvePublicIp, WRTC_PORT_MAX, WRTC_PORT_MIN, WRTC_PUBLIC_IP, WebRtcWebSocket } from "./util";
 import { PionMediaServer } from "./pion/PionMediaServer";
+import type { FederatedVoiceSocket } from "./util/WebRtcWebSocket";
+
+const federatedUpgrades = new WeakSet<http.IncomingMessage>();
 
 export class WebrtcServer {
     public ws: ws.Server;
@@ -59,6 +62,7 @@ export class WebrtcServer {
             maxPayload: 1024 * 1024,
             verifyClient: ({ req }: { req: import("node:http").IncomingMessage }) => {
                 if (this.ws.clients.size >= 2048) return false;
+                if (federatedUpgrades.has(req)) return true;
                 const address = req.socket.remoteAddress;
                 let connections = 0;
                 for (const client of this.ws.clients) {
@@ -121,8 +125,12 @@ export class WebrtcServer {
         await ProcessLifecycle.Ready();
     }
 
-    handleUpgrade(request: http.IncomingMessage, socket: Duplex, head: Buffer) {
-        this.ws.handleUpgrade(request, socket, head, (socket) => this.ws.emit("connection", socket, request));
+    handleUpgrade(request: http.IncomingMessage, socket: Duplex, head: Buffer, federation?: FederatedVoiceSocket) {
+        if (federation) federatedUpgrades.add(request);
+        this.ws.handleUpgrade(request, socket, head, (socket) => {
+            if (federation) (socket as WebRtcWebSocket).federation = federation;
+            this.ws.emit("connection", socket, request);
+        });
     }
 
     async stop() {

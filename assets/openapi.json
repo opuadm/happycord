@@ -216,7 +216,7 @@
                     "length": {
                         "type": "integer"
                     },
-                    "__@unscopables@754": {
+                    "__@unscopables@757": {
                         "type": "object",
                         "additionalProperties": false,
                         "patternProperties": {
@@ -342,17 +342,17 @@
                             "with": {
                                 "type": "boolean"
                             },
-                            "__@iterator@752": {
+                            "__@iterator@755": {
                                 "type": "boolean"
                             },
-                            "__@unscopables@754": {
+                            "__@unscopables@757": {
                                 "type": "boolean"
                             }
                         }
                     }
                 },
                 "required": [
-                    "__@unscopables@754",
+                    "__@unscopables@757",
                     "length"
                 ]
             },
@@ -1529,6 +1529,9 @@
                         "type": "string",
                         "nullable": true
                     },
+                    "owner": {
+                        "type": "string"
+                    },
                     "bitrate": {
                         "type": "integer"
                     },
@@ -2110,6 +2113,12 @@
                     "activities": {
                         "type": "boolean"
                     },
+                    "members": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
                     "channels": {
                         "type": "object",
                         "additionalProperties": {
@@ -2128,12 +2137,6 @@
                     "typing": {
                         "const": true,
                         "type": "boolean"
-                    },
-                    "members": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
                     },
                     "member_updates": {
                         "type": "boolean"
@@ -2991,6 +2994,9 @@
                         "type": "string",
                         "nullable": true
                     },
+                    "verification_level": {
+                        "type": "integer"
+                    },
                     "icon": {
                         "type": "string",
                         "nullable": true
@@ -3022,9 +3028,6 @@
                         "items": {
                             "type": "string"
                         }
-                    },
-                    "verification_level": {
-                        "type": "integer"
                     },
                     "default_message_notifications": {
                         "type": "integer"
@@ -3789,19 +3792,22 @@
                     "banner": {
                         "type": "string"
                     },
+                    "verification_level": {
+                        "type": "integer"
+                    },
                     "icon": {
                         "type": "string"
-                    },
-                    "channels": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/components/schemas/Channel"
-                        }
                     },
                     "members": {
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/Member"
+                        }
+                    },
+                    "channels": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Channel"
                         }
                     },
                     "system_channel_id": {
@@ -3826,9 +3832,6 @@
                         "items": {
                             "type": "string"
                         }
-                    },
-                    "verification_level": {
-                        "type": "integer"
                     },
                     "default_message_notifications": {
                         "type": "integer"
@@ -3973,6 +3976,19 @@
                     "discovery_excluded": {
                         "type": "boolean"
                     },
+                    "global_discovery": {
+                        "type": "boolean"
+                    },
+                    "global_discovery_hidden": {
+                        "type": "boolean"
+                    },
+                    "global_discovery_verified": {
+                        "type": "boolean"
+                    },
+                    "federated_instance": {
+                        "type": "string",
+                        "nullable": true
+                    },
                     "vanity_url_code": {
                         "type": "string",
                         "nullable": true
@@ -4031,6 +4047,16 @@
                         "anyOf": [
                             {
                                 "$ref": "#/components/schemas/GuildIncidentsData"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "theme": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/GuildTheme"
                             },
                             {
                                 "type": "null"
@@ -4109,6 +4135,9 @@
                     "emojis",
                     "features",
                     "get_annotations",
+                    "global_discovery",
+                    "global_discovery_hidden",
+                    "global_discovery_verified",
                     "id",
                     "insert",
                     "invites",
@@ -4370,6 +4399,9 @@
                         "type": "string",
                         "nullable": true
                     },
+                    "verification_level": {
+                        "type": "integer"
+                    },
                     "icon": {
                         "type": "string",
                         "nullable": true
@@ -4401,9 +4433,6 @@
                         "items": {
                             "type": "string"
                         }
-                    },
-                    "verification_level": {
-                        "type": "integer"
                     },
                     "default_message_notifications": {
                         "type": "integer"
@@ -4938,6 +4967,44 @@
                         "type": "string"
                     },
                     "gift_code_sku_id": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "login",
+                    "password"
+                ]
+            },
+            "AutomodAppealSchema": {
+                "type": "object",
+                "properties": {
+                    "login": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "minLength": 1,
+                        "maxLength": 72,
+                        "type": "string"
+                    },
+                    "message": {
+                        "maxLength": 1000,
+                        "type": "string"
+                    },
+                    "ticket": {
+                        "type": "string"
+                    },
+                    "method": {
+                        "enum": [
+                            "backup",
+                            "totp",
+                            "webauthn"
+                        ],
+                        "type": "string"
+                    },
+                    "code": {
+                        "type": "string"
+                    },
+                    "appeal_ticket": {
                         "type": "string"
                     }
                 },
@@ -8808,9 +8875,7 @@
                     },
                     "auto_moderation_rules": {
                         "type": "array",
-                        "items": {
-                            "$ref": "#/components/schemas/AutomodRuleSchema"
-                        }
+                        "items": {}
                     },
                     "guild_scheduled_events": {
                         "type": "array",
@@ -8849,6 +8914,30 @@
                     "users",
                     "webhooks"
                 ]
+            },
+            "GuildThemeModifySchema": {
+                "type": "object",
+                "properties": {
+                    "preset_id": {
+                        "minimum": 0,
+                        "maximum": 2147483647,
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "custom_user_theme_settings": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/GuildThemeCustomSettings"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    }
+                }
             },
             "GuildProfileModifySchema": {
                 "type": "object",
@@ -9843,6 +9932,38 @@
                         },
                         "additionalProperties": false
                     },
+                    "network": {
+                        "type": "object",
+                        "properties": {
+                            "forwardedFor": {
+                                "description": "Header that carries the client address, read only from trusted proxies and Cloudflare. Empty picks automatically.",
+                                "anyOf": [
+                                    {
+                                        "enum": [
+                                            "",
+                                            "CF-Connecting-IP",
+                                            "Fly-Client-IP",
+                                            "True-Client-IP",
+                                            "X-Forwarded-For",
+                                            "X-Real-IP"
+                                        ],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
+                            "trustedProxies": {
+                                "description": "Express trust proxy value: comma separated addresses, ranges or loopback, linklocal and uniquelocal",
+                                "type": [
+                                    "null",
+                                    "string"
+                                ]
+                            }
+                        },
+                        "additionalProperties": false
+                    },
                     "rate": {
                         "type": "object",
                         "properties": {
@@ -10802,23 +10923,23 @@
                         "type": "string"
                     },
                     "genres": {
-                        "description": "Genres shown on the game's popup, for example Action and RPG",
+                        "description": "Genre ids shown on the game's popup, 1 to 69",
                         "maxItems": 20,
                         "type": "array",
                         "items": {
-                            "type": "string"
+                            "type": "integer"
                         }
                     },
                     "platforms": {
-                        "description": "Platforms shown on the game's popup, for example PC and PlayStation 5",
-                        "maxItems": 20,
+                        "description": "Platform ids shown on the game's popup: 0 desktop, 1 Xbox, 2 PlayStation, 5 Nintendo, 6 Linux, 7 macOS",
+                        "maxItems": 8,
                         "type": "array",
                         "items": {
-                            "type": "string"
+                            "type": "integer"
                         }
                     },
                     "websites": {
-                        "description": "Links shown on the game's popup",
+                        "description": "Links shown on the game's popup, sorted into categories by domain",
                         "maxItems": 20,
                         "type": "array",
                         "items": {
@@ -10895,14 +11016,14 @@
                         "maxItems": 20,
                         "type": "array",
                         "items": {
-                            "type": "string"
+                            "type": "integer"
                         }
                     },
                     "platforms": {
-                        "maxItems": 20,
+                        "maxItems": 8,
                         "type": "array",
                         "items": {
-                            "type": "string"
+                            "type": "integer"
                         }
                     },
                     "websites": {
@@ -11066,6 +11187,23 @@
                 },
                 "required": [
                     "ip"
+                ]
+            },
+            "AdminIpBanLiftSchema": {
+                "type": "object",
+                "properties": {
+                    "ban_ids": {
+                        "description": "The address bans to lift, at most 100 per request. Each one also lifts the bans it spread.",
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "ban_ids"
                 ]
             },
             "AdminSessionsRevokeSchema": {
@@ -11238,6 +11376,11 @@
                                 "type": "integer"
                             },
                             "maxGroupDmRecipients": {
+                                "minimum": 1,
+                                "maximum": 2147483647,
+                                "type": "integer"
+                            },
+                            "maxStaffGroupDmRecipients": {
                                 "minimum": 1,
                                 "maximum": 2147483647,
                                 "type": "integer"
@@ -11834,8 +11977,12 @@
                     "action": {
                         "enum": [
                             "delete",
+                            "disable",
+                            "hold",
+                            "log",
                             "name",
-                            "suspend"
+                            "suspend",
+                            "timeout"
                         ],
                         "type": "string"
                     },
@@ -11851,14 +11998,704 @@
                     "terms"
                 ]
             },
+            "AdminAutomodSpamRuleSchema": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "action": {
+                        "enum": [
+                            "delete",
+                            "disable",
+                            "hold",
+                            "log",
+                            "suspend",
+                            "timeout"
+                        ],
+                        "type": "string"
+                    },
+                    "exemptAccountAgeDays": {
+                        "minimum": 0,
+                        "maximum": 3650,
+                        "type": "integer"
+                    },
+                    "windowSeconds": {
+                        "minimum": 1,
+                        "maximum": 86400,
+                        "type": "integer"
+                    }
+                }
+            },
+            "AdminAutomodSpamSchema": {
+                "type": "object",
+                "properties": {
+                    "everyone": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean"
+                            },
+                            "action": {
+                                "enum": [
+                                    "delete",
+                                    "disable",
+                                    "hold",
+                                    "log",
+                                    "suspend",
+                                    "timeout"
+                                ],
+                                "type": "string"
+                            },
+                            "exemptAccountAgeDays": {
+                                "minimum": 0,
+                                "maximum": 3650,
+                                "type": "integer"
+                            },
+                            "windowSeconds": {
+                                "minimum": 1,
+                                "maximum": 86400,
+                                "type": "integer"
+                            },
+                            "unpermittedLimit": {
+                                "minimum": 1,
+                                "maximum": 1000,
+                                "type": "integer"
+                            },
+                            "permittedLimit": {
+                                "minimum": 1,
+                                "maximum": 1000,
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "mentions": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean"
+                            },
+                            "action": {
+                                "enum": [
+                                    "delete",
+                                    "disable",
+                                    "hold",
+                                    "log",
+                                    "suspend",
+                                    "timeout"
+                                ],
+                                "type": "string"
+                            },
+                            "exemptAccountAgeDays": {
+                                "minimum": 0,
+                                "maximum": 3650,
+                                "type": "integer"
+                            },
+                            "windowSeconds": {
+                                "minimum": 1,
+                                "maximum": 86400,
+                                "type": "integer"
+                            },
+                            "messageLimit": {
+                                "minimum": 1,
+                                "maximum": 1000,
+                                "type": "integer"
+                            },
+                            "windowLimit": {
+                                "minimum": 1,
+                                "maximum": 10000,
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "flood": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean"
+                            },
+                            "action": {
+                                "enum": [
+                                    "delete",
+                                    "disable",
+                                    "hold",
+                                    "log",
+                                    "suspend",
+                                    "timeout"
+                                ],
+                                "type": "string"
+                            },
+                            "exemptAccountAgeDays": {
+                                "minimum": 0,
+                                "maximum": 3650,
+                                "type": "integer"
+                            },
+                            "windowSeconds": {
+                                "minimum": 1,
+                                "maximum": 86400,
+                                "type": "integer"
+                            },
+                            "messageLimit": {
+                                "minimum": 2,
+                                "maximum": 1000,
+                                "type": "integer"
+                            },
+                            "channelLimit": {
+                                "minimum": 2,
+                                "maximum": 1000,
+                                "type": "integer"
+                            },
+                            "channelWindowSeconds": {
+                                "minimum": 1,
+                                "maximum": 86400,
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "duplicates": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean"
+                            },
+                            "action": {
+                                "enum": [
+                                    "delete",
+                                    "disable",
+                                    "hold",
+                                    "log",
+                                    "suspend",
+                                    "timeout"
+                                ],
+                                "type": "string"
+                            },
+                            "exemptAccountAgeDays": {
+                                "minimum": 0,
+                                "maximum": 3650,
+                                "type": "integer"
+                            },
+                            "windowSeconds": {
+                                "minimum": 1,
+                                "maximum": 86400,
+                                "type": "integer"
+                            },
+                            "minLength": {
+                                "minimum": 1,
+                                "maximum": 2000,
+                                "type": "integer"
+                            },
+                            "channelLimit": {
+                                "minimum": 2,
+                                "maximum": 1000,
+                                "type": "integer"
+                            },
+                            "accountLimit": {
+                                "minimum": 2,
+                                "maximum": 1000,
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "links": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean"
+                            },
+                            "action": {
+                                "enum": [
+                                    "delete",
+                                    "disable",
+                                    "hold",
+                                    "log",
+                                    "suspend",
+                                    "timeout"
+                                ],
+                                "type": "string"
+                            },
+                            "exemptAccountAgeDays": {
+                                "minimum": 0,
+                                "maximum": 3650,
+                                "type": "integer"
+                            },
+                            "windowSeconds": {
+                                "minimum": 1,
+                                "maximum": 86400,
+                                "type": "integer"
+                            },
+                            "inviteLimit": {
+                                "minimum": 1,
+                                "maximum": 1000,
+                                "type": "integer"
+                            },
+                            "linkLimit": {
+                                "minimum": 1,
+                                "maximum": 1000,
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "burst": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean"
+                            },
+                            "action": {
+                                "enum": [
+                                    "delete",
+                                    "disable",
+                                    "hold",
+                                    "log",
+                                    "suspend",
+                                    "timeout"
+                                ],
+                                "type": "string"
+                            },
+                            "exemptAccountAgeDays": {
+                                "minimum": 0,
+                                "maximum": 3650,
+                                "type": "integer"
+                            },
+                            "windowSeconds": {
+                                "minimum": 1,
+                                "maximum": 86400,
+                                "type": "integer"
+                            },
+                            "accountLimit": {
+                                "minimum": 2,
+                                "maximum": 1000,
+                                "type": "integer"
+                            },
+                            "minLength": {
+                                "minimum": 1,
+                                "maximum": 2000,
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "attachments": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean"
+                            },
+                            "action": {
+                                "enum": [
+                                    "delete",
+                                    "disable",
+                                    "hold",
+                                    "log",
+                                    "suspend",
+                                    "timeout"
+                                ],
+                                "type": "string"
+                            },
+                            "exemptAccountAgeDays": {
+                                "minimum": 0,
+                                "maximum": 3650,
+                                "type": "integer"
+                            },
+                            "windowSeconds": {
+                                "minimum": 1,
+                                "maximum": 86400,
+                                "type": "integer"
+                            },
+                            "channelLimit": {
+                                "minimum": 2,
+                                "maximum": 1000,
+                                "type": "integer"
+                            },
+                            "accountLimit": {
+                                "minimum": 2,
+                                "maximum": 1000,
+                                "type": "integer"
+                            },
+                            "minBytes": {
+                                "minimum": 0,
+                                "maximum": 104857600,
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "dms": {
+                        "additionalProperties": false,
+                        "type": "object",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean"
+                            },
+                            "action": {
+                                "enum": [
+                                    "delete",
+                                    "disable",
+                                    "hold",
+                                    "log",
+                                    "suspend",
+                                    "timeout"
+                                ],
+                                "type": "string"
+                            },
+                            "exemptAccountAgeDays": {
+                                "minimum": 0,
+                                "maximum": 3650,
+                                "type": "integer"
+                            },
+                            "windowSeconds": {
+                                "minimum": 1,
+                                "maximum": 86400,
+                                "type": "integer"
+                            },
+                            "openLimit": {
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "type": "integer"
+                            },
+                            "friendRequestLimit": {
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "type": "integer"
+                            },
+                            "sameContentLimit": {
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "type": "integer"
+                            },
+                            "minLength": {
+                                "minimum": 1,
+                                "maximum": 2000,
+                                "type": "integer"
+                            },
+                            "newAccountHours": {
+                                "minimum": 0,
+                                "maximum": 8760,
+                                "type": "integer"
+                            },
+                            "newAccountDmsPerHour": {
+                                "minimum": 0,
+                                "maximum": 10000,
+                                "type": "integer"
+                            }
+                        }
+                    },
+                    "timeoutMinutes": {
+                        "minimum": 1,
+                        "maximum": 40320,
+                        "type": "integer"
+                    },
+                    "ignoreLinkDomains": {
+                        "maxItems": 500,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "suspendHours": {
+                        "minimum": 1,
+                        "maximum": 8760,
+                        "type": "integer"
+                    },
+                    "escalateAfterStrikes": {
+                        "minimum": 0,
+                        "maximum": 100,
+                        "type": "integer"
+                    },
+                    "strikeWindowHours": {
+                        "minimum": 1,
+                        "maximum": 720,
+                        "type": "integer"
+                    }
+                }
+            },
+            "AdminAutomodRaidSchema": {
+                "type": "object",
+                "properties": {
+                    "raidJoinThreshold": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                    },
+                    "raidJoinWindowSeconds": {
+                        "minimum": 10,
+                        "maximum": 86400,
+                        "type": "integer"
+                    },
+                    "raidNewAccountJoinThreshold": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                    },
+                    "raidNewAccountHours": {
+                        "minimum": 1,
+                        "maximum": 8760,
+                        "type": "integer"
+                    },
+                    "raidInviteJoinThreshold": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                    },
+                    "raidPauseInvitesMinutes": {
+                        "minimum": 0,
+                        "maximum": 1440,
+                        "type": "integer"
+                    },
+                    "dmRaidThreshold": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                    },
+                    "dmRaidWindowSeconds": {
+                        "minimum": 10,
+                        "maximum": 86400,
+                        "type": "integer"
+                    },
+                    "dmRaidPauseDmsMinutes": {
+                        "minimum": 0,
+                        "maximum": 1440,
+                        "type": "integer"
+                    },
+                    "mentionRaidThreshold": {
+                        "minimum": 0,
+                        "maximum": 100000,
+                        "type": "integer"
+                    },
+                    "mentionRaidWindowSeconds": {
+                        "minimum": 10,
+                        "maximum": 86400,
+                        "type": "integer"
+                    }
+                }
+            },
+            "AdminRaidIncidentActionSchema": {
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "enum": [
+                            "ban_ip",
+                            "delete_messages",
+                            "disable",
+                            "suspend"
+                        ],
+                        "type": "string"
+                    },
+                    "user_ids": {
+                        "description": "Only act on these accounts from the incident. Leave out to act on everyone in it.",
+                        "maxItems": 2000,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "reason": {
+                        "maxLength": 512,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "action"
+                ]
+            },
+            "AdminAutomodScamSchema": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "action": {
+                        "enum": [
+                            "delete",
+                            "disable",
+                            "hold",
+                            "log",
+                            "suspend",
+                            "timeout"
+                        ],
+                        "type": "string"
+                    },
+                    "lookalikes": {
+                        "type": "boolean"
+                    },
+                    "giftBait": {
+                        "type": "boolean"
+                    },
+                    "qrLogin": {
+                        "type": "boolean"
+                    },
+                    "ipLoggers": {
+                        "type": "boolean"
+                    },
+                    "shortenerAccountAgeDays": {
+                        "minimum": 0,
+                        "maximum": 3650,
+                        "type": "integer"
+                    },
+                    "extraDomains": {
+                        "maxItems": 2000,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "allowDomains": {
+                        "maxItems": 2000,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "remoteListUrl": {
+                        "maxLength": 2048,
+                        "type": "string"
+                    },
+                    "remoteListRefreshMinutes": {
+                        "minimum": 15,
+                        "maximum": 10080,
+                        "type": "integer"
+                    }
+                }
+            },
+            "AdminAutomodSignupSchema": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "logScore": {
+                        "minimum": 0,
+                        "maximum": 1000,
+                        "type": "integer"
+                    },
+                    "holdScore": {
+                        "minimum": 0,
+                        "maximum": 1000,
+                        "type": "integer"
+                    },
+                    "refuseScore": {
+                        "minimum": 0,
+                        "maximum": 1000,
+                        "type": "integer"
+                    },
+                    "windowMinutes": {
+                        "minimum": 1,
+                        "maximum": 1440,
+                        "type": "integer"
+                    },
+                    "disposableEmailWeight": {
+                        "minimum": 0,
+                        "maximum": 1000,
+                        "type": "integer"
+                    },
+                    "similarNameWeight": {
+                        "minimum": 0,
+                        "maximum": 1000,
+                        "type": "integer"
+                    },
+                    "similarNameLimit": {
+                        "minimum": 2,
+                        "maximum": 1000,
+                        "type": "integer"
+                    },
+                    "samePasswordWeight": {
+                        "minimum": 0,
+                        "maximum": 1000,
+                        "type": "integer"
+                    },
+                    "samePasswordLimit": {
+                        "minimum": 2,
+                        "maximum": 1000,
+                        "type": "integer"
+                    },
+                    "fastCaptchaWeight": {
+                        "minimum": 0,
+                        "maximum": 1000,
+                        "type": "integer"
+                    },
+                    "fastCaptchaMs": {
+                        "minimum": 0,
+                        "maximum": 60000,
+                        "type": "integer"
+                    },
+                    "deniedEmailDomains": {
+                        "maxItems": 2000,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "allowedEmailDomains": {
+                        "maxItems": 2000,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "AdminAutomodQuarantineSchema": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "hours": {
+                        "minimum": 1,
+                        "maximum": 8760,
+                        "type": "integer"
+                    },
+                    "allowLinks": {
+                        "type": "boolean"
+                    },
+                    "allowAttachments": {
+                        "type": "boolean"
+                    },
+                    "allowEmbeds": {
+                        "type": "boolean"
+                    },
+                    "maxMentions": {
+                        "minimum": 0,
+                        "maximum": 100,
+                        "type": "integer"
+                    },
+                    "maxDms": {
+                        "minimum": 0,
+                        "maximum": 1000,
+                        "type": "integer"
+                    }
+                }
+            },
             "AdminAutomodSettingsSchema": {
                 "type": "object",
                 "properties": {
+                    "spam": {
+                        "$ref": "#/components/schemas/AdminAutomodSpamSchema"
+                    },
+                    "raids": {
+                        "$ref": "#/components/schemas/AdminAutomodRaidSchema"
+                    },
                     "slurs": {
                         "type": "object",
                         "properties": {
                             "enabled": {
                                 "type": "boolean"
+                            },
+                            "action": {
+                                "enum": [
+                                    "delete",
+                                    "disable",
+                                    "hold",
+                                    "log",
+                                    "suspend",
+                                    "timeout"
+                                ],
+                                "type": "string"
                             },
                             "includeSoftA": {
                                 "type": "boolean"
@@ -11903,6 +12740,77 @@
                             "type": "string"
                         }
                     },
+                    "ipAllowList": {
+                        "maxItems": 500,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "scam": {
+                        "$ref": "#/components/schemas/AdminAutomodScamSchema"
+                    },
+                    "signup": {
+                        "$ref": "#/components/schemas/AdminAutomodSignupSchema"
+                    },
+                    "quarantine": {
+                        "$ref": "#/components/schemas/AdminAutomodQuarantineSchema"
+                    },
+                    "verification": {
+                        "type": "object",
+                        "properties": {
+                            "enforce": {
+                                "type": "boolean"
+                            },
+                            "requirePhoneForHighest": {
+                                "type": "boolean"
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "explicitContent": {
+                        "type": "object",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean"
+                            },
+                            "flagAllMedia": {
+                                "type": "boolean"
+                            },
+                            "terms": {
+                                "maxItems": 500,
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "blockedHashes": {
+                                "maxItems": 5000,
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "additionalProperties": false
+                    },
+                    "federation": {
+                        "type": "object",
+                        "properties": {
+                            "reportToHome": {
+                                "type": "boolean"
+                            },
+                            "acceptReports": {
+                                "type": "boolean"
+                            },
+                            "reportsPerHourPerInstance": {
+                                "minimum": 0,
+                                "maximum": 100000,
+                                "type": "integer"
+                            }
+                        },
+                        "additionalProperties": false
+                    },
                     "registration": {
                         "type": "object",
                         "properties": {
@@ -11918,6 +12826,11 @@
                                 "type": "boolean"
                             },
                             "maxAccountsPerIpPerDay": {
+                                "minimum": 0,
+                                "maximum": 100000,
+                                "type": "integer"
+                            },
+                            "maxAccountsPerIp": {
                                 "minimum": 0,
                                 "maximum": 100000,
                                 "type": "integer"
@@ -11937,6 +12850,16 @@
                                 "minimum": 1,
                                 "maximum": 10080,
                                 "type": "integer"
+                            },
+                            "maxAccountsPerIp": {
+                                "minimum": 0,
+                                "maximum": 100000,
+                                "type": "integer"
+                            },
+                            "sessionActiveDays": {
+                                "minimum": 1,
+                                "maximum": 365,
+                                "type": "integer"
                             }
                         },
                         "additionalProperties": false
@@ -11949,10 +12872,37 @@
                     "text": {
                         "maxLength": 4000,
                         "type": "string"
+                    },
+                    "email": {
+                        "maxLength": 320,
+                        "type": "string"
+                    },
+                    "username": {
+                        "maxLength": 64,
+                        "type": "string"
+                    },
+                    "ip": {
+                        "maxLength": 64,
+                        "type": "string"
                     }
                 },
                 "required": [
                     "text"
+                ]
+            },
+            "AdminAutomodAppealDecisionSchema": {
+                "type": "object",
+                "properties": {
+                    "decision": {
+                        "enum": [
+                            "accept",
+                            "deny"
+                        ],
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "decision"
                 ]
             },
             "AdminAutomodReverseSchema": {
@@ -11960,6 +12910,7 @@
                 "properties": {
                     "reversal": {
                         "enum": [
+                            "false_positive",
                             "not_a_match",
                             "undo"
                         ],
@@ -11969,6 +12920,56 @@
                 "required": [
                     "reversal"
                 ]
+            },
+            "AdminAutomodRulePolicySchema": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "action": {
+                        "enum": [
+                            "delete",
+                            "disable",
+                            "hold",
+                            "log",
+                            "suspend",
+                            "timeout"
+                        ],
+                        "type": "string"
+                    },
+                    "dryRun": {
+                        "type": "boolean"
+                    },
+                    "exemptStaff": {
+                        "type": "boolean"
+                    },
+                    "exemptBots": {
+                        "type": "boolean"
+                    },
+                    "exemptVerifiedEmail": {
+                        "type": "boolean"
+                    },
+                    "exemptAccountAgeDays": {
+                        "minimum": 0,
+                        "maximum": 3650,
+                        "type": "integer"
+                    },
+                    "exemptUserIds": {
+                        "maxItems": 500,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "exemptGuildIds": {
+                        "maxItems": 500,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
             },
             "AdminAutomodUsersSchema": {
                 "type": "object",
@@ -12008,6 +13009,219 @@
                 "required": [
                     "action",
                     "user_ids"
+                ]
+            },
+            "GuildGlobalDiscoverySchema": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "enabled"
+                ]
+            },
+            "AdminFederationSettingsSchema": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean"
+                    },
+                    "registryUrl": {
+                        "maxLength": 512,
+                        "type": "string"
+                    },
+                    "registryPublicKey": {
+                        "maxLength": 64,
+                        "type": "string"
+                    },
+                    "announce": {
+                        "type": "boolean"
+                    },
+                    "announceStats": {
+                        "type": "boolean"
+                    },
+                    "allowUnlistedPeers": {
+                        "type": "boolean"
+                    },
+                    "peers": {
+                        "maxItems": 200,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "contacts": {
+                        "maxItems": 10,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "previousIds": {
+                        "maxItems": 10,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "verification": {
+                        "enum": [
+                            "instance",
+                            "registry"
+                        ],
+                        "type": "string"
+                    }
+                }
+            },
+            "AdminFederationBlockSchema": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "enum": [
+                            "guild",
+                            "instance",
+                            "user"
+                        ],
+                        "type": "string"
+                    },
+                    "target": {
+                        "minLength": 1,
+                        "maxLength": 300,
+                        "type": "string"
+                    },
+                    "reason": {
+                        "maxLength": 1000,
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "kind",
+                    "target"
+                ]
+            },
+            "AdminFederationGuildSchema": {
+                "type": "object",
+                "properties": {
+                    "verified": {
+                        "type": "boolean"
+                    },
+                    "hidden": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "AdminFederationVerifySchema": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "minLength": 1,
+                        "maxLength": 300,
+                        "type": "string"
+                    },
+                    "verified": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "id",
+                    "verified"
+                ]
+            },
+            "AdminStaffRoleCreateSchema": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "type": "string"
+                    },
+                    "color": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 16777215
+                    },
+                    "rights": {
+                        "description": "A decimal rights bitfield. OPERATOR can't be part of a role.",
+                        "pattern": "^[0-9]{1,20}$",
+                        "type": "string"
+                    },
+                    "position": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000
+                    },
+                    "show_badge": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "name"
+                ]
+            },
+            "AdminStaffRoleModifySchema": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "type": "string"
+                    },
+                    "color": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 16777215
+                    },
+                    "rights": {
+                        "pattern": "^[0-9]{1,20}$",
+                        "type": "string"
+                    },
+                    "position": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000
+                    },
+                    "show_badge": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "AdminStaffRolePositionsSchema": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "pattern": "^[0-9]{1,20}$",
+                            "type": "string"
+                        },
+                        "position": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 1000
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "id",
+                        "position"
+                    ]
+                }
+            },
+            "AdminUserStaffRolesSchema": {
+                "type": "object",
+                "properties": {
+                    "role_ids": {
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "role_ids"
                 ]
             },
             "IdentifySchema": {
@@ -12881,7 +14095,7 @@
                             "length": {
                                 "type": "integer"
                             },
-                            "__@unscopables@754": {
+                            "__@unscopables@757": {
                                 "type": "object",
                                 "additionalProperties": false,
                                 "patternProperties": {
@@ -13007,17 +14221,17 @@
                                     "with": {
                                         "type": "boolean"
                                     },
-                                    "__@iterator@752": {
+                                    "__@iterator@755": {
                                         "type": "boolean"
                                     },
-                                    "__@unscopables@754": {
+                                    "__@unscopables@757": {
                                         "type": "boolean"
                                     }
                                 }
                             }
                         },
                         "required": [
-                            "__@unscopables@754",
+                            "__@unscopables@757",
                             "length"
                         ]
                     },
@@ -14360,6 +15574,10 @@
                         "type": "integer",
                         "default": 0
                     },
+                    "federated_instance": {
+                        "type": "string",
+                        "nullable": true
+                    },
                     "default_thread_rate_limit_per_user": {
                         "type": "integer",
                         "default": 0
@@ -14789,6 +16007,46 @@
                     },
                     "avatar_decoration_id": {
                         "type": "string"
+                    },
+                    "federated_instance": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "remote_badges": {
+                        "anyOf": [
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "kind": {
+                                            "type": "string"
+                                        },
+                                        "description": {
+                                            "type": "string"
+                                        },
+                                        "pride_flag": {
+                                            "type": "string"
+                                        },
+                                        "icon": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "description",
+                                        "id",
+                                        "kind"
+                                    ]
+                                }
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
                     "tag": {
                         "type": "string"
@@ -16206,6 +17464,22 @@
                         "type": "boolean",
                         "default": false
                     },
+                    "global_discovery": {
+                        "type": "boolean",
+                        "default": false
+                    },
+                    "global_discovery_hidden": {
+                        "type": "boolean",
+                        "default": false
+                    },
+                    "global_discovery_verified": {
+                        "type": "boolean",
+                        "default": false
+                    },
+                    "federated_instance": {
+                        "type": "string",
+                        "nullable": true
+                    },
                     "vanity_url_code": {
                         "type": "string",
                         "nullable": true
@@ -16270,6 +17544,16 @@
                             }
                         ]
                     },
+                    "theme": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/GuildTheme"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
                     "premium_features": {
                         "type": "object",
                         "properties": {
@@ -16310,6 +17594,9 @@
                     "discovery_weight",
                     "emojis",
                     "features",
+                    "global_discovery",
+                    "global_discovery_hidden",
+                    "global_discovery_verified",
                     "id",
                     "invites",
                     "members",
@@ -17867,6 +19154,12 @@
                     "about": {
                         "type": "string",
                         "nullable": true
+                    },
+                    "category_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
                     }
                 },
                 "required": [
@@ -17910,6 +19203,69 @@
                     "dms_disabled_until",
                     "invites_disabled_until",
                     "raid_detected_at"
+                ]
+            },
+            "GuildTheme": {
+                "type": "object",
+                "properties": {
+                    "preset_id": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "custom_user_theme_settings": {
+                        "anyOf": [
+                            {
+                                "$ref": "#/components/schemas/GuildThemeCustomSettings"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    },
+                    "enabled": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "custom_user_theme_settings",
+                    "enabled",
+                    "preset_id"
+                ]
+            },
+            "GuildThemeCustomSettings": {
+                "type": "object",
+                "properties": {
+                    "colors": {
+                        "maxItems": 10,
+                        "items": {
+                            "type": "string",
+                            "pattern": "^#[0-9a-fA-F]{6}$"
+                        },
+                        "type": "array"
+                    },
+                    "gradient_color_stops": {
+                        "maxItems": 10,
+                        "items": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                        },
+                        "type": "array"
+                    },
+                    "gradient_angle": {
+                        "minimum": 0,
+                        "maximum": 360,
+                        "type": "integer"
+                    },
+                    "base_mix": {
+                        "minimum": 0,
+                        "maximum": 100,
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "colors",
+                    "gradient_color_stops"
                 ]
             },
             "Message": {
@@ -18177,6 +19533,10 @@
                                 "type": "null"
                             }
                         ]
+                    },
+                    "authorship": {
+                        "type": "string",
+                        "nullable": true
                     },
                     "soundboard_sounds": {
                         "anyOf": [
@@ -19655,6 +21015,12 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/E2eeEnvelopeBackupKey"
+                        }
+                    },
+                    "mentions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
                         }
                     },
                     "sig": {
@@ -21819,13 +23185,13 @@
                     "genres": {
                         "type": "array",
                         "items": {
-                            "type": "string"
+                            "type": "integer"
                         }
                     },
                     "platforms": {
                         "type": "array",
                         "items": {
-                            "type": "string"
+                            "type": "integer"
                         }
                     },
                     "platform_availability": {
@@ -21835,7 +23201,20 @@
                     "websites": {
                         "type": "array",
                         "items": {
-                            "type": "string"
+                            "type": "object",
+                            "properties": {
+                                "category": {
+                                    "type": "integer"
+                                },
+                                "url": {
+                                    "type": "string"
+                                }
+                            },
+                            "additionalProperties": false,
+                            "required": [
+                                "category",
+                                "url"
+                            ]
                         }
                     },
                     "companies": {
@@ -21846,14 +23225,17 @@
                                 "name": {
                                     "type": "string"
                                 },
-                                "role": {
-                                    "type": "string"
+                                "roles": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "integer"
+                                    }
                                 }
                             },
                             "additionalProperties": false,
                             "required": [
                                 "name",
-                                "role"
+                                "roles"
                             ]
                         }
                     },
@@ -22403,6 +23785,10 @@
                     "maxGroupDmRecipients": {
                         "type": "integer",
                         "default": 25
+                    },
+                    "maxStaffGroupDmRecipients": {
+                        "type": "integer",
+                        "default": 100
                     }
                 },
                 "required": [
@@ -22410,6 +23796,7 @@
                     "maxGroupDmRecipients",
                     "maxName",
                     "maxPins",
+                    "maxStaffGroupDmRecipients",
                     "maxTopic",
                     "maxWebhooks"
                 ]
@@ -23444,6 +24831,12 @@
                 "enum": [
                     2000,
                     2001,
+                    2002,
+                    2003,
+                    2004,
+                    2005,
+                    2006,
+                    2007,
                     1,
                     10,
                     11,
@@ -23981,10 +25374,16 @@
             "name": "api"
         },
         {
+            "name": "appeal"
+        },
+        {
             "name": "developers"
         },
         {
             "name": "error-reporting-proxy"
+        },
+        {
+            "name": "federation"
         },
         {
             "name": "guidelines"
@@ -24271,15 +25670,106 @@
                 ]
             }
         },
-        "/api/admin/automod/actions/": {
+        "/api/admin/audit-log/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_AUDIT_LOG",
                 "security": [
                     {
                         "bearer": []
                     }
                 ],
-                "description": "The automod log, newest first. Filter by `rule`, `action`, `user_id` or `reversed`.",
+                "description": "Staff actions on this instance, newest first. Filter by `actor_id`, `target_id`, `area`, `action`, `after` and `before` (dates), and page with `before_id`.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "actor_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "target_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "area",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "action",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "after",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "before",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "before_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        }
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/automod/actions/": {
+            "get": {
+                "x-right-required": "VIEW_MODERATION",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "The automod log, newest first. Filter by `rule`, `action`, `user_id`, `reversed`, `dry_run=yes` and `days`. `review=yes` lists the last 24 hours of actions that did something and that nobody has undone or confirmed yet.",
                 "responses": {
                     "default": {
                         "description": "No description available"
@@ -24320,6 +25810,32 @@
                         "description": "yes | no"
                     },
                     {
+                        "name": "review",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "yes"
+                    },
+                    {
+                        "name": "dry_run",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "yes"
+                    },
+                    {
+                        "name": "days",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        }
+                    },
+                    {
                         "name": "limit",
                         "in": "query",
                         "required": false,
@@ -24347,9 +25863,45 @@
                 ]
             }
         },
+        "/api/admin/automod/actions/{action_id}/confirm/": {
+            "post": {
+                "x-right-required": "MODERATE_USERS",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Mark an automod action as correct so it leaves the review queue and counts as a confirmed hit. Confirming a signup hold rejects the account.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "action_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "action_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
         "/api/admin/automod/actions/{action_id}/reverse/": {
             "post": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "MODERATE_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -24393,9 +25945,107 @@
                 ]
             }
         },
+        "/api/admin/automod/appeals/": {
+            "get": {
+                "x-right-required": "VIEW_MODERATION",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Appeals from accounts that automod or a moderator suspended, held for review or disabled, newest first. `status` filters by pending, accepted or denied and defaults to pending. `still_restricted` says whether the restriction is still in place.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "pending | accepted | denied | all"
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        }
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/automod/appeals/{appeal_id}/": {
+            "post": {
+                "x-right-required": "MODERATE_USERS",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Decide an appeal. `accept` lifts the restriction, marks the automod action behind it as a false positive and overturns its violation. `deny` keeps the restriction. The user sees the decision the next time they open the appeal page.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminAutomodAppealDecisionSchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "appeal_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "appeal_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
         "/api/admin/automod/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_MODERATION",
                 "security": [
                     {
                         "bearer": []
@@ -24418,9 +26068,44 @@
                 ]
             }
         },
+        "/api/admin/automod/ip-caps/": {
+            "get": {
+                "x-right-required": "VIEW_USERS",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Who counts toward the accounts per address caps for one address. IPv4 addresses count on their own and IPv6 addresses count per /64. Operators and deleted or disabled accounts don't count.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "ip",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
         "/api/admin/automod/join-requests/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_MODERATION",
                 "security": [
                     {
                         "bearer": []
@@ -24470,7 +26155,7 @@
                 ]
             },
             "post": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "MODERATE_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -24505,7 +26190,7 @@
         },
         "/api/admin/automod/names/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_MODERATION",
                 "security": [
                     {
                         "bearer": []
@@ -24540,7 +26225,7 @@
         },
         "/api/admin/automod/names/disable": {
             "post": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "MODERATE_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -24557,6 +26242,396 @@
                         }
                     }
                 },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/automod/quarantine/": {
+            "get": {
+                "x-right-required": "VIEW_MODERATION",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Accounts still inside the new account quarantine window that no moderator has cleared, newest first",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            },
+            "post": {
+                "x-right-required": "MODERATE_USERS",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Lift the new account quarantine early for these accounts",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminAutomodUsersSchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/automod/raids/": {
+            "get": {
+                "x-right-required": "VIEW_MODERATION",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Live raid and spam incidents across servers, recent ones newest first, and the accounts automod acted on most in the last `days` days",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        }
+                    },
+                    {
+                        "name": "days",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        }
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/automod/raids/{incident_id}/action/": {
+            "get": {
+                "x-right-required": "VIEW_MODERATION",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "One incident with every account in it, how often automod acted on each and the actions staff took",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "incident_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "incident_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            },
+            "post": {
+                "x-right-required": "MODERATE_USERS",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Act on every account in an incident, or on `user_ids` from it: delete every message they sent, suspend them, disable them or ban the IP addresses they registered and signed in from. Accounts from other instances are blocked from federating instead of suspended, disabled or IP banned. Your own account and staff at or above your own role are skipped.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminRaidIncidentActionSchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "incident_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "incident_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/automod/raids/{incident_id}/end/": {
+            "post": {
+                "x-right-required": "MODERATE_USERS",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Mark an incident as over. New activity of the same kind in the same server starts a new incident.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "incident_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "incident_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/automod/raids/{incident_id}/": {
+            "get": {
+                "x-right-required": "VIEW_MODERATION",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "One incident with every account in it, how often automod acted on each and the actions staff took",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "incident_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "incident_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/automod/rules/": {
+            "get": {
+                "x-right-required": "VIEW_MODERATION",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Every automod rule with its switch, action, dry run and exemptions, and what it caught over the last `days` days (7 by default): hits, dry runs, confirmed hits and hits a moderator undid or marked as a false positive.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "days",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        }
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/automod/rules/{rule_key}/": {
+            "patch": {
+                "x-right-required": "MANAGE_USERS",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Change one automod rule: its switch, its action where it has one, dry run, and who it skips. Lists replace the stored list. Thresholds stay in `PATCH /admin/automod/settings`.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminAutomodRulePolicySchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "rule_key",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "rule_key"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/automod/scam-list/": {
+            "get": {
+                "x-right-required": "VIEW_MODERATION",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "The remote scam domain list: its address, how many domains it holds, when it was last fetched and the last error",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            },
+            "post": {
+                "x-right-required": "MANAGE_USERS",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Fetch the remote scam domain list now instead of waiting for the next scheduled refresh",
                 "responses": {
                     "default": {
                         "description": "No description available"
@@ -24608,15 +26683,50 @@
                 ]
             }
         },
-        "/api/admin/automod/test/": {
-            "post": {
-                "x-right-required": "MANAGE_USERS",
+        "/api/admin/automod/stats/": {
+            "get": {
+                "x-right-required": "VIEW_MODERATION",
                 "security": [
                     {
                         "bearer": []
                     }
                 ],
-                "description": "Check text against the saved automod rules without acting on it",
+                "description": "Hits per rule over the last `days` days (30 by default), with how many were dry runs and how many a moderator undid, marked as a false positive, marked as not a match or confirmed. `false_positive_rate` is undone hits divided by reviewed hits, or null when nobody reviewed any. `pending_appeals` counts appeals nobody has decided yet.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "days",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        }
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/automod/test/": {
+            "post": {
+                "x-right-required": "VIEW_MODERATION",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Check text against every saved automod rule without acting on it: word lists, names, scam links for new and older accounts, mention spam, the new account quarantine and explicit file names. Optional `email`, `username` and `ip` run the signup and address checks.",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -24645,7 +26755,7 @@
         },
         "/api/admin/badges/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -25020,6 +27130,500 @@
                 ]
             }
         },
+        "/api/admin/federation/announce/": {
+            "post": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Send a signed announce to the registry now, even when daily announces are off",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/blocks/": {
+            "get": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "This instance's own federation blocks, on top of the registry's",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            },
+            "post": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Block an instance by id, or a server or user by canonical id",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminFederationBlockSchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/blocks/{block_id}/": {
+            "delete": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Lift one of this instance's own blocks. Registry blocks can't be lifted here.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "block_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "block_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/delivery/": {
+            "get": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Event delivery to each other instance: queue length, totals, the last error and whether it is unreachable",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/guilds/": {
+            "get": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Local servers whose owners turned on Show on other instances, with whether this instance verified them and their registry status",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/guilds/{guild_id}/": {
+            "patch": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Verify a server for other instances, take the verification back, or hide it. Only verified servers whose owner turned on Show on other instances are published. Verifying also shows a hidden server again. The owner's switch stays as it is.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminFederationGuildSchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "guild_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "guild_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/": {
+            "get": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Federation settings, this instance's identity, the registry sync and announce state, and peer fetch results",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/moves/": {
+            "get": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Instance moves this instance learned of, from the registry or from the moved instance, with their state and what each one rewrote, and this instance's own previous ids and move statements.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/moves/{move_id}/": {
+            "post": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Apply a move this instance couldn't confirm by itself, such as one where the instance changed its key, or run a move that stopped again. A move refused because the new id belongs to this instance or the registry still lists the old id stays refused.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "move_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "move_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/refresh/": {
+            "post": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Fetch the registry document now and refresh peer discovery lists",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/registry/": {
+            "get": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "The last registry document this instance accepted: approved instances, blocks and the discovery index",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/settings/": {
+            "patch": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Change federation settings. The peer list replaces the stored list.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminFederationSettingsSchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/shadows/": {
+            "get": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Users and servers from other instances that this instance stores, newest first",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/usage/": {
+            "get": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Rows each other instance holds on this one: id mappings, shadow users, mirror servers, remembered event ids and queued events, with the limits",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/federation/verified/": {
+            "get": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Servers from the discovery lists of approved instances and peers, and whether this instance's admins verified them",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            },
+            "post": {
+                "x-right-required": "OPERATOR",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Verify a remote server for this instance's Discovery, or take the verification back",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminFederationVerifySchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
         "/api/admin/games/": {
             "get": {
                 "x-right-required": "OPERATOR",
@@ -25226,6 +27830,24 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "origin",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "local (default) lists servers hosted here, remote lists mirrors of servers on other instances, all lists both. An exact id search ignores it"
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "newest (default), oldest, name or members"
                     },
                     {
                         "name": "limit",
@@ -25679,7 +28301,7 @@
         },
         "/api/admin/instance-invites/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -25782,7 +28404,7 @@
         },
         "/api/admin/instance-invites/{code}/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -25864,19 +28486,37 @@
         },
         "/api/admin/ips/bans/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_MODERATION",
                 "security": [
                     {
                         "bearer": []
                     }
                 ],
-                "description": "Instance bans on IP addresses, newest first",
+                "description": "Instance bans on IP addresses, newest first. `kind` is all, explicit for bans staff or a raid action made, or spread for bans that spread from another ban. `q` matches the start of an address. Each ban names the ban it spread from, the account it belongs to and how many bans it spread to.",
                 "responses": {
                     "default": {
                         "description": "No description available"
                     }
                 },
                 "parameters": [
+                    {
+                        "name": "kind",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "all | explicit | spread"
+                    },
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "The start of an address"
+                    },
                     {
                         "name": "limit",
                         "in": "query",
@@ -25905,7 +28545,7 @@
                 ]
             },
             "post": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "MODERATE_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -25938,9 +28578,44 @@
                 ]
             }
         },
+        "/api/admin/ips/bans/lift/": {
+            "post": {
+                "x-right-required": "MODERATE_USERS",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Lift up to 100 IP bans at once, each together with the bans it spread. The response lists the lifted bans with their addresses and reasons, the ids that matched no address ban and how many spread bans went with them.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminIpBanLiftSchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
         "/api/admin/ips/bans/{ban_id}/": {
             "delete": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "MODERATE_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -25976,7 +28651,7 @@
         },
         "/api/admin/ips/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -26028,7 +28703,7 @@
         },
         "/api/admin/reports/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_MODERATION",
                 "security": [
                     {
                         "bearer": []
@@ -26088,7 +28763,7 @@
         },
         "/api/admin/reports/{report_id}/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_MODERATION",
                 "security": [
                     {
                         "bearer": []
@@ -26122,7 +28797,7 @@
                 ]
             },
             "patch": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "MODERATE_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -26168,7 +28843,7 @@
         },
         "/api/admin/reports/{report_id}/violation/": {
             "post": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "MODERATE_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -26259,6 +28934,227 @@
                         "description": "No description available"
                     }
                 },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/staff/roles/": {
+            "get": {
+                "x-right-required": "MANAGE_STAFF",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Staff roles, highest first, with their members, the caller's own level and the rights a role can hold",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            },
+            "post": {
+                "x-right-required": "MANAGE_STAFF",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Create a staff role below your own highest role, with rights you hold yourself",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminStaffRoleCreateSchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            },
+            "patch": {
+                "x-right-required": "MANAGE_STAFF",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Reorder staff roles. Every role you move has to stay below your own highest role.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminStaffRolePositionsSchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/staff/roles/{role_id}/": {
+            "patch": {
+                "x-right-required": "MANAGE_STAFF",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Edit a staff role below your own highest role. Added rights have to be rights you hold.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminStaffRoleModifySchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "role_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "role_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            },
+            "delete": {
+                "x-right-required": "MANAGE_STAFF",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Delete a staff role below your own highest role. Its members lose the role and its rights.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "role_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "role_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/admin/stats/timeseries/": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "One metric over the last 24 hours in hourly buckets, or the last 7, 30 or 90 days in daily buckets, with empty buckets filled with zero and the total of the window before it. Results are cached for 60 seconds per metric, range and offset.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "metric",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "range",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "utc_offset",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "number"
+                        }
+                    }
+                ],
                 "tags": [
                     "api"
                 ],
@@ -26940,7 +29836,7 @@
         },
         "/api/admin/store/catalog/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -27262,7 +30158,7 @@
                         "bearer": []
                     }
                 ],
-                "description": "Where the Shop catalogue comes from and when it was last refreshed",
+                "description": "Where the Shop catalogue comes from, when it was last refreshed and how full the upstream art cache is",
                 "responses": {
                     "default": {
                         "description": "No description available"
@@ -27381,13 +30277,13 @@
         },
         "/api/admin/users/bulk/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
                     }
                 ],
-                "description": "The ids of every account matching a user search, newest first, at most 5000. Takes the same q, ip and filter as the user search.",
+                "description": "The ids of every account matching a user search, newest first, at most 5000. Takes the same q, ip, filter and origin as the user search.",
                 "responses": {
                     "default": {
                         "description": "No description available"
@@ -27417,6 +30313,14 @@
                         "schema": {
                             "type": "string"
                         }
+                    },
+                    {
+                        "name": "origin",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "tags": [
@@ -27430,13 +30334,13 @@
                 ]
             },
             "post": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "MODERATE_USERS",
                 "security": [
                     {
                         "bearer": []
                     }
                 ],
-                "description": "Delete or disable up to 500 accounts, optionally deleting every message they sent. Your own account and, unless you are an operator, operators are skipped.",
+                "description": "Delete or disable up to 500 accounts, optionally deleting every message they sent. Deleting needs MANAGE_USERS. Your own account and staff at or above your own role are skipped.",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -27465,13 +30369,13 @@
         },
         "/api/admin/users/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
                     }
                 ],
-                "description": "Search users on this instance. `q` matches an exact id, an IP address, or part of a username, display name or email. `ip` lists the accounts that registered on or signed in from an address.",
+                "description": "Search users on this instance. `q` matches an exact id, an IP address, a handle such as `@name` or `name#1234`, or part of a username, display name or email. `ip` lists the accounts that registered on or signed in from an address.",
                 "responses": {
                     "default": {
                         "description": "No description available"
@@ -27505,6 +30409,24 @@
                         "description": "all | disabled | suspended | pending | with_reason | bots | verified | unverified"
                     },
                     {
+                        "name": "origin",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "local (default) lists accounts of this instance, remote lists users of other instances stored here, all lists both. An exact id search ignores it"
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "newest (default), oldest or name"
+                    },
+                    {
                         "name": "limit",
                         "in": "query",
                         "required": false,
@@ -27534,7 +30456,7 @@
         },
         "/api/admin/users/{user_id}/customization-audit/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -27569,7 +30491,7 @@
         },
         "/api/admin/users/{user_id}/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -27603,13 +30525,13 @@
                 ]
             },
             "patch": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
                     }
                 ],
-                "description": "Edit a user. Changing rights, or editing an operator, requires OPERATOR.",
+                "description": "Edit a user. Profile fields need MANAGE_USERS, `disabled`, `suspended_until`, `account_standing` and `join_status` need MODERATE_USERS, `verified` needs SUPPORT_USERS and `rights` needs OPERATOR. Staff at or above your own role can't be edited.",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -27647,9 +30569,54 @@
                 ]
             }
         },
+        "/api/admin/users/{user_id}/instance-bans/{ban_id}/": {
+            "delete": {
+                "x-right-required": "MODERATE_USERS",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Lift an instance ban on an account, together with the address and browser bans it spread to",
+                "responses": {
+                    "204": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "user_id"
+                    },
+                    {
+                        "name": "ban_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "ban_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
         "/api/admin/users/{user_id}/invites/disable-branch/": {
             "post": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "MODERATE_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -27695,7 +30662,7 @@
         },
         "/api/admin/users/{user_id}/invites/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -27775,7 +30742,7 @@
         },
         "/api/admin/users/{user_id}/mfa/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -27809,7 +30776,7 @@
                 ]
             },
             "delete": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "SUPPORT_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -27845,7 +30812,7 @@
         },
         "/api/admin/users/{user_id}/password-reset/": {
             "post": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "SUPPORT_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -27891,7 +30858,7 @@
         },
         "/api/admin/users/{user_id}/pride-badges/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -27969,7 +30936,7 @@
         },
         "/api/admin/users/{user_id}/sessions/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -28005,7 +30972,7 @@
         },
         "/api/admin/users/{user_id}/sessions/logout": {
             "post": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "SUPPORT_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -28051,7 +31018,7 @@
         },
         "/api/admin/users/{user_id}/settings/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -28127,9 +31094,89 @@
                 ]
             }
         },
+        "/api/admin/users/{user_id}/staff-roles/": {
+            "get": {
+                "x-right-required": "VIEW_USERS",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "The staff roles a user holds, highest first",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "user_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            },
+            "put": {
+                "x-right-required": "MANAGE_STAFF",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Set the staff roles a user holds. You can't change your own roles or the roles of staff at or above your own role, and every role you add or remove has to be below your own highest role.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdminUserStaffRolesSchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "user_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
         "/api/admin/users/{user_id}/violations/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_MODERATION",
                 "security": [
                     {
                         "bearer": []
@@ -28163,7 +31210,7 @@
                 ]
             },
             "post": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "MODERATE_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -28209,7 +31256,7 @@
         },
         "/api/admin/users/{user_id}/violations/{violation_id}/": {
             "patch": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "MODERATE_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -28262,7 +31309,7 @@
                 ]
             },
             "delete": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "MODERATE_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -28307,7 +31354,7 @@
         },
         "/api/admin/users/{user_id}/widgets/": {
             "get": {
-                "x-right-required": "MANAGE_USERS",
+                "x-right-required": "VIEW_USERS",
                 "security": [
                     {
                         "bearer": []
@@ -31015,6 +34062,38 @@
                 },
                 "tags": [
                     "api"
+                ]
+            }
+        },
+        "/api/auth/appeal/": {
+            "post": {
+                "security": [
+                    {}
+                ],
+                "description": "For an account that can't sign in because it is suspended, held for review or disabled. With the account's login and password it returns why, and with `message` it sends one appeal for the current restriction to the moderators' queue.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AutomodAppealSchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
                 ]
             }
         },
@@ -36121,6 +39200,291 @@
                 ]
             }
         },
+        "/api/federation/discovery/guilds/{guild_id}/": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "One server from the Other instances directory with its welcome screen, read from this instance's cached listings so the browser never contacts the other instance",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "guild_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "guild_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ]
+            }
+        },
+        "/api/federation/discovery/": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Other instances from the registry and a page of the servers they list for global discovery, searched by name, keywords and description from the cached listings, with icons through this instance's media proxy",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "query",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Words that must each start a word in the name, description or keywords"
+                    },
+                    {
+                        "name": "category_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "number"
+                        },
+                        "description": "Only servers in this primary or secondary category"
+                    },
+                    {
+                        "name": "instance",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Only servers on this instance id"
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "relevance (default), active, members or newest"
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "schema": {
+                            "type": "number"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "number"
+                        },
+                        "description": "24 by default, 48 at most"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ]
+            }
+        },
+        "/api/federation/invites/{instance}/{code}/": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Preview an invite of a server on another instance, fetched through this instance",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "instance",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "instance"
+                    },
+                    {
+                        "name": "code",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "code"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            },
+            "post": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Join a server on another instance through one of its invites. Answers like POST /invites/:code",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "instance",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "instance"
+                    },
+                    {
+                        "name": "code",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "code"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/federation/moves/": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Instance ids that changed. previous lists the ids this instance had before, and moved maps each old id of another instance to its current id. Clients use it to check end-to-end encrypted messages sent before a move.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/federation/objects/": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Canonical @id@instance ids for local ids, and local ids for canonical ids, at most 100 of each. A canonical id of an instance this one federates with gets a local id even when it wasn't known yet.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "ids",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Comma separated local ids"
+                    },
+                    {
+                        "name": "canonical",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Comma separated canonical ids"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/api/federation/users/lookup/": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Resolve a name@instance handle to a user with a local id, for friend requests and DMs",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "handle",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "name@instance"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
         "/api/games/autocomplete/": {
             "get": {
                 "security": [
@@ -38543,6 +41907,82 @@
                 ]
             }
         },
+        "/api/guilds/{guild_id}/discovery-categories/{category_id}/": {
+            "put": {
+                "x-permission-required": "MANAGE_GUILD",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Add a secondary discovery category to the server",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "guild_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "guild_id"
+                    },
+                    {
+                        "name": "category_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "category_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ]
+            },
+            "delete": {
+                "x-permission-required": "MANAGE_GUILD",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Remove a secondary discovery category from the server",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "guild_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "guild_id"
+                    },
+                    {
+                        "name": "category_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "category_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ]
+            }
+        },
         "/api/guilds/{guild_id}/discovery-metadata/": {
             "get": {
                 "x-permission-required": "MANAGE_GUILD",
@@ -38923,6 +42363,72 @@
                         "bearer": []
                     }
                 ],
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "guild_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "guild_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ]
+            }
+        },
+        "/api/guilds/{guild_id}/global-discovery/": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Whether this server shows on other instances, for its owner",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "guild_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "guild_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ]
+            },
+            "patch": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "Turn Show on other instances on or off. Turning it on creates a permanent invite when the server has none.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/GuildGlobalDiscoverySchema"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "default": {
                         "description": "No description available"
@@ -40419,6 +43925,7 @@
         },
         "/api/guilds/{guild_id}/prune/": {
             "get": {
+                "x-permission-required": "KICK_MEMBERS",
                 "security": [
                     {
                         "bearer": []
@@ -40933,6 +44440,93 @@
                             "type": "string"
                         },
                         "description": "request_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ]
+            }
+        },
+        "/api/guilds/{guild_id}/role-subscriptions/settings": {
+            "get": {
+                "x-permission-required": [],
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "guild_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "guild_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ]
+            }
+        },
+        "/api/guilds/{guild_id}/role-subscriptions/group-listings": {
+            "get": {
+                "x-permission-required": [],
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "guild_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "guild_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ]
+            }
+        },
+        "/api/guilds/{guild_id}/role-subscriptions/trials": {
+            "get": {
+                "x-permission-required": [],
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "guild_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "guild_id"
                     }
                 ],
                 "tags": [
@@ -43098,6 +46692,71 @@
                             "type": "string"
                         },
                         "description": "code"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ]
+            }
+        },
+        "/api/guilds/{guild_id}/theme/": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "guild_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "guild_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ]
+            },
+            "patch": {
+                "x-permission-required": "MANAGE_GUILD",
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/GuildThemeModifySchema"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "guild_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "guild_id"
                     }
                 ],
                 "tags": [
@@ -49534,6 +53193,23 @@
                 ]
             }
         },
+        "/api/users/@me/linked-users/": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "api"
+                ]
+            }
+        },
         "/api/users/@me/meaningfully-online/": {
             "post": {
                 "security": [
@@ -50211,6 +53887,23 @@
                                 }
                             }
                         }
+                    }
+                },
+                "tags": [
+                    "api"
+                ]
+            }
+        },
+        "/api/users/@me/program-rewards/": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "No description available"
                     }
                 },
                 "tags": [
@@ -51685,6 +55378,41 @@
                 ]
             }
         },
+        "/api/users/{user_id}/remote-badges/": {
+            "get": {
+                "security": [
+                    {
+                        "bearer": []
+                    }
+                ],
+                "description": "The badges a user's home instance gave them, for users from other instances. They are shown apart from this instance's badges, and staff badges come without their icon.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "user_id"
+                    }
+                ],
+                "tags": [
+                    "api"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
         "/api/voice/regions/": {
             "get": {
                 "security": [
@@ -52480,6 +56208,50 @@
                 ]
             }
         },
+        "/.well-known/meowcord/discovery/": {
+            "get": {
+                "security": [
+                    {}
+                ],
+                "description": "Signed list of this instance's servers whose owners turned on Show on other instances",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    ""
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/.well-known/meowcord/": {
+            "get": {
+                "security": [
+                    {}
+                ],
+                "description": "This instance's federation identity: protocol version, instance id, public key and registration state",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    ""
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
         "/.well-known/spacebar/client/": {
             "get": {
                 "security": [
@@ -52833,6 +56605,27 @@
                 ]
             }
         },
+        "/appeal/": {
+            "get": {
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "appeal"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
         "/developers/docs{/*splat}": {
             "get": {
                 "security": [
@@ -52887,6 +56680,281 @@
                 },
                 "tags": [
                     "error-reporting-proxy"
+                ]
+            }
+        },
+        "/federation/v2/guilds/{guild_id}/snapshot/": {
+            "get": {
+                "security": [
+                    {}
+                ],
+                "description": "A server as one remote member sees it. Needs a signed request from that member's home instance.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "guild_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "guild_id"
+                    }
+                ],
+                "tags": [
+                    "federation"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/federation/v2/inbox/": {
+            "post": {
+                "security": [
+                    {}
+                ],
+                "description": "Gateway events from a host instance for this instance's users. Needs a signed request.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "federation"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/federation/v2/join/": {
+            "post": {
+                "security": [
+                    {}
+                ],
+                "description": "Join a remote user to a server through an invite and answer the server snapshot. Needs a signed request.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "federation"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/federation/v2/move/": {
+            "post": {
+                "security": [
+                    {}
+                ],
+                "description": "An instance that changed its id tells this instance about it. The body carries a move statement signed with the key the old id had, and the request is signed with the key the new id serves.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "federation"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/federation/v2/relay/": {
+            "post": {
+                "security": [
+                    {}
+                ],
+                "description": "Run an API call as a remote user's shadow. Needs a signed request from that user's home instance.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "federation"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/federation/v2/reports/": {
+            "post": {
+                "security": [
+                    {}
+                ],
+                "description": "An automod report from another instance about one of this instance's users. It opens a report in the Reports queue. Needs a signed request.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "federation"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/federation/v2/users/lookup": {
+            "get": {
+                "security": [
+                    {}
+                ],
+                "description": "Public profile of one of this instance's users by username. Needs a signed request.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "federation"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/federation/v2/users/{user_id}": {
+            "get": {
+                "security": [
+                    {}
+                ],
+                "description": "Public profile of one of this instance's users by canonical id. Needs a signed request.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "user_id"
+                    }
+                ],
+                "tags": [
+                    "federation"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/federation/v2/users/{user_id}/e2ee": {
+            "get": {
+                "security": [
+                    {}
+                ],
+                "description": "Encryption keys of one of this instance's users, as /e2ee/keys/query answers them. Only for instances with a user who shares a conversation or friendship with them. Needs a signed request.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "user_id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "user_id"
+                    }
+                ],
+                "tags": [
+                    "federation"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/federation/v2/voice/state/": {
+            "post": {
+                "security": [
+                    {}
+                ],
+                "description": "Join, move or leave a voice channel as a remote user's shadow, like gateway op 4 for a local user. Needs a signed request from that user's home instance.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "federation"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
+                ]
+            }
+        },
+        "/federation/v2/voice/stream/": {
+            "post": {
+                "security": [
+                    {}
+                ],
+                "description": "Start, watch, stop or pause a Go Live stream as a remote user's shadow, like gateway ops 18, 19, 20 and 22 for a local user. Needs a signed request from that user's home instance.",
+                "responses": {
+                    "default": {
+                        "description": "No description available"
+                    }
+                },
+                "tags": [
+                    "federation"
+                ],
+                "x-badges": [
+                    {
+                        "label": "Spacebar-only",
+                        "color": "red"
+                    }
                 ]
             }
         },

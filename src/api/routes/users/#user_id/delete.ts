@@ -1,9 +1,9 @@
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
-import { removeAccount } from "@spacebar/api/util";
+import { canActOn, removeAccount } from "@spacebar/api/util";
 import { User } from "@spacebar/database";
 import { HTTPError } from "lambert-server/HTTPError";
-import { Rights } from "@spacebar/util";
+import { loadStaffRoles } from "@spacebar/util";
 import { InstanceUserDeleteSchema } from "@spacebar/schemas";
 import { Stopwatch } from "@spacebar/extensions";
 
@@ -31,8 +31,7 @@ router.post(
             where: { id: req.params.user_id as string },
             select: { id: true, rights: true },
         });
-        if (user.id !== req.user_id && new Rights(user.rights).has("OPERATOR") && !req.rights.has("OPERATOR"))
-            throw new HTTPError("Only operators can delete other operators", 403);
+        if (!canActOn({ id: req.user_id, rights: req.rights.bitfield }, user, await loadStaffRoles())) throw new HTTPError("You can't delete staff at or above your own role", 403);
 
         await removeAccount(user.id, { actor_id: req.user_id, reason: body?.reason, persistInstanceBan: body?.persistInstanceBan });
 

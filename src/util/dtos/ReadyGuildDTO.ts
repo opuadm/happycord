@@ -1,5 +1,5 @@
 import { Channel, Emoji, Guild, Role, Sticker } from "../../database/entities";
-import { ChannelOverride, ChannelType, PublicMember, PublicUser, UserGuildSettings } from "@spacebar/schemas";
+import { ChannelOverride, ChannelType, GuildTheme, PublicMember, PublicUser, UserGuildSettings } from "@spacebar/schemas";
 
 // TODO: this is not the best place for this type
 export type ReadyUserGuildSettingsEntries = Omit<UserGuildSettings, "channel_overrides"> & {
@@ -21,6 +21,7 @@ export type GuildOrUnavailable = { id: string; unavailable: boolean } | (Guild &
 const guildIsAvailable = (guild: GuildOrUnavailable): guild is Guild & { joined_at: Date; unavailable: false; threads: Channel[] } => guild.unavailable != true;
 
 export interface IReadyGuildDTO {
+    federated_instance?: string;
     application_command_counts?: { 1: number; 2: number; 3: number }; // ????????????
     channels: Channel[];
     data_mode: string; // what is this
@@ -70,6 +71,7 @@ export interface IReadyGuildDTO {
         id: string;
         premium_features?: Guild["premium_features"];
         profile?: { tag: string; badge: string | null } | null;
+        theme?: GuildTheme | null;
     };
     roles: Role[];
     stage_instances: unknown[];
@@ -110,6 +112,7 @@ function publicGuildProfile(profile: { tag?: string | null; badge?: unknown; bad
 }
 
 export class ReadyGuildDTO implements IReadyGuildDTO {
+    federated_instance?: string;
     application_command_counts?: { 1: number; 2: number; 3: number }; // ????????????
     channels: Channel[];
     data_mode: string; // what is this
@@ -159,6 +162,7 @@ export class ReadyGuildDTO implements IReadyGuildDTO {
         id: string;
         premium_features?: Guild["premium_features"];
         profile?: { tag: string; badge: string | null } | null;
+        theme?: GuildTheme | null;
     };
     roles: Role[];
     stage_instances: unknown[];
@@ -192,6 +196,7 @@ export class ReadyGuildDTO implements IReadyGuildDTO {
         this.member_count = guild.member_count;
         this.members = guild.members?.map((x) => x.toPublicMember());
         this.premium_subscription_count = guild.premium_subscription_count;
+        if (guild.federated_instance) this.federated_instance = guild.federated_instance;
         this.properties = {
             name: guild.name,
             description: guild.description,
@@ -230,6 +235,7 @@ export class ReadyGuildDTO implements IReadyGuildDTO {
             safety_alerts_channel_id: guild.safety_alerts_channel_id ?? null,
             premium_features: guild.premium_features,
             profile: publicGuildProfile(guild.profile),
+            theme: guild.theme ?? null,
         };
         this.roles = guild.roles.map((x) => (typeof x.toJSON === "function" ? x.toJSON() : x));
         this.stage_instances = (guild as { stage_instances?: unknown[] }).stage_instances ?? [];

@@ -1,8 +1,8 @@
 import { assertIdentityNameAllowed } from "@spacebar/util/util/IdentityModeration";
 import { Request, Response, Router } from "express";
 import { HTTPError } from "lambert-server/HTTPError";
-import { verifyToken } from "node-2fa";
 import { route } from "@spacebar/api/middlewares";
+import { throttledCodeAttempt, verifyTotp } from "@spacebar/api/util";
 import { Application, User } from "@spacebar/database";
 import { DiscordApiErrors, FieldErrors, broadcastUserUpdate, createAppBotUser, generateToken, handleFile } from "@spacebar/util";
 import { BotModifySchema } from "@spacebar/schemas";
@@ -62,7 +62,8 @@ router.post(
         if (!app.bot) throw DiscordApiErrors.OAUTH2_APPLICATION_BOT_ABSENT;
         if (owner.id != req.user_id) throw DiscordApiErrors.ACTION_NOT_AUTHORIZED_ON_APPLICATION;
 
-        if (owner.totp_secret && (!req.body.code || !verifyToken(owner.totp_secret, req.body.code))) throw new HTTPError(req.t("auth:login.INVALID_TOTP_CODE"), 60008);
+        if (owner.totp_secret && (!req.body.code || !(await throttledCodeAttempt(req.user_id, () => verifyTotp(owner.totp_secret, req.body.code)))))
+            throw new HTTPError(req.t("auth:login.INVALID_TOTP_CODE"), 60008);
 
         app.bot.data = { hash: undefined, valid_tokens_since: new Date() };
 

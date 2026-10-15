@@ -14,7 +14,7 @@ const ACTIVE = "i.revoked_at IS NULL AND (i.expires_at IS NULL OR i.expires_at >
 router.get(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_USERS",
         spacebarOnly: true,
         description: "Instance invites, newest first, with who made them and how many people joined with each",
         query: {

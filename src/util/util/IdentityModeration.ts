@@ -76,7 +76,7 @@ export function findIdentityNameBlock(value: string) {
     const match = matchAutomod(value, {
         slurs: automod?.slurs?.enabled !== false,
         softA: automod?.slurs?.includeSoftA,
-        wordLists: automod?.wordLists ?? [],
+        wordLists: automod?.policies?.wordLists?.enabled === false ? [] : (automod?.wordLists ?? []),
         allowList: automod?.allowList ?? [],
         names: true,
     });

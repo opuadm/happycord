@@ -1,5 +1,15 @@
 import { AuditLog, Ban, Guild, GuildInsights, Member, Message, User } from "@spacebar/database";
-import { DiscordApiErrors, emitEvent, FieldErrors, GuildBanAddEvent, GuildDeleteEvent, GuildMemberRemoveEvent, MessageDeleteBulkEvent, Snowflake } from "@spacebar/util";
+import {
+    DiscordApiErrors,
+    dropGuildTags,
+    emitEvent,
+    FieldErrors,
+    GuildBanAddEvent,
+    GuildDeleteEvent,
+    GuildMemberRemoveEvent,
+    MessageDeleteBulkEvent,
+    Snowflake,
+} from "@spacebar/util";
 import { AuditLogEvents, PublicUserProjection } from "@spacebar/schemas";
 import { In, MoreThan } from "typeorm";
 
@@ -99,6 +109,10 @@ export async function banUsers(opts: { guild_id: string; user_ids: string[]; exe
     for (const member of leaving.filter((member) => bots.has(member.id))) await Member.removeFromGuild(member.id, guild_id);
     if (humans.length) {
         await Member.delete({ guild_id, id: In(humans.map((member) => member.id)) });
+        await dropGuildTags(
+            guild_id,
+            humans.map((member) => member.id),
+        );
         await Guild.decrement({ id: guild_id }, "member_count", humans.length);
         GuildInsights.recordLeave(guild_id, ...humans.map((member) => member.joined_at));
     }

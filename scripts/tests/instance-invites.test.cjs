@@ -36,6 +36,7 @@ const harness = ({ settings = {}, bonus = 0, used = 0, invites = [], users = [] 
         },
     };
     const exports = load("src/api/util/utility/instanceInvites.ts", {
+        "./staffDisable": load("src/api/util/utility/staffDisable.ts", { "@spacebar/schemas": { UserFlags: { FLAGS: { DISABLED: 1n << 41n } } } }),
         "lambert-server/HTTPError": { HTTPError },
         typeorm: { In: (value) => ({ in: value }), IsNull: () => null },
         "@spacebar/database": {
@@ -67,6 +68,8 @@ const harness = ({ settings = {}, bonus = 0, used = 0, invites = [], users = [] 
         "@spacebar/util": {
             Config: { get: () => ({ register: { instanceInvites: { perUser: 3, minAccountAgeDays: 7, maxUsesPerInvite: 3, maxAgeDays: 30, ...settings } } }) },
             emitEvent: async (event) => calls.events.push(event),
+            loadStaffRoles: async () => ({ roles: new Map(), members: new Map() }),
+            rolesOf: () => [],
             Rights: class {
                 constructor(bits) {
                     this.bits = bits;
@@ -194,6 +197,7 @@ test("disabling a branch skips staff and the acting admin and signs the rest out
     const disabled = calls.updates.find((update) => update.table === "users");
     assert.deepEqual(JSON.parse(JSON.stringify(disabled.where.id.in)), ["2", "4"]);
     assert.deepEqual(JSON.parse(JSON.stringify(disabled.data)), { disabled: true });
+    assert.equal(disabled.data.flags(), `flags | ${1n << 41n}`);
     assert.ok(calls.updates.some((update) => update.table === "instance_invites" && update.data.revoked_by === "9"));
     assert.deepEqual(JSON.parse(JSON.stringify(calls.sessionDeletes)), [["2", "4"]]);
     assert.deepEqual(

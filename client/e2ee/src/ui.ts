@@ -1,5 +1,5 @@
 import { generateRecoveryCode } from "./backup";
-import { ChannelMember, deviceAdded, deviceTitle, deviceTwins, E2eeError, Engine, errorText, ServerDevice } from "./engine";
+import { ChannelMember, deviceAdded, deviceTitle, deviceTwins, E2eeError, Engine, errorText, ServerDevice, unreadableMembers } from "./engine";
 import { MessageState } from "./hooks";
 import { Incoming, Outgoing } from "./link";
 import { browserStorage } from "./store";
@@ -1219,22 +1219,47 @@ export const createUi = ({ engine, ready, states, enableChannel, link, verifyPas
         }
         if (!engine.trustsServer) {
             const checked = await Promise.race([changedMember(channelId).catch(() => null), new Promise<null>((resolve) => void setTimeout(() => resolve(null), 3000))]);
-            return checked ? pauseForChange(channelId, checked) : false;
+            if (checked) return pauseForChange(channelId, checked);
         }
-        const prepared = await Promise.race([
+        const entries = await Promise.race([
             engine
                 .channelMembers(channelId)
                 .then((ids) => engine.keysFor(ids))
-                .then((entries) => entries.every((entry) => entry.devices.some((device) => device.status === "active")))
-                .catch(() => false),
-            new Promise<boolean>((resolve) => void setTimeout(() => resolve(false), 3000)),
+                .catch(() => null),
+            new Promise<null>((resolve) => void setTimeout(() => resolve(null), 3000)),
         ]);
-        if (!prepared)
+        if (!entries) {
+            if (!engine.trustsServer) return false;
             flash(channelId, {
                 tone: "info",
                 text: t("Preparing private chat… Your message is still in the text box."),
             });
-        return !prepared;
+            return true;
+        }
+        const unreadable = unreadableMembers(entries, engine.userId);
+        if (!unreadable.length) return false;
+        const who = await namesOf(unreadable);
+        const many = unreadable.length > 1;
+        if (unreadable.length === entries.length) {
+            flash(channelId, {
+                tone: "danger",
+                text: many
+                    ? t("{names} haven't set up encryption yet, so nobody here could read your message. It's still in the text box.", { names: who })
+                    : t("{name} hasn't set up encryption yet, so they couldn't read your message. It's still in the text box.", { name: who }),
+            });
+            return true;
+        }
+        flash(
+            channelId,
+            {
+                tone: "warning",
+                text: many
+                    ? t("{names} haven't set up encryption yet and can't read this message. Everyone else here can.", { names: who })
+                    : t("{name} hasn't set up encryption yet and can't read this message. Everyone else here can.", { name: who }),
+            },
+            15000,
+        );
+        return false;
     };
 
     const decorateMessages = () => {

@@ -42,7 +42,7 @@ import {
     checkToken,
     Config,
     requiredAction,
-    Rights,
+    effectiveRights,
     CurrentTokenFormatVersion,
     emitEvent,
     EVENTEnum,
@@ -60,6 +60,7 @@ import {
     TraceNode,
     TraceRoot,
     getApexExperiments,
+    getUserExperiments,
     getGuildExperiments,
 } from "@spacebar/util";
 import {
@@ -125,7 +126,7 @@ export async function onIdentify(this: WebSocket, data: Payload) {
     }
 
     const { enabled, identify: identifyLimit } = Config.get().limits.rate;
-    if (enabled && !new Rights(user.rights).has("BYPASS_RATE_LIMITS")) {
+    if (enabled && !(await effectiveRights(user.id, user.rights)).has("BYPASS_RATE_LIMITS")) {
         const max = user.bot ? (identifyLimit.bot ?? identifyLimit.count) : identifyLimit.count;
         const limit = await RateLimit.hit(`${user.id}:identify`, user.id, max, identifyLimit.window);
         if (limit.hits > max) {
@@ -810,7 +811,7 @@ export async function onIdentify(this: WebSocket, data: Payload) {
                         consented: !!preferences?.account_preferences?.consents?.personalization,
                     },
                 },
-                experiments: [],
+                experiments: getUserExperiments(this.user_id),
                 guild_join_requests: guild_join_requests.map((request) => request.toJSON("self")),
                 connected_accounts: [],
                 guild_experiments: [],

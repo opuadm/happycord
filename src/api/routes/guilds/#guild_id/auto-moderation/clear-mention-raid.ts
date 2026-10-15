@@ -14,7 +14,7 @@ router.post(
         },
     }),
     async (req: Request, res: Response) => {
-        clearMentionRaid(req.params.guild_id as string);
+        await clearMentionRaid(req.params.guild_id as string, req.user_id);
         return res.status(204).send();
     },
 );

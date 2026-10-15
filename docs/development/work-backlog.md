@@ -139,8 +139,9 @@ Start with `docs/development/parity.md; client/plugins; client/equicord-patches`
 - [ ] **APP-010** Verify account and server customization updates without reload.
 - [ ] **APP-011** Keep guild messaging behavior intact while private chats require encryption.
 - [ ] **APP-012** Audit safe clipboard and download behavior on mobile Safari.
-- [ ] Serialize concurrent role hierarchy mutations, finish bot privileged intent approval and MESSAGE_CONTENT projection, and check the native user and guild report entry points.
+- [ ] Serialize concurrent role hierarchy mutations and finish bot privileged intent approval and MESSAGE_CONTENT projection.
 - [ ] **APP-024** Check H.264 negotiation compatibility in the SFU.
+- [ ] **APP-025** Answer `GET /users/@me/program-rewards`. The client asks for it on every load and gets `404`.
 
 ## GIFs and external dependencies (P1)
 
@@ -151,7 +152,7 @@ Start with `docs/self-hosting/external-services.md; client/plugins; src/api/rout
 - [ ] **GIF-003** Persist the Klipy key only in operator settings.
 - [ ] **GIF-004** Keep credentials out of public settings and logs.
 - [ ] **GIF-005** Show a useful empty state when the chosen provider is unavailable.
-- [ ] **GIF-007** Audit all remaining runtime third-party requests.
+- [ ] **GIF-007** Audit all remaining runtime third-party requests. The server menu's admin videos, hard-coded `embed/avatars` URLs and the onboarding testimonial avatars now load from this instance. Left in the cached client: `cdn.discordapp.com/app-assets/1346069614634864772/store/`, `assets/server-subscription-tier-template`, `assets/22_211_SuperReactions_GTM_Hero_v09`, `assets/og_img_discord_home` and one guild member avatar, none of which a walk of the main screens loaded.
 - [ ] **GIF-008** Keep optional external integrations disabled without explicit configuration.
 - [ ] **GIF-009** Verify native media previews use local proxy policy where applicable.
 - [ ] **GIF-010** Document unavoidable provider dependencies and offline alternatives.
@@ -176,6 +177,7 @@ Start with `docs/features/e2ee.md; client/e2ee`.
 - [ ] **ENC-014** Plan guild encryption separately with an explicit compatibility design.
 - [ ] **ENC-015** Integrate the private-chat preparation fixes: a nonblocking attachment worker, a 15-second native HTTP deadline without hidden retries, an immediate trusted-browser Unlock action and coalesced member UI loading with stale-navigation suppression and failure backoff. Remaining: bundle build, a full E2EE run and browser checks of locked, unlocked and offline navigation.
 - [ ] **ENC-018** Add encryption backup failure markers and define negative-cache behavior for key lookups.
+- [ ] **ENC-022** Serve the keys of a group DM member who left to an instance whose only route to them was the group, when that instance never cached them. The member's home only answers instances that still share a conversation with them, the host of a group they left, or one whose user is still in that group on the home's mirror, and the home drops its mirror once its last local member leaves. See [e2ee.md](../features/e2ee.md#members-who-left-a-group).
 
 ## Components and accessibility (P2)
 

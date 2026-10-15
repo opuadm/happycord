@@ -6,7 +6,7 @@ import { red } from "picocolors";
 import ws from "ws";
 import { Server, ServerOptions } from "lambert-server";
 import { initDatabase } from "@spacebar/database";
-import { Config, initEvent, JSONReplacer, JwtKeypairManager, registerRoutes } from "@spacebar/util";
+import { Config, initEvent, JSONReplacer, JwtKeypairManager, registerRoutes, useClientAddress } from "@spacebar/util";
 import { ProcessLifecycle, SystemdLifecycle } from "../util/util/ProcessLifecycle";
 import { Monitoring } from "../util/monitoring/Monitoring";
 import { Connection } from "./events/Connection";
@@ -50,7 +50,6 @@ export class GatewayServer extends Server {
 
     async start(): Promise<void> {
         const logRequests = process.env["LOG_REQUESTS"] != undefined;
-        let trustedProxies: ReturnType<typeof Config.get>["security"]["trustedProxies"];
 
         await Monitoring.init();
         Monitoring.attach(this.app);
@@ -78,8 +77,7 @@ export class GatewayServer extends Server {
         this.app.set("json replacer", JSONReplacer);
         this.app.disable("x-powered-by");
 
-        trustedProxies = Config.get().security.trustedProxies;
-        if (trustedProxies) this.app.set("trust proxy", trustedProxies);
+        useClientAddress(this.app, () => Config.get().security);
 
         this.app.use(CORS);
         this.app.use(BodyParser({ inflate: true, limit: "10mb" }));

@@ -1,7 +1,7 @@
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { AuditLog, Channel, Guild, Tag } from "@spacebar/database";
-import { ChannelCreateEvent, ChannelUpdateEvent, Config, DiscordApiErrors, emitEvent, FieldErrors } from "@spacebar/util";
+import { ChannelCreateEvent, ChannelUpdateEvent, Config, DiscordApiErrors, emitEvent, FieldErrors, getPermission } from "@spacebar/util";
 import { enforceNameAutomod, THREAD_TYPES } from "@spacebar/api/util";
 import { AuditLogEvents, GuildChannelCreateSchema, ChannelReorderSchema, ChannelType } from "@spacebar/schemas";
 import { In, Not } from "typeorm";
@@ -19,6 +19,7 @@ router.get(
     }),
     async (req: Request, res: Response) => {
         const { guild_id } = req.params as { [key: string]: string };
+        await getPermission(req.user_id, guild_id);
         const [channels, guild] = await Promise.all([
             Channel.find({
                 where: {

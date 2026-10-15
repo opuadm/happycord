@@ -4,7 +4,7 @@ import { Request, Response, Router } from "express";
 import { fileTypeFromBuffer } from "file-type";
 import { HTTPError } from "lambert-server/HTTPError";
 import { DEFAULT_AVATAR_COLORS, DEFAULT_AVATARS_FOLDER, defaultAvatarSvg } from "@spacebar/util";
-import { setCacheControl } from "../util";
+import { setCacheControl, safeMediaType } from "../util";
 
 const defaultGroupDMAvatarHashMap = new Map([
     ["0", "3b70bb66089c60f8be5e214bf8574c9d"],
@@ -52,7 +52,7 @@ router.get("/group-avatars/:id", setCacheControl, async (req: Request, res: Resp
     if (!file) throw new HTTPError("not found", 404);
     const type = await fileTypeFromBuffer(file);
 
-    res.set("Content-Type", type?.mime);
+    res.set("Content-Type", safeMediaType(type?.mime));
 
     return res.send(file);
 });

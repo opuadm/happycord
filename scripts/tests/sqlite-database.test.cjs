@@ -39,7 +39,7 @@ test("SQLite migrates, preserves exact IDs, serializes writes, rolls back and su
         return;
     }
     const { initDatabase, closeDatabase } = require("../../dist/database");
-    const { StatusComponent, RateLimit, User, Relationship, Guild, Channel, ScheduledMessage } = require("../../dist/database/entities");
+    const { StatusComponent, RateLimit, User, Relationship, Guild, Channel, ScheduledMessage, Recipient, FormerRecipient } = require("../../dist/database/entities");
     const { sqlArrayIncludes, sqlLike, sqlReturning } = require("../../dist/database/Sql.js");
     const { ArrayContains, ArrayOverlap, ILike } = require("typeorm");
     const { Config } = require("../../dist/util/util/Config.js");
@@ -99,6 +99,14 @@ test("SQLite migrates, preserves exact IDs, serializes writes, rolls back and su
         await Relationship.create({ from_id: user.id, to_id: friend.id, type: 3 }).save();
         assert.equal((await Relationship.findOneByOrFail({ from_id: user.id, to_id: friend.id })).user_ignored, false);
         assert.equal((await User.findOneByOrFail({ username: ILike("sqlite\\%\\_friend") })).id, friend.id);
+        const group = await Channel.create({ type: 3, owner_id: user.id, created_at: new Date(), name: "SQLite group" }).save();
+        await Recipient.create({ channel_id: group.id, user_id: user.id }).save();
+        await Recipient.create({ channel_id: group.id, user_id: friend.id }).save();
+        await Recipient.delete({ channel_id: group.id, user_id: friend.id });
+        assert.equal((await FormerRecipient.findOneByOrFail({ channel_id: group.id, user_id: friend.id })).host_instance, null);
+        assert.equal(await FormerRecipient.countBy({ channel_id: group.id, user_id: user.id }), 0);
+        await Channel.delete({ id: group.id });
+        assert.equal(await FormerRecipient.countBy({ channel_id: group.id }), 0);
         const { clearStoreSelections } = require("../../dist/api/util/utility/store.js");
         const selections = {
             avatar_decoration_data: { sku_id: "101", asset: "fixture" },

@@ -47,7 +47,7 @@ router.put(
         const { channel_id, message_id } = req.params as { [key: string]: string };
 
         const message = await Message.findOneOrFail({
-            where: { id: message_id },
+            where: { id: message_id, channel_id },
             relations: { author: true },
         });
 
@@ -146,7 +146,7 @@ router.delete(
         const { channel_id, message_id } = req.params as { [key: string]: string };
 
         const message = await Message.findOneOrFail({
-            where: { id: message_id },
+            where: { id: message_id, channel_id },
             relations: { author: true },
         });
 

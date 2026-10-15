@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import { Router, Response, Request } from "express";
 import { fileTypeFromBuffer } from "file-type";
 import { HTTPError } from "lambert-server/HTTPError";
-import { Config } from "@spacebar/util";
-import { storage, internalUpload, setCacheControl } from "../util";
+import { Config, isRequestSignature } from "@spacebar/util";
+import { storage, internalUpload, setCacheControl, safeMediaType } from "../util";
 
 const ALLOWED_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif", "image/gif"];
 
@@ -12,7 +12,7 @@ const router = Router({ mergeParams: true });
 router.post(
     "/:event_id",
     internalUpload(async (req: Request, res: Response) => {
-        if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+        if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
         if (!req.file) throw new HTTPError("Missing file");
         const { buffer, size } = req.file;
         const { event_id } = req.params as { [key: string]: string };
@@ -37,12 +37,12 @@ router.get("/:event_id/:hash", setCacheControl, async (req: Request, res: Respon
     const file = await storage.get(`guild-events/${event_id}/${hash.split(".")[0]}`);
     if (!file) throw new HTTPError("not found", 404);
     const type = await fileTypeFromBuffer(file);
-    res.set("Content-Type", type?.mime);
+    res.set("Content-Type", safeMediaType(type?.mime));
     return res.send(file);
 });
 
 router.delete("/:event_id/:hash", async (req: Request, res: Response) => {
-    if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+    if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
     const { event_id, hash } = req.params as { [key: string]: string };
     await storage.delete(`guild-events/${event_id}/${hash}`);
     return res.send({ success: true });

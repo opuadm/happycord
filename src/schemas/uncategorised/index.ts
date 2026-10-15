@@ -31,6 +31,7 @@ export * from "./HubWaitlistSignupSchema";
 export * from "./InviteCreateSchema";
 export * from "./LoginResponse";
 export * from "./LoginSchema";
+export * from "./AutomodAppealSchema";
 export * from "./MemberChangeProfileSchema";
 export * from "./MemberChangeSchema";
 export * from "./MemberNickChangeSchema";

@@ -200,6 +200,7 @@ function reportUtility({ view = true, author = "target" } = {}) {
         "../handlers/ApplicationWidgets": {},
         "node:crypto": require("node:crypto"),
         "./e2ee": { verifyEd25519: () => false },
+        "./federationIds": { canonicalOf: async (id) => id },
         "./reportMenus": menus,
         "./instanceAutomod": { automodVerifiedReport: async () => undefined },
     });

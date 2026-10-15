@@ -1,6 +1,6 @@
 import { Member, Session, VoiceChannels, VoiceState } from "@spacebar/database";
 import { isFinalClose, WebSocket } from "@spacebar/gateway/util";
-import { broadcastPresence, emitEvent, emitSessionsReplace, VoiceStateUpdateEvent } from "@spacebar/util";
+import { broadcastPresence, emitEvent, emitSessionsReplace, FederatedVoice, VoiceStateUpdateEvent } from "@spacebar/util";
 import { ProcessLifecycle } from "@spacebar/util/util/ProcessLifecycle";
 import { openConnections } from "./Connection";
 import { cancelPendingPresence } from "../opcodes/PresenceUpdate";
@@ -78,7 +78,14 @@ export async function Close(this: WebSocket, code: number, reason: Buffer) {
         });
 
         // clear the voice state for this session if user was in voice channel
-        if (voiceState && voiceState.session_id === this.session_id && voiceState.channel_id) {
+        const leftRemoteCall =
+            voiceState?.session_id === this.session_id &&
+            !!voiceState.channel_id &&
+            (await FederatedVoice.relay(this.user_id, this.session_id, { guild_id: null, channel_id: null, self_mute: false, self_deaf: false }).catch((error) => {
+                console.error("[Gateway] Could not leave a call on another instance:", error);
+                return false;
+            }));
+        if (voiceState && voiceState.session_id === this.session_id && voiceState.channel_id && !leftRemoteCall) {
             const prevGuildId = voiceState.guild_id;
             const prevChannelId = voiceState.channel_id;
             const prevConnectedAt = voiceState.connected_at;

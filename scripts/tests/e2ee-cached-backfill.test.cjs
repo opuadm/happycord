@@ -71,6 +71,8 @@ function harness(validSignature = true) {
             },
         ],
         queueBackup: async (id, sig, key) => uploaded.push({ id, sig, key }),
+        bindingFor: async (channel, sender, members, mid) => ({ v: 1, channel, sender, mid, user: (id) => id }),
+        bindingVariants: async (ids) => [ids],
     });
     const message = {
         id: "1",

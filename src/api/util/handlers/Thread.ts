@@ -2,7 +2,7 @@ import { isSqlite } from "@spacebar/database/Sql";
 import { enforceNameAutomod } from "../utility/instanceAutomod";
 import { ProcessLifecycle } from "../../../util/util/ProcessLifecycle";
 import { In } from "typeorm";
-import { Channel, Member, Message, ThreadMember, ThreadMemberFlags } from "@spacebar/database";
+import { AuditLog, Channel, Member, Message, ThreadMember, ThreadMemberFlags } from "@spacebar/database";
 import {
     ChannelFlags,
     DiscordApiErrors,
@@ -15,7 +15,7 @@ import {
     ThreadMembersUpdateEvent,
     ThreadUpdatEvent,
 } from "@spacebar/util";
-import { ChannelType } from "@spacebar/schemas";
+import { AuditLogEvents, ChannelType } from "@spacebar/schemas";
 import { HTTPError } from "lambert-server/HTTPError";
 
 export const THREAD_TYPES = [ChannelType.GUILD_NEWS_THREAD, ChannelType.GUILD_PUBLIC_THREAD, ChannelType.GUILD_PRIVATE_THREAD];
@@ -24,6 +24,18 @@ export const AUTO_ARCHIVE_DURATION_ERROR = {
     code: "BASE_TYPE_CHOICES",
     message: "Value must be one of {60, 1440, 4320, 10080}.",
 };
+
+export const threadAuditState = (channel: Channel) => ({
+    name: channel.name,
+    type: channel.type,
+    archived: channel.thread_metadata?.archived,
+    locked: channel.thread_metadata?.locked,
+    auto_archive_duration: channel.thread_metadata?.auto_archive_duration,
+    invitable: channel.thread_metadata?.invitable,
+    rate_limit_per_user: channel.rate_limit_per_user,
+    flags: channel.flags,
+    applied_tags: channel.applied_tags,
+});
 
 export interface CreateThreadOptions {
     parent: Channel;
@@ -35,6 +47,7 @@ export interface CreateThreadOptions {
     rate_limit_per_user?: number;
     invitable?: boolean;
     applied_tags?: string[];
+    reason?: string | string[];
 }
 
 export async function createThread(opts: CreateThreadOptions) {
@@ -102,6 +115,15 @@ export async function createThread(opts: CreateThreadOptions) {
         muted: false,
         flags: ThreadMemberFlags.HAS_INTERACTED,
     }).save();
+
+    await AuditLog.log({
+        guild_id: thread.guild_id!,
+        user_id,
+        action_type: AuditLogEvents.THREAD_CREATE,
+        target_id: thread.id,
+        changes: AuditLog.diff({}, threadAuditState(thread), AuditLog.threadKeys),
+        reason: opts.reason,
+    });
 
     if (parent.threadOnly()) {
         parent.last_message_id = thread.id;

@@ -66,6 +66,19 @@ export class Snowflake {
     static generate() {
         return Snowflake.generateWorkerProcess().toString();
     }
+
+    static FEDERATED_WORKER = 31n;
+    static FEDERATED_INCREMENT = 0n;
+
+    static generateAt(timestamp: number) {
+        const time = BigInt(Math.max(0, Math.floor(Math.min(Number.isFinite(timestamp) ? timestamp : Date.now(), Date.now())) - Snowflake.EPOCH)) << 22n;
+        const increment = Snowflake.FEDERATED_INCREMENT++ % 4096n;
+        return (time | (Snowflake.FEDERATED_WORKER << 17n) | (Snowflake.processId << 12n) | increment).toString();
+    }
+
+    static timestampOf(snowflake: string) {
+        return Number(BigInt(snowflake) >> 22n) + Snowflake.EPOCH;
+    }
     /**
      * A deconstructed snowflake.
      * @typedef {Object} DeconstructedSnowflake

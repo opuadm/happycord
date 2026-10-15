@@ -2,11 +2,12 @@ import crypto from "node:crypto";
 import { Router, Response, Request } from "express";
 import { fileTypeFromBuffer } from "file-type";
 import { HTTPError } from "lambert-server/HTTPError";
-import { Config } from "@spacebar/util";
+import { Config, isRequestSignature } from "@spacebar/util";
 import { Sticker } from "@spacebar/database";
 import { StickerFormatType, StickerType } from "@spacebar/schemas";
 import { ensureStandardStickerPacks } from "@spacebar/api/util";
-import { storage, internalUpload, setCacheControl, setCacheControlNotFound, fetchUpstreamAsset } from "../util";
+import { storage, internalUpload, setCacheControl, setCacheControlNotFound, fetchUpstreamAsset, safeMediaType } from "../util";
+import { extension, sendRemoteFallback } from "../util/federationMedia";
 
 const ANIMATED_MIME_TYPES = ["image/apng", "image/gif", "image/gifv"];
 const STATIC_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif", "image/svg+xml", "image/svg"];
@@ -18,7 +19,7 @@ const pathPrefix = "stickers";
 router.post(
     "/:sticker_id",
     internalUpload(async (req: Request, res: Response) => {
-        if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+        if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
         if (!req.file) throw new HTTPError("Missing file");
         const { buffer, size } = req.file;
         const { sticker_id } = req.params as { [key: string]: string };
@@ -49,10 +50,11 @@ router.get("/:sticker_id", setCacheControl, async (req: Request, res: Response) 
     const path = `${pathPrefix}/${sticker_id}`;
 
     const file = (await storage.get(path)) ?? (await fetchStandardSticker(sticker_id, path));
+    if (!file && (await sendRemoteFallback(req, res, sticker_id, (remote) => `/${pathPrefix}/${remote}${extension(String(req.params.sticker_id))}`))) return;
     if (!file) return setCacheControlNotFound(req, res);
     const type = await fileTypeFromBuffer(file);
 
-    res.set("Content-Type", type?.mime ?? (isLottie(file) ? "application/json" : "application/octet-stream"));
+    res.set("Content-Type", type ? safeMediaType(type.mime) : isLottie(file) ? "application/json" : "application/octet-stream");
 
     return res.send(file);
 });
@@ -86,7 +88,7 @@ async function fetchStandardSticker(sticker_id: string, path: string) {
 }
 
 router.delete("/:sticker_id/", async (req: Request, res: Response) => {
-    if (req.headers.signature !== Config.get().security.requestSignature) throw new HTTPError("Invalid request signature");
+    if (!isRequestSignature(req.headers.signature)) throw new HTTPError("Invalid request signature");
     const { sticker_id } = req.params as { [key: string]: string };
     const path = `${pathPrefix}/${sticker_id}`;
 

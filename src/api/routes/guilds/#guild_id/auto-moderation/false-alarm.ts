@@ -3,7 +3,7 @@ import { route } from "@spacebar/api/middlewares";
 import { Guild, Message, User } from "@spacebar/database";
 import { EmbedType, MessageType } from "@spacebar/schemas";
 import { emitEvent, MessageUpdateEvent } from "@spacebar/util";
-import { postGuildSystemMessage, safetyChannelId } from "@spacebar/api/util";
+import { postGuildSystemMessage, resolveGuildRaid, safetyChannelId } from "@spacebar/api/util";
 
 const router = Router({ mergeParams: true });
 
@@ -32,6 +32,7 @@ router.post(
         };
         await Guild.update({ id: guild_id }, { incidents_data: guild.incidents_data });
         await Guild.emitUpdate(guild_id);
+        await resolveGuildRaid(guild_id, req.user_id);
 
         const alert =
             alert_message_id && /^\d{1,20}$/.test(alert_message_id)

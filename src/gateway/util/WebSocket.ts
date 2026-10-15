@@ -43,6 +43,9 @@ export interface WebSocket extends WS {
     resumeTimer?: NodeJS.Timeout;
     pendingDispatches?: Payload[];
     commandWindow?: { start: number; count: number };
+    frameWindow?: { start: number; count: number };
+    authenticating?: boolean;
+    lastSeenWrite?: number;
     presenceHistory?: number[];
     presenceTimer?: NodeJS.Timeout;
     isBot?: boolean;

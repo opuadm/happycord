@@ -12,7 +12,7 @@ const catalog = () =>
         ...badge,
         icon_url: `${(Config.get().cdn.endpointPublic || "").replace(/\/+$/, "")}/badge-icons/${badge.icon}.png`,
     }));
-router.get("/", route({ right: "MANAGE_USERS", spacebarOnly: true }), async (req: Request, res: Response) => {
+router.get("/", route({ right: "VIEW_USERS", spacebarOnly: true }), async (req: Request, res: Response) => {
     const target = await adminCustomizationTarget(req);
     const user = await User.findOneOrFail({
         where: { id: target.id },
@@ -21,7 +21,7 @@ router.get("/", route({ right: "MANAGE_USERS", spacebarOnly: true }), async (req
     res.json({ flags: user.pride_badges || [], catalog: catalog() });
 });
 router.patch("/", route({ right: "MANAGE_USERS", spacebarOnly: true, requestBody: "PrideBadgesSchema" }), async (req: Request, res: Response) => {
-    const target = await adminCustomizationTarget(req);
+    const target = await adminCustomizationTarget(req, "pride badges");
     const { flags } = req.body as PrideBadgesSchema;
     if (!Array.isArray(flags) || flags.length > PRIDE_BADGES.length || flags.some((slug) => typeof slug !== "string" || !PRIDE_BADGES.some((badge) => badge.slug === slug)))
         throw FieldErrors({

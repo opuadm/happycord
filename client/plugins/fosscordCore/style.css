@@ -1,0 +1,9 @@
+:is(:root, *).theme-dark,
+:is(:root, *).theme-darker,
+:is(:root, *).theme-midnight {
+    color-scheme: dark;
+}
+
+:is(:root, *).theme-light {
+    color-scheme: light;
+}

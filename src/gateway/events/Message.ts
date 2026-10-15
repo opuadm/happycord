@@ -1,4 +1,5 @@
-import { CLOSECODES, OPCODES, Payload, WebSocket } from "@spacebar/gateway";
+import { Payload, WebSocket } from "@spacebar/gateway";
+import { CLOSECODES, OPCODES } from "../util/Constants";
 import * as erlpack from "harmony-erlpack";
 import fs from "node:fs/promises";
 import BigIntJson from "json-bigint";
@@ -20,10 +21,16 @@ function jsonSafe(value: unknown): unknown {
 }
 const CommandWindow = 60_000;
 const CommandLimit = 120;
+const FrameLimit = 240;
+const UnauthenticatedOpcodes = new Set<number>([OPCODES.Heartbeat, OPCODES.Identify, OPCODES.Resume, OPCODES.SetQoS]);
+const AuthenticatingOpcodes = new Set<number>([OPCODES.Identify, OPCODES.Resume]);
 
 export async function Message(this: WebSocket, buffer: WS.Data) {
-    // TODO: compression
     let data: Payload;
+
+    const frameTime = Date.now();
+    if (!this.frameWindow || frameTime - this.frameWindow.start >= CommandWindow) this.frameWindow = { start: frameTime, count: 0 };
+    if (++this.frameWindow.count > FrameLimit) return this.close(CLOSECODES.Rate_limited, "Rate limited.");
 
     try {
         if (
@@ -32,20 +39,7 @@ export async function Message(this: WebSocket, buffer: WS.Data) {
         ) {
             data = bigIntJson.parse(buffer.toString());
         } else if (this.encoding === "json" && Buffer.isBuffer(buffer)) {
-            if (this.compress === "zlib-stream") {
-                try {
-                    buffer = this.inflate!.process(buffer);
-                } catch {
-                    buffer = buffer.toString();
-                }
-            } else if (this.compress === "zstd-stream") {
-                try {
-                    buffer = await this.zstdDecoder!.decode(buffer);
-                } catch {
-                    buffer = buffer.toString();
-                }
-            }
-            data = bigIntJson.parse(buffer as string);
+            data = bigIntJson.parse(buffer.toString("utf8"));
         } else if (this.encoding === "etf" && Buffer.isBuffer(buffer) && erlpack) {
             try {
                 // cast is ~safe: unpack returns the parsed data in the shape it was provided, @yukikaze-bot/erlpack got around this by returning `any` instead of an actual type union.
@@ -65,6 +59,7 @@ export async function Message(this: WebSocket, buffer: WS.Data) {
         return;
     }
 
+    let ownsAuthentication = false;
     try {
         if (process.env.WS_VERBOSE) console.log(`[Websocket] Incomming message: ${JSON.stringify(data)}`);
 
@@ -83,6 +78,13 @@ export async function Message(this: WebSocket, buffer: WS.Data) {
             if (++this.commandWindow.count > CommandLimit) return this.close(CLOSECODES.Rate_limited, "Rate limited.");
         }
 
+        if (!this.user_id && !UnauthenticatedOpcodes.has(data.op)) return this.close(CLOSECODES.Not_authenticated, "Not authenticated.");
+        if (AuthenticatingOpcodes.has(data.op)) {
+            if (this.authenticating || this.user_id) return this.close(CLOSECODES.Already_authenticated, "Already authenticated.");
+            this.authenticating = true;
+            ownsAuthentication = true;
+        }
+
         const OPCodeHandler = OPCodeHandlers[data.op];
         if (!OPCodeHandler) {
             console.error(`[Gateway/${this.user_id ?? this.ipAddress}] Unknown opcode`, data.op);
@@ -99,5 +101,7 @@ export async function Message(this: WebSocket, buffer: WS.Data) {
         if (data.op === 2 && error instanceof HTTPError && error.code >= 400 && error.code < 500) return this.close(CLOSECODES.Authentication_failed, "Authentication failed.");
         // if (!this.CLOSED && this.CLOSING)
         return this.close(CLOSECODES.Unknown_error, message ?? `Error while handling opcode ${data.op}`);
+    } finally {
+        if (ownsAuthentication) this.authenticating = false;
     }
 }

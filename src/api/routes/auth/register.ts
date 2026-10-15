@@ -2,16 +2,18 @@ import bcrypt from "bcrypt";
 import { Request, Response, Router } from "express";
 import { HTTPError } from "lambert-server/HTTPError";
 import crypto from "node:crypto";
-import { ILike, MoreThan } from "typeorm";
+import { ILike, IsNull, MoreThan } from "typeorm";
 import {
     assertIpNotBanned,
     assertRegistrationAllowedForIp,
+    assertRegistrationIpCap,
     captchaKeyFrom,
     checkRegistrationCaptcha,
     claimInvite,
     findUsableInvite,
     instanceAutomodMatch,
     normalizeIp,
+    onGuildMemberJoin,
     recordAutomodAction,
     recordInvitedUser,
     recordRegistrationForIp,
@@ -20,6 +22,7 @@ import {
 } from "@spacebar/api/util";
 import { assertIdentityNameAllowed } from "@spacebar/util/util/IdentityModeration";
 import { isPrideBadgeSelection } from "@spacebar/api/util/utility/prideBadgeSelection";
+import { assessSignup, logSignupAssessment, signupPasswordKey } from "@spacebar/api/util/utility/signupGuard";
 import { route } from "@spacebar/api/middlewares";
 import { Invite, User, ValidRegistrationToken } from "@spacebar/database";
 import { Config, FieldErrors, generateToken, IpDataClient, AbuseIpDbClient } from "@spacebar/util";
@@ -125,10 +128,12 @@ router.post(
 
         if (!regTokenUsed && !register.allowMultipleAccounts) {
             // TODO: check if fingerprint was eligible generated
-            const exists = await User.findOne({
-                where: { fingerprints: body.fingerprint },
-                select: { id: true },
-            });
+            const exists = body.fingerprint
+                ? await User.findOne({
+                      where: { fingerprints: body.fingerprint },
+                      select: { id: true },
+                  })
+                : null;
 
             if (exists) {
                 throw FieldErrors({
@@ -141,6 +146,7 @@ router.post(
         }
 
         if (!regTokenUsed) await assertRegistrationAllowedForIp(ip, body.username ?? body.global_name);
+        if (!regTokenUsed) await assertRegistrationIpCap(ip, body.username ?? body.global_name);
 
         const reasonField = "join_reason" in body ? "join_reason" : "username";
         const joinReason = typeof body.join_reason === "string" ? body.join_reason.trim() : "";
@@ -310,6 +316,7 @@ router.post(
             }
         }
 
+        const passwordKey = !regTokenUsed && body.password ? signupPasswordKey(body.password) : null;
         if (body.password) {
             const min = register.password.minLength ?? 8;
 
@@ -346,6 +353,7 @@ router.post(
             (await User.count({
                 where: {
                     created_at: MoreThan(new Date(Date.now() - limits.absoluteRate.register.window)),
+                    federated_instance: IsNull(),
                 },
             })) >= limits.absoluteRate.register.limit
         ) {
@@ -394,6 +402,8 @@ router.post(
                 },
             });
 
+        const assessment = regTokenUsed ? null : await assessSignup({ username: body.username, email: body.email, passwordKey, captchaToken: captchaKey });
+
         if (register.requireCaptcha && registrationCapEndpoint() === "/api/v9/auth/cap/") {
             const claimed = await checkRegistrationCaptcha(captchaKey);
             if (claimed) return res.status(400).json(claimed);
@@ -413,7 +423,8 @@ router.post(
         logTrace("Register user");
         await recordRegistrationForIp(ip);
 
-        const pending = !regTokenUsed && register.requireApproval;
+        await logSignupAssessment(user, assessment);
+        const pending = !regTokenUsed && (register.requireApproval || assessment?.verdict === "hold");
         if (joinReason || pending) await User.update({ id: user.id }, { join_reason: joinReason || null, join_status: pending ? "pending" : null });
         if (pending)
             throw FieldErrors({
@@ -425,7 +436,12 @@ router.post(
 
         if (body.invite) {
             // await to fail if the invite doesn't exist (necessary for requireInvite to work properly) (username only signups are possible)
-            await Invite.joinGuild(user.id, body.invite);
+            const target = await Invite.findOne({ where: { code: body.invite }, relations: { guild: true } });
+            const paused = target?.guild?.incidents_data?.invites_disabled_until;
+            if (!paused || new Date(paused).getTime() <= Date.now()) {
+                const { new_member } = await Invite.joinGuild(user.id, body.invite);
+                if (new_member) await onGuildMemberJoin(target!.guild_id, user.id, body.invite);
+            }
             logTrace("Accept invite");
         }
 

@@ -1,10 +1,10 @@
-import { AutomodRuleSchema, ChannelPermissionOverwrite, PartialUser, PublicChannel, Snowflake, WebhookResponse } from "@spacebar/schemas";
+import { ChannelPermissionOverwrite, PartialUser, PublicChannel, Snowflake, WebhookResponse } from "@spacebar/schemas";
 
 // Note: some audit log event types have some special keys: https://docs.discord.food/resources/audit-log#audit-log-change-exceptions
 export interface AuditLogResponse {
     audit_log_entries: AuditLogEntry[];
     application_commands: unknown[]; // TODO: type
-    auto_moderation_rules: AutomodRuleSchema[];
+    auto_moderation_rules: unknown[];
     guild_scheduled_events: unknown[]; // TODO: type
     integrations: unknown[]; // TODO: type
     threads: PublicChannel[];
@@ -25,6 +25,12 @@ export interface AuditLogEntry {
 export enum AuditLogEvents {
     ADMIN_USER_CUSTOMIZATION = 2000,
     ADMIN_OFFICIAL_MESSAGE_SEND = 2001,
+    ADMIN_STAFF_ACTION = 2002,
+    ADMIN_STAFF_ROLE_CREATE = 2003,
+    ADMIN_STAFF_ROLE_UPDATE = 2004,
+    ADMIN_STAFF_ROLE_DELETE = 2005,
+    ADMIN_STAFF_ROLE_ASSIGN = 2006,
+    ADMIN_STAFF_ROLE_REMOVE = 2007,
     // guild level
     GUILD_UPDATE = 1,
     // channels

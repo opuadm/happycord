@@ -34,6 +34,34 @@ export function capChallengeParameters(context: CapContext) {
     };
 }
 
+const SOLVE_TIME_TTL = 10 * 60 * 1000;
+const solveTimes = new Map<string, { ms: number; expires: number }>();
+
+const issuedAt = (token: unknown) => {
+    if (typeof token !== "string") return null;
+    try {
+        const iat = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"))?.iat;
+        return typeof iat === "number" && Number.isFinite(iat) ? iat : null;
+    } catch {
+        return null;
+    }
+};
+
+const rememberSolveTime = (token: string, challengeToken: unknown) => {
+    const iat = issuedAt(challengeToken);
+    if (iat === null) return;
+    const now = Date.now();
+    for (const [key, entry] of solveTimes) if (entry.expires <= now) solveTimes.delete(key);
+    if (solveTimes.size >= 10_000) solveTimes.delete(solveTimes.keys().next().value!);
+    solveTimes.set(tokenKey(token, "register"), { ms: Math.max(0, now - iat), expires: now + SOLVE_TIME_TTL });
+};
+
+export function captchaSolveTime(token: string | null | undefined) {
+    if (!token || typeof token !== "string" || token.length > 512) return null;
+    const entry = solveTimes.get(tokenKey(token, "register"));
+    return entry && entry.expires > Date.now() ? entry.ms : null;
+}
+
 export const blockingAutomatedBrowsers = () => Config.get().security.captcha.blockAutomatedBrowsers !== false;
 
 export async function createRegistrationChallenge(context: CapContext = "register") {
@@ -77,6 +105,7 @@ export async function redeemRegistrationChallenge(body: unknown, context: CapCon
         tokenKey(result.token, context),
         new Date(result.expires),
     ]);
+    if (context === "register") rememberSolveTime(result.token, submitted.token);
     return { success: true, token: result.token, expires: result.expires };
 }
 

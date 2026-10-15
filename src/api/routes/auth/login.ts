@@ -1,10 +1,21 @@
 import bcrypt from "bcrypt";
 import { Request, Response, Router } from "express";
-import { assertIpNotBanned, assertLoginNotLocked, captchaKeyFrom, checkCaptcha, clearFailedLogins, loginMfaResponse, recordFailedLogin } from "@spacebar/api/util";
+import {
+    assertIpNotBanned,
+    assertLoginIpCap,
+    assertLoginNotLocked,
+    captchaKeyFrom,
+    checkCaptcha,
+    clearFailedLogins,
+    isStaffDisabled,
+    loginMfaResponse,
+    recordFailedLogin,
+} from "@spacebar/api/util";
 import { route } from "@spacebar/api/middlewares";
 import { User } from "@spacebar/database";
-import { Config, FieldErrors, generateToken } from "@spacebar/util";
+import { Config, FieldErrors, generateToken, isStaffAccount, loadStaffRoles } from "@spacebar/util";
 import { AccountStandingState, LoginSchema } from "@spacebar/schemas";
+import { requestOrigin } from "@spacebar/util/util/OpenGraph";
 
 const router: Router = Router({ mergeParams: true });
 
@@ -26,8 +37,6 @@ router.post(
         const { login, password, undelete } = req.body as LoginSchema;
 
         const config = Config.get();
-        await assertIpNotBanned(req.ip, "Sign-in from this network is blocked on this instance");
-
         const captcha = await checkCaptcha(config.login.requireCaptcha, captchaKeyFrom(req), "login");
         if (captcha) return res.status(400).json(captcha);
 
@@ -37,6 +46,7 @@ router.post(
                 data: true,
                 id: true,
                 disabled: true,
+                flags: true,
                 deleted: true,
                 account_standing: true,
                 suspended_until: true,
@@ -46,6 +56,8 @@ router.post(
                 webauthn_enabled: true,
                 security_keys: true,
                 verified: true,
+                rights: true,
+                username: true,
             },
             relations: { security_keys: true, settings: true },
         }).catch(() => {
@@ -61,12 +73,12 @@ router.post(
             });
         });
 
-        await assertLoginNotLocked(user.id);
+        await assertLoginNotLocked(user.id, req.ip);
 
         // the salt is saved in the password refer to bcrypt docs
         const same_password = await bcrypt.compare(password, user.data.hash || "");
         if (!same_password) {
-            await recordFailedLogin(user.id);
+            await recordFailedLogin(user.id, req.ip);
             throw FieldErrors({
                 login: {
                     message: req.t("auth:login.INVALID_LOGIN"),
@@ -79,26 +91,30 @@ router.post(
             });
         }
 
-        await clearFailedLogins(user.id);
+        await clearFailedLogins(user.id, req.ip);
+        if (!isStaffAccount(user, await loadStaffRoles())) await assertIpNotBanned(req.ip, "Sign-in from this network is blocked on this instance");
 
+        const appealHint = ` To see why or send an appeal, go to ${requestOrigin(req)}/appeal.`;
         const refuse = (code: string, message: string) => {
             throw FieldErrors({ login: { code, message }, password: { code, message } });
         };
-        if (user.join_status === "pending") refuse("ACCOUNT_PENDING_APPROVAL", "Your account is waiting for a moderator to approve it. Try again once it's approved.");
+        if (user.join_status === "pending") refuse("ACCOUNT_PENDING_APPROVAL", `Your account is waiting for a moderator to approve it. Try again once it's approved.${appealHint}`);
         if (user.join_status === "rejected") refuse("ACCOUNT_NOT_APPROVED", "A moderator didn't approve this account.");
         if (user.suspended_until && new Date(user.suspended_until).getTime() > Date.now())
-            refuse("ACCOUNT_SUSPENDED", `This account is suspended until ${new Date(user.suspended_until).toUTCString()} for breaking the rules.`);
+            refuse("ACCOUNT_SUSPENDED", `This account is suspended until ${new Date(user.suspended_until).toUTCString()} for breaking the rules.${appealHint}`);
 
         if (!undelete && user.deleted)
             return res.status(400).json({
                 message: "This account is scheduled for deletion.",
                 code: 20011,
             });
-        if (user.account_standing === AccountStandingState.SUSPENDED || (!undelete && user.disabled))
+        if (user.account_standing === AccountStandingState.SUSPENDED || (user.disabled && (!undelete || isStaffDisabled(user.flags))))
             return res.status(400).json({
-                message: req.t("auth:login.ACCOUNT_DISABLED"),
+                message: `${req.t("auth:login.ACCOUNT_DISABLED")}${user.account_standing === AccountStandingState.SUSPENDED || isStaffDisabled(user.flags) ? appealHint : ""}`,
                 code: 20013,
             });
+
+        await assertLoginIpCap(req.ip, user);
 
         const mfa = await loginMfaResponse(req, user, { undelete: !!undelete });
         if (mfa) return res.json(mfa);

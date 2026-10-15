@@ -7,10 +7,10 @@ const vm = require("node:vm");
 const ts = require("typescript");
 
 function load(ReadState) {
-    const source = fs.readFileSync(path.join(__dirname, "../../src/api/util/handlers/Message.ts"), "utf8");
-    const start = sourceMarker(source, "    const fillInMissingIDs = async");
-    const end = source.indexOf("\n    if (isEdit)", start);
-    const js = ts.transpileModule(`${source.slice(start, end)}; module.exports = fillInMissingIDs;`, {
+    const source = fs.readFileSync(path.join(__dirname, "../../src/api/util/utility/notifications.ts"), "utf8");
+    const start = sourceMarker(source, "export async function fillReadStates");
+    const end = source.indexOf("\n}\n", start) + 2;
+    const js = ts.transpileModule(`${source.slice(start, end).replace("export ", "")}; module.exports = (ids) => fillReadStates("channel", ids);`, {
         compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
     }).outputText;
     const module = { exports: {} };
@@ -18,11 +18,9 @@ function load(ReadState) {
     vm.runInNewContext(js, {
         module,
         ReadState,
-        channel: { id: "channel" },
         In: (ids) => ids,
         ReadStateType: { CHANNEL: 0 },
         Snowflake: { generate: () => String(++id) },
-        Stopwatch: { startNew: () => ({ getElapsedAndReset: () => ({ totalMicroseconds: 1 }) }) },
     });
     return module.exports;
 }
@@ -97,17 +95,14 @@ test("large fanout has bounded SQL batches and no parallel insertion flood", asy
     assert.ok(database.inserts.every((rows) => rows.length <= 1000));
 });
 
-test("unexpected insert and read errors propagate once, with a completed trace", async () => {
+test("unexpected insert and read errors propagate once", async () => {
     const failure = new Error("database unavailable");
     const database = fakeDatabase(async () => {
         throw failure;
     });
-    const trace = { calls: [] };
-    await assert.rejects(load(database)(["user"], trace), (error) => error === failure);
+    await assert.rejects(load(database)(["user"]), (error) => error === failure);
     assert.equal(database.inserts.length, 1);
     assert.equal(database.reads.length, 1);
-    assert.equal(trace.calls.length, 2);
-    assert.equal(trace.calls[0], "fillInMissingIDs(1)");
     database.find = async () => {
         throw failure;
     };

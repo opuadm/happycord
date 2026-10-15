@@ -1,8 +1,7 @@
 import { Request, Response, Router } from "express";
 import { HTTPError } from "lambert-server/HTTPError";
-import { verifyToken } from "node-2fa";
 import { route } from "@spacebar/api/middlewares";
-import { hashClientSecret, randomOAuth2Token } from "@spacebar/api/util";
+import { hashClientSecret, randomOAuth2Token, throttledCodeAttempt, verifyTotp } from "@spacebar/api/util";
 import { Application, User } from "@spacebar/database";
 import { DiscordApiErrors } from "@spacebar/util";
 
@@ -28,7 +27,8 @@ router.post(
             where: { id: app.owner_id },
             select: { id: true, totp_secret: true },
         });
-        if (owner.totp_secret && (!req.body?.code || !verifyToken(owner.totp_secret, req.body.code))) throw new HTTPError(req.t("auth:login.INVALID_TOTP_CODE"), 60008);
+        if (owner.totp_secret && (!req.body?.code || !(await throttledCodeAttempt(req.user_id, () => verifyTotp(owner.totp_secret, req.body.code)))))
+            throw new HTTPError(req.t("auth:login.INVALID_TOTP_CODE"), 60008);
         const secret = randomOAuth2Token();
         await Application.update({ id: app.id }, { client_secret_hash: hashClientSecret(secret) });
         res.json({ secret });

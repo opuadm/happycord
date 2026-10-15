@@ -2,9 +2,46 @@
 import { Column, Entity, Index } from "typeorm";
 import { BaseClass } from "./BaseClass";
 
-export type AutomodActionRule = "hard_r" | "soft_a" | "word" | "name_blocklist" | "ip_limit";
-export type AutomodActionSource = "message" | "message_edit" | "thread_name" | "channel_name" | "guild_name" | "report" | "registration" | "username" | "global_name" | "nick";
-export type AutomodActionTaken = "suspend" | "delete" | "block";
+export type AutomodActionRule =
+    | "hard_r"
+    | "soft_a"
+    | "word"
+    | "name_blocklist"
+    | "ip_limit"
+    | "ip_account_limit"
+    | "everyone_spam"
+    | "mention_spam"
+    | "flood"
+    | "duplicate"
+    | "link_spam"
+    | "new_account_burst"
+    | "join_raid"
+    | "mention_raid"
+    | "dm_raid"
+    | "scam_link"
+    | "duplicate_attachment"
+    | "dm_spam"
+    | "signup_bot"
+    | "quarantine"
+    | "verification_level"
+    | "explicit_content";
+export type AutomodActionSource =
+    | "message"
+    | "message_edit"
+    | "thread_name"
+    | "channel_name"
+    | "guild_name"
+    | "report"
+    | "registration"
+    | "login"
+    | "username"
+    | "global_name"
+    | "nick"
+    | "guild_join"
+    | "direct_message"
+    | "friend_request"
+    | "admin";
+export type AutomodActionTaken = "suspend" | "delete" | "block" | "log" | "timeout" | "disable" | "federation_block" | "ban" | "hold" | "flag";
 
 @Entity({
     name: "automod_actions",
@@ -66,6 +103,10 @@ export class AutomodAction extends BaseClass {
     @Column({ type: "int8", nullable: true })
     violation_id?: string | null;
 
+    @Index("IDX_automod_actions_incident_id")
+    @Column({ type: "int8", nullable: true })
+    incident_id?: string | null;
+
     @Column({ default: false })
     reversed: boolean = false;
 
@@ -76,5 +117,14 @@ export class AutomodAction extends BaseClass {
     reversed_by?: string | null;
 
     @Column({ type: "varchar", nullable: true })
-    reversal?: "undo" | "not_a_match" | null;
+    reversal?: "undo" | "not_a_match" | "false_positive" | null;
+
+    @Column({ type: "varchar", nullable: true })
+    would_action?: string | null;
+
+    @Column({ type: "timestamptz", nullable: true })
+    confirmed_at?: Date | null;
+
+    @Column({ type: "int8", nullable: true })
+    confirmed_by?: string | null;
 }

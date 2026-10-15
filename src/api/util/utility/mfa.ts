@@ -4,7 +4,7 @@ import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { verifyToken } from "node-2fa";
 import { In } from "typeorm";
-import { BackupCode, SecurityKey, Session, User, generateMfaBackupCodes, getDatabase } from "@spacebar/database";
+import { BackupCode, RateLimit, SecurityKey, Session, User, generateMfaBackupCodes, getDatabase } from "@spacebar/database";
 import { EVENT, Event, JwtKeypairManager, UserUpdateEvent, emitEvent } from "@spacebar/util";
 import { PrivateUserProjection, UserFlags } from "@spacebar/schemas";
 import { revokeStaleE2eeDevices } from "./e2ee";
@@ -65,6 +65,15 @@ export async function guardedMfaAttempt(ticket: string, verify: () => Promise<bo
     if (!(await verify())) return false;
     if (!(await consumeMfaTicket(database, hash))) throw MfaInvalidTicket();
     return true;
+}
+
+export const DIRECT_CODE_ATTEMPTS = 10;
+export const DIRECT_CODE_WINDOW_SECONDS = 15 * 60;
+
+export async function throttledCodeAttempt(user_id: string, verify: () => boolean | Promise<boolean>) {
+    const { hits } = await RateLimit.hit(`${user_id}:direct-mfa-code`, user_id, DIRECT_CODE_ATTEMPTS, DIRECT_CODE_WINDOW_SECONDS);
+    if (hits > DIRECT_CODE_ATTEMPTS) return false;
+    return verify();
 }
 
 export function verifyTotp(secret: string | undefined, code: unknown) {
@@ -189,11 +198,15 @@ function checkClientData(clientDataJSON: string, type: string, challenge: string
     return raw;
 }
 
-function checkAuthData(authData: Buffer, origin: string) {
+const USER_PRESENT = 0x01;
+const USER_VERIFIED = 0x04;
+
+function checkAuthData(authData: Buffer, origin: string, requireUserVerification = false) {
     if (authData.length < 37) return false;
     const rpIdHash = crypto.createHash("sha256").update(rpIdFor(origin)).digest();
     if (!rpIdHash.equals(authData.subarray(0, 32))) return false;
-    return (authData[32] & 0x01) === 0x01;
+    const required = requireUserVerification ? USER_PRESENT | USER_VERIFIED : USER_PRESENT;
+    return (authData[32] & required) === required;
 }
 
 export function verifyAttestation(credential: unknown, challenge: string, origin: string) {
@@ -231,7 +244,7 @@ export async function findCredential(credential: unknown, user_id?: string) {
     });
 }
 
-export async function verifyAssertion(credential: unknown, challenge: string, origin: string, key: SecurityKey) {
+export async function verifyAssertion(credential: unknown, challenge: string, origin: string, key: SecurityKey, requireUserVerification = false) {
     const cred = parseCredential(credential);
     const response = cred?.response;
     if (!response?.clientDataJSON || !response.authenticatorData || !response.signature) return false;
@@ -239,7 +252,7 @@ export async function verifyAssertion(credential: unknown, challenge: string, or
         const clientData = checkClientData(response.clientDataJSON, "webauthn.get", challenge, origin);
         if (!clientData) return false;
         const authData = Buffer.from(response.authenticatorData, "base64url");
-        if (!checkAuthData(authData, origin)) return false;
+        if (!checkAuthData(authData, origin, requireUserVerification)) return false;
         const signed = Buffer.concat([authData, crypto.createHash("sha256").update(clientData).digest()]);
         const publicKey = crypto.createPublicKey(key.public_key);
         const signature = Buffer.from(response.signature, "base64url");

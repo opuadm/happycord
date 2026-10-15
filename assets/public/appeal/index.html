@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Appeal on __INSTANCE_NAME__</title>
+    <link rel="icon" href="/favicon.svg" />
+    <style>
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in oklab, currentColor 32%, transparent) transparent;
+      }
+
+      @font-face {
+        font-family: "gg sans";
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url(/assets/66d715454104d24e.woff2) format("woff2");
+      }
+      @font-face {
+        font-family: "gg sans";
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: url(/assets/b272b33815319bae.woff2) format("woff2");
+      }
+      @font-face {
+        font-family: "gg sans";
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url(/assets/2df2c3ff74408972.woff2) format("woff2");
+      }
+      @font-face {
+        font-family: "gg sans";
+        font-style: normal;
+        font-weight: 800;
+        font-display: swap;
+        src: url(/assets/b2fdbe507d6ce9ef.woff2) format("woff2");
+      }
+      :root {
+        color-scheme: dark;
+        --color-bg: #121214;
+        --color-panel: #1a1a1e;
+        --color-field: #0f0f11;
+        --color-border: #2b2b31;
+        --color-text: #dfe0e2;
+        --color-text-secondary: #94959c;
+        --color-accent-solid: #5865f2;
+        --color-accent-hover: #4752c4;
+        --color-on-accent: #ffffff;
+        --color-ok: #23a55a;
+        --color-warn: #f0b232;
+        --color-danger: #f23f43;
+        --color-danger-text: #fa777c;
+        font-family: "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          color-scheme: light;
+          --color-bg: #f3f3f5;
+          --color-panel: #ffffff;
+          --color-field: #f3f3f5;
+          --color-border: #e1e2e5;
+          --color-text: #2f3035;
+          --color-text-secondary: #5c5d64;
+          --color-danger-text: #c4262b;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--color-bg);
+        color: var(--color-text);
+        line-height: 1.5;
+        font-size: 15px;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      main {
+        max-width: 520px;
+        margin: 0 auto;
+        padding: 40px 16px 64px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .brand-icon {
+        width: 48px;
+        height: 48px;
+        flex: none;
+        border-radius: 16px;
+        object-fit: cover;
+        outline: 1px solid rgb(255 255 255 / 8%);
+        outline-offset: -1px;
+      }
+      @media (prefers-color-scheme: light) {
+        .brand-icon {
+          outline-color: rgb(0 0 0 / 8%);
+        }
+      }
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 800;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        text-wrap: balance;
+      }
+      h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        text-wrap: balance;
+      }
+      p {
+        margin: 0;
+        text-wrap: pretty;
+      }
+      .intro {
+        color: var(--color-text-secondary);
+      }
+      .card {
+        background: var(--color-panel);
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      label {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      input,
+      textarea {
+        font: inherit;
+        color: inherit;
+        background: var(--color-field);
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        padding: 10px 12px;
+        width: 100%;
+        transition: border-color 0.12s ease;
+      }
+      textarea {
+        min-height: 140px;
+        resize: vertical;
+      }
+      input:focus-visible,
+      textarea:focus-visible {
+        outline: 2px solid var(--color-accent-solid);
+        outline-offset: 1px;
+      }
+      [aria-invalid="true"] {
+        border-color: var(--color-danger);
+      }
+      .error {
+        color: var(--color-danger-text);
+        font-size: 13px;
+        overflow-wrap: break-word;
+      }
+      .hint {
+        color: var(--color-text-secondary);
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .count {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      button {
+        font: inherit;
+        font-weight: 500;
+        min-height: 44px;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        background: var(--color-accent-solid);
+        color: var(--color-on-accent);
+        cursor: pointer;
+        transition:
+          background-color 0.12s ease,
+          scale 200ms ease-out;
+      }
+      button:active {
+        scale: 0.97;
+      }
+      button:focus-visible {
+        outline: 2px solid var(--color-accent-solid);
+        outline-offset: 2px;
+      }
+      button[aria-busy="true"] {
+        cursor: progress;
+        opacity: 0.7;
+      }
+      button.secondary {
+        background: transparent;
+        color: var(--color-text);
+        box-shadow: inset 0 0 0 1px var(--color-border);
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      @media (hover: hover) {
+        button:hover {
+          background: var(--color-accent-hover);
+        }
+        button.secondary:hover {
+          background: var(--color-field);
+        }
+      }
+      .state {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        font-weight: 600;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        margin-top: 9px;
+        border-radius: 50%;
+        flex: none;
+        background: var(--color-warn);
+      }
+      .state.ok .dot {
+        background: var(--color-ok);
+      }
+      .state.denied .dot {
+        background: var(--color-danger);
+      }
+      .facts {
+        margin: 0;
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 6px 16px;
+        font-size: 14px;
+      }
+      .facts dt {
+        color: var(--color-text-secondary);
+      }
+      .facts dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      blockquote {
+        margin: 0;
+        padding: 12px 14px;
+        border-left: 3px solid var(--color-border);
+        background: var(--color-field);
+        border-radius: 0 8px 8px 0;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      a {
+        color: var(--color-accent-solid);
+        text-underline-position: from-font;
+        text-decoration-skip-ink: auto;
+      }
+      @media (prefers-color-scheme: dark) {
+        a {
+          color: #949cf7;
+        }
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .card.enter {
+          animation: enter 220ms ease-out;
+        }
+      }
+      @keyframes enter {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        __INSTANCE_ICON__
+        <h1>Appeal on __INSTANCE_NAME__</h1>
+      </header>
+      <p class="intro">
+        If you can't sign in because your account is suspended, held for review or disabled, sign in here to see why. You can send the moderators one message about it.
+      </p>
+
+      <form class="card" id="check" novalidate>
+        <div class="field">
+          <label for="login">Email or username</label>
+          <input id="login" name="login" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="login-error" required />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" aria-describedby="login-error" required />
+        </div>
+        <p class="error" id="login-error" role="alert" hidden></p>
+        <button type="submit" id="check-button">See my account's status</button>
+      </form>
+
+      <form class="card" id="mfa" novalidate hidden>
+        <h2>Confirm it's you</h2>
+        <p class="intro" id="mfa-intro">This account has two-factor authentication on.</p>
+        <div class="field" id="mfa-code-field">
+          <label for="mfa-code">Authentication or backup code</label>
+          <input id="mfa-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" autocapitalize="none" spellcheck="false" aria-describedby="mfa-error" />
+        </div>
+        <p class="error" id="mfa-error" role="alert" hidden></p>
+        <div class="actions">
+          <button type="submit" id="mfa-button">Continue</button>
+          <button type="button" class="secondary" id="mfa-key" hidden>Use a security key</button>
+        </div>
+      </form>
+
+      <section class="card" id="result" role="status" hidden>
+        <div class="state" id="state"><span class="dot" aria-hidden="true"></span><h2 id="state-title"></h2></div>
+        <p id="reason"></p>
+        <dl class="facts" id="facts" hidden></dl>
+        <div id="sent" hidden>
+          <p>Your appeal:</p>
+          <blockquote id="sent-message"></blockquote>
+        </div>
+      </section>
+
+      <form class="card" id="appeal" novalidate hidden>
+        <h2>Send an appeal</h2>
+        <p class="intro">Explain what happened. You can send one message for this restriction, so put everything you want the moderators to know in it.</p>
+        <div class="field">
+          <label for="message">Message to the moderators</label>
+          <textarea id="message" name="message" maxlength="1000" aria-describedby="message-hint message-error" required></textarea>
+          <div class="hint" id="message-hint"><span>Up to 1,000 characters.</span><span class="count" id="count">0 / 1000</span></div>
+        </div>
+        <p class="error" id="message-error" role="alert" hidden></p>
+        <button type="submit" id="appeal-button">Send appeal</button>
+      </form>
+    </main>
+    <script>
+      "use strict";
+      const $ = (id) => document.getElementById(id);
+      const credentials = { login: "", password: "", appeal_ticket: "" };
+      let challenge = null;
+      const RESTRICTION_TITLES = {
+        suspended: "Your account is suspended",
+        held: "Your account is held for review",
+        disabled: "Your account is disabled",
+      };
+      const APPEAL_TITLES = {
+        pending: "Your appeal is waiting for a moderator",
+        accepted: "A moderator accepted your appeal",
+        denied: "A moderator denied your appeal",
+      };
+
+      const showError = (element, message, fields) => {
+        element.textContent = message;
+        element.hidden = !message;
+        for (const field of fields) field.setAttribute("aria-invalid", message ? "true" : "false");
+        if (message) fields[0]?.focus();
+      };
+
+      const errorText = (body, fallback) => {
+        const fields = body?.errors ?? {};
+        for (const key of ["message", "login", "password"]) {
+          const text = fields[key]?._errors?.[0]?.message;
+          if (text) return text;
+        }
+        if (body?.retry_after) return `Too many tries. Wait ${Math.ceil(body.retry_after)} seconds and try again.`;
+        return body?.message || fallback;
+      };
+
+      const send = async (button, body) => {
+        button.setAttribute("aria-busy", "true");
+        try {
+          const response = await fetch("/api/v9/auth/appeal", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const data = await response.json().catch(() => null);
+          return { ok: response.ok, data };
+        } catch {
+          return { ok: false, data: { message: "Couldn't reach the server. Check your connection and try again." } };
+        } finally {
+          button.removeAttribute("aria-busy");
+        }
+      };
+
+      const render = (state) => {
+        const result = $("result");
+        const stateRow = $("state");
+        const facts = $("facts");
+        const appeal = state.appeal;
+        stateRow.className = "state";
+        facts.replaceChildren();
+        $("sent").hidden = !appeal;
+        if (!state.restricted) {
+          stateRow.classList.add("ok");
+          $("state-title").textContent = appeal?.status === "accepted" ? APPEAL_TITLES.accepted : "Your account isn't restricted";
+          $("reason").textContent = "You can sign in as usual.";
+          facts.hidden = true;
+        } else {
+          if (appeal?.status === "denied") stateRow.classList.add("denied");
+          $("state-title").textContent = appeal ? APPEAL_TITLES[appeal.status] : RESTRICTION_TITLES[state.restriction];
+          $("reason").textContent = state.reason;
+          const rows = [];
+          if (appeal) rows.push(["Restriction", RESTRICTION_TITLES[state.restriction].replace("Your account is ", "")]);
+          if (state.until) rows.push(["Ends", new Date(state.until).toLocaleString()]);
+          if (appeal) rows.push(["Sent", new Date(appeal.created_at).toLocaleString()]);
+          for (const [term, detail] of rows) {
+            const dt = document.createElement("dt");
+            dt.textContent = term;
+            const dd = document.createElement("dd");
+            dd.textContent = detail;
+            facts.append(dt, dd);
+          }
+          facts.hidden = !rows.length;
+        }
+        if (appeal) $("sent-message").textContent = appeal.message;
+        const wasHidden = result.hidden;
+        result.hidden = false;
+        if (wasHidden) result.classList.add("enter");
+        $("appeal").hidden = !state.can_appeal;
+      };
+
+      const b64url = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      const fromB64url = (text) => Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+
+      const askForMfa = (data) => {
+        challenge = data;
+        const form = $("mfa");
+        form.hidden = false;
+        form.classList.add("enter");
+        $("mfa-code-field").hidden = !data.totp && !data.backup;
+        $("mfa-button").hidden = !data.totp && !data.backup;
+        $("mfa-key").hidden = !data.webauthn || !window.PublicKeyCredential;
+        $("mfa-intro").textContent = data.totp
+          ? "This account has two-factor authentication on. Enter the 6-digit code from your authenticator app, or one of your backup codes."
+          : data.webauthn
+            ? "This account has two-factor authentication on. Use your security key, or enter one of your backup codes."
+            : "This account has two-factor authentication on. Enter one of your backup codes.";
+        if (!$("mfa-code-field").hidden) $("mfa-code").focus();
+      };
+
+      const finishMfa = async (button, method, code) => {
+        const error = $("mfa-error");
+        const { ok, data } = await send(button, { login: credentials.login, password: credentials.password, ticket: challenge.ticket, method, code });
+        if (!ok || data?.mfa) {
+          const text = data?.code === 60008 || data?.code === 60006 ? "That code didn't work. Check it and try again." : errorText(data, "That code didn't work. Try again.");
+          if (data?.code === 60006 || data?.mfa) {
+            const again = await send(button, { login: credentials.login, password: credentials.password });
+            if (again.data?.mfa) challenge = again.data;
+          }
+          return showError(error, text, [$("mfa-code")]);
+        }
+        showError(error, "", [$("mfa-code")]);
+        $("mfa").hidden = true;
+        credentials.appeal_ticket = data.appeal_ticket;
+        render(data);
+      };
+
+      $("mfa").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const field = $("mfa-code");
+        const code = field.value.replace(/\s+/g, "");
+        if (!code) return showError($("mfa-error"), "Enter a code.", [field]);
+        await finishMfa($("mfa-button"), /^\d{6}$/.test(code) && challenge.totp ? "totp" : "backup", code);
+      });
+
+      $("mfa-key").addEventListener("click", async () => {
+        const { publicKey } = JSON.parse(challenge.webauthn);
+        try {
+          const credential = await navigator.credentials.get({
+            publicKey: {
+              ...publicKey,
+              challenge: fromB64url(publicKey.challenge),
+              allowCredentials: publicKey.allowCredentials.map((key) => ({ ...key, id: fromB64url(key.id) })),
+            },
+          });
+          const { response } = credential;
+          await finishMfa(
+            $("mfa-key"),
+            "webauthn",
+            JSON.stringify({
+              id: credential.id,
+              rawId: b64url(credential.rawId),
+              type: credential.type,
+              response: {
+                clientDataJSON: b64url(response.clientDataJSON),
+                authenticatorData: b64url(response.authenticatorData),
+                signature: b64url(response.signature),
+                userHandle: response.userHandle ? b64url(response.userHandle) : null,
+              },
+            }),
+          );
+        } catch {
+          showError($("mfa-error"), "The security key didn't respond. Try again or use a backup code.", [$("mfa-code")]);
+        }
+      });
+
+      $("check").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const login = $("login");
+        const password = $("password");
+        const error = $("login-error");
+        const missing = [login, password].filter((field) => !field.value.trim());
+        if (missing.length) return showError(error, "Enter your email or username and your password.", missing);
+        showError(error, "", [login, password]);
+        const { ok, data } = await send($("check-button"), { login: login.value.trim(), password: password.value });
+        if (!ok) return showError(error, errorText(data, "Something went wrong. Try again."), [login, password]);
+        credentials.login = login.value.trim();
+        credentials.password = password.value;
+        credentials.appeal_ticket = "";
+        $("result").hidden = true;
+        $("appeal").hidden = true;
+        if (data?.mfa) return askForMfa(data);
+        $("mfa").hidden = true;
+        credentials.appeal_ticket = data.appeal_ticket;
+        render(data);
+      });
+
+      $("message").addEventListener("input", () => {
+        $("count").textContent = `${$("message").value.length} / 1000`;
+      });
+
+      $("appeal").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const message = $("message");
+        const error = $("message-error");
+        if (!message.value.trim()) return showError(error, "Write a message for the moderators.", [message]);
+        showError(error, "", [message]);
+        const { ok, data } = await send($("appeal-button"), { ...credentials, message: message.value.trim() });
+        if (!ok) return showError(error, errorText(data, "Your appeal didn't send. Try again."), [message]);
+        render(data);
+      });
+    </script>
+  </body>
+</html>

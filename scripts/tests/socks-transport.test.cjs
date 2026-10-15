@@ -139,6 +139,7 @@ const loadPublicNetwork = () => {
         "node:https": { request: () => assert.fail("direct request") },
         "../Config": { Config: { get: () => ({ security: { allowPrivateNetworkRequests: false } }) } },
         "./SocksTransport": transport,
+        "./PublicFetchError": require("../../src/util/util/networking/PublicFetchError.ts"),
     };
     vm.runInNewContext(
         ts.transpileModule(fs.readFileSync("src/util/util/networking/PublicNetwork.ts", "utf8"), {
@@ -186,5 +187,43 @@ test("fetchPublicUrl sends public requests through the proxy and refuses them wi
     } finally {
         if (previous === undefined) delete process.env.PUBLIC_FETCH_PROXY;
         else process.env.PUBLIC_FETCH_PROXY = previous;
+    }
+});
+
+test("publicTunnel carries the voice websocket of another instance through the proxy", async () => {
+    const previous = process.env.PUBLIC_FETCH_PROXY;
+    const { WebSocketServer } = require("ws");
+    const path = require("node:path");
+    const WebSocket = require(path.join(path.dirname(require.resolve("ws/package.json")), "lib", "websocket.js"));
+    const upstream = http.createServer();
+    const sockets = new WebSocketServer({ server: upstream });
+    sockets.on("connection", (socket, request) => socket.on("message", (data) => socket.send(`${request.headers.host} ${request.url} ${data}`)));
+    const upstreamPort = await listen(upstream);
+    const socks = await socksServer(upstreamPort);
+    try {
+        const { publicTunnel } = loadPublicNetwork();
+        process.env.PUBLIC_FETCH_PROXY = `socks5://127.0.0.1:${socks.port}`;
+        const url = new URL("ws://example.com/federation/v2/voice?v=8");
+        const tunnel = await publicTunnel(url, AbortSignal.timeout(5000));
+        assert.ok(tunnel);
+        const client = new WebSocket(url.href, { createConnection: () => tunnel });
+        const reply = await new Promise((resolve, reject) => {
+            client.on("open", () => client.send("hello"));
+            client.on("message", (data) => resolve(String(data)));
+            client.on("error", reject);
+        });
+        client.close();
+        assert.equal(reply, "example.com /federation/v2/voice?v=8 hello");
+        assert.deepEqual(socks.targets, [{ type: 1, address: "93.184.216.34", port: 80 }]);
+        process.env.PUBLIC_FETCH_PROXY = "direct";
+        assert.equal(await publicTunnel(url, AbortSignal.timeout(5000)), null);
+        delete process.env.PUBLIC_FETCH_PROXY;
+        await assert.rejects(publicTunnel(url, AbortSignal.timeout(5000)), /PUBLIC_FETCH_PROXY is not set/);
+    } finally {
+        if (previous === undefined) delete process.env.PUBLIC_FETCH_PROXY;
+        else process.env.PUBLIC_FETCH_PROXY = previous;
+        sockets.close();
+        upstream.close();
+        socks.server.close();
     }
 });

@@ -54,6 +54,9 @@ export class CloudAttachment extends BaseClass {
     @Column({ name: "content_type", nullable: true })
     contentType?: string;
 
+    @Column({ name: "content_hash", type: "varchar", nullable: true })
+    contentHash?: string | null;
+
     // @BeforeRemove()
     // onDelete() {
     // 	return deleteFile(new URL(this.url).pathname);

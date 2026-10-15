@@ -3,7 +3,12 @@ import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { Config } from "@spacebar/util";
 import { AdminAutomodTestSchema } from "@spacebar/schemas";
-import { instanceAutomodMatch } from "@spacebar/api/util";
+import { describeScam, instanceAutomodMatch, isIpCapExempt, ownHosts, scamMatchFor, signupTracker } from "@spacebar/api/util";
+import { countSpamMentions, hasEveryoneMention } from "@spacebar/util/util/SpamDetector";
+import { quarantineViolation } from "@spacebar/util/util/Quarantine";
+import { explicitReason } from "@spacebar/util/util/GuildVerification";
+import { emailDomainOf, isDeniedEmail, isDisposableEmail } from "@spacebar/util/util/SignupSignals";
+import { ipGroup } from "@spacebar/util/util/IpGroups";
 import { findIdentityNameBlock } from "@spacebar/util/util/IdentityModeration";
 import { AutomodMatch, redactExcerpt } from "@spacebar/util/util/SlurMatcher";
 
@@ -26,16 +31,48 @@ const describe = (match: AutomodMatch | null) => {
 router.post(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_MODERATION",
         spacebarOnly: true,
         requestBody: "AdminAutomodTestSchema",
-        description: "Check text against the saved automod rules without acting on it",
+        description:
+            "Check text against every saved automod rule without acting on it: word lists, names, scam links for new and older accounts, mention spam, the new account quarantine and explicit file names. Optional `email`, `username` and `ip` run the signup and address checks.",
     }),
     (req: Request, res: Response) => {
-        const { text } = req.body as AdminAutomodTestSchema;
+        const { text, email, username, ip } = req.body as AdminAutomodTestSchema;
+        const { automod } = Config.get();
         const message = instanceAutomodMatch(text);
         const name = findIdentityNameBlock(text);
+        const scamFor = (ageDays: number) => {
+            const match = scamMatchFor(text, Date.now() - ageDays * 24 * 60 * 60 * 1000);
+            return match
+                ? { kind: match.kind, host: match.host ?? null, brand: match.brand ?? null, reason: match.reason, summary: describeScam(match), action: automod.scam.action }
+                : null;
+        };
+        const mentions = countSpamMentions(text);
+        const group = ip ? ipGroup(ip) : null;
         res.json({
+            scam: { enabled: automod.scam.enabled, new_account: automod.scam.enabled ? scamFor(0) : null, older_account: automod.scam.enabled ? scamFor(365) : null },
+            mentions: {
+                count: mentions,
+                everyone: hasEveryoneMention(text),
+                limit: automod.spam.mentions.messageLimit,
+                over_limit: automod.spam.mentions.enabled && mentions >= automod.spam.mentions.messageLimit,
+            },
+            quarantine: {
+                enabled: automod.quarantine.enabled,
+                hours: automod.quarantine.hours,
+                blocks: quarantineViolation({ content: text, ownHosts: ownHosts() }, automod.quarantine),
+            },
+            explicit_file_name: explicitReason({ filename: text }, automod.explicitContent),
+            email: email
+                ? {
+                      domain: emailDomainOf(email),
+                      denied: isDeniedEmail(email, automod.signup.deniedEmailDomains),
+                      disposable: isDisposableEmail(email, automod.signup.allowedEmailDomains),
+                  }
+                : null,
+            username: username ? { similar_recent_signups: signupTracker.similar({ username }, automod.signup).names, limit: automod.signup.similarNameLimit } : null,
+            ip: ip ? (group ? { group: group.key, exempt: isIpCapExempt(group.ip) } : { error: "not an IP address" }) : null,
             message: describe(message),
             name: name ? { rule: name.rule, list: name.list, term: name.term, matched: name.matched } : null,
             excerpt: redactExcerpt(text, message?.matched ?? name?.matched ?? undefined, 400),

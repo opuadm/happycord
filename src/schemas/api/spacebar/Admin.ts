@@ -135,6 +135,16 @@ export interface AdminSettingsUpdateSchema {
             passwordReset?: AdminCapChallengeSchema;
         };
     };
+    network?: {
+        /**
+         * Header that carries the client address, read only from trusted proxies and Cloudflare. Empty picks automatically.
+         */
+        forwardedFor?: "" | "X-Forwarded-For" | "CF-Connecting-IP" | "True-Client-IP" | "X-Real-IP" | "Fly-Client-IP" | null;
+        /**
+         * Express trust proxy value: comma separated addresses, ranges or loopback, linklocal and uniquelocal
+         */
+        trustedProxies?: string | null;
+    };
     rate?: {
         enabled?: boolean;
         ip?: AdminRateLimitSchema;
@@ -913,6 +923,15 @@ export interface AdminIpBanCreateSchema {
     reason?: string;
 }
 
+export interface AdminIpBanLiftSchema {
+    /**
+     * The address bans to lift, at most 100 per request. Each one also lifts the bans it spread.
+     * @minItems 1
+     * @maxItems 100
+     */
+    ban_ids: string[];
+}
+
 export interface AdminSessionsRevokeSchema {
     /**
      * The sessions to end; omit to end all of them
@@ -1037,6 +1056,10 @@ export interface AdminResourceLimitsSchema {
          * @maximum 2147483647
          * @TJS-type integer */
         maxGroupDmRecipients?: number;
+        /** @minimum 1
+         * @maximum 2147483647
+         * @TJS-type integer */
+        maxStaffGroupDmRecipients?: number;
     };
 }
 

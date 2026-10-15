@@ -11,8 +11,10 @@ import {
     SpacebarApiErrors,
     getPermission,
     getRights,
+    effectiveRights,
 } from "@spacebar/util";
 import { Channel } from "@spacebar/database";
+import { watchStaffRequest } from "../util/utility/staffAudit";
 import { AnyValidateFunction } from "ajv/dist/core";
 import { NextFunction, Request, Response } from "express";
 import { ajv } from "@spacebar/schemas";
@@ -191,12 +193,13 @@ export function route(opts: RouteOptions) {
 
         if (opts.right) {
             const required = new Rights(opts.right);
-            req.rights = req.user?.id === req.user_id && req.user.rights !== undefined ? new Rights(req.user.rights) : await getRights(req.user_id);
+            req.rights = req.user?.id === req.user_id && req.user.rights !== undefined ? await effectiveRights(req.user_id, req.user.rights) : await getRights(req.user_id);
 
             if (!req.rights || !req.rights.has(required)) {
                 throw SpacebarApiErrors.MISSING_RIGHTS.withParams(opts.right as string);
             }
         }
+        if (req.isAuthenticated) watchStaffRequest(req, res, opts.right);
         bigNumberToString(req.body);
 
         if (validate && !ignoredRequestSchemas.includes(opts.requestBody!)) {

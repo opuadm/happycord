@@ -1,5 +1,5 @@
 import { Attachments, UploadRef } from "./attachments";
-import { E2eeError, Engine, errorText, FALLBACK_CONTENT, RawMessage } from "./engine";
+import { E2eeError, Engine, errorText, FALLBACK_CONTENT, mentionedIn, RawMessage } from "./engine";
 import { Payload, StickerMeta } from "./files";
 import { DispatchHandler, Dispatcher, FluxAction, GatewayStore, HttpCall, HttpClient, HttpMethod, HttpOptions, HttpResponse } from "./webpack";
 import { t } from "./i18n";
@@ -98,6 +98,10 @@ export const createHooks = (ctx: HookContext) => {
 
     const show = (message: RawMessage, payload: Payload) => {
         ctx.attachments.apply(message, payload);
+        const mentioned = mentionedIn(payload.content);
+        const replied = message.referenced_message?.author?.id;
+        if (Array.isArray(message.mentions)) message.mentions = message.mentions.filter((user) => mentioned.has(user?.id) || user?.id === replied);
+        if (/@(everyone|here)\b/.test(payload.content)) message.mention_everyone = true;
         // the official account's safety notices travel inside the encrypted payload; the native card draws from an embed
         // on the message, so it is rebuilt here. Anybody else's embeds are ignored, so a user can't fake a notice.
         if (payload.embeds?.length && message.author?.system === true) {

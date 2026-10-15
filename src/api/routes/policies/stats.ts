@@ -2,6 +2,7 @@ import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { Guild, Member, Message, User } from "@spacebar/database";
 import { Config, getRights } from "@spacebar/util";
+import { IsNull } from "typeorm";
 const router = Router({ mergeParams: true });
 
 router.get(
@@ -25,8 +26,8 @@ router.get(
 
         res.json({
             counts: {
-                user: await User.count(),
-                guild: await Guild.count(),
+                user: await User.count({ where: { federated_instance: IsNull() } }),
+                guild: await Guild.count({ where: { federated_instance: IsNull() } }),
                 message: await Message.count(),
                 members: await Member.count(),
             },

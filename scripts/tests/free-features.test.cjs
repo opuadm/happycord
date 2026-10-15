@@ -62,7 +62,7 @@ test("profile response keeps free feature entitlements and custom badges without
         },
         typeorm: { In: (x) => x },
         "@spacebar/api/middlewares": { route: (x) => x },
-        "@spacebar/api/util": { profileMetadata: () => ({ theme_colors: [123, 456] }) },
+        "@spacebar/api/util": { profileMetadata: () => ({ theme_colors: [123, 456] }), STAFF_BADGE_ID: "1", ensureStaffBadge: async () => ({ icon: "staff" }) },
         "@spacebar/database": {
             User: { createQueryBuilder: () => query },
             Member: { find: async () => [] },
@@ -74,7 +74,7 @@ test("profile response keeps free feature entitlements and custom badges without
             },
             Relationship: {},
         },
-        "@spacebar/util": {},
+        "@spacebar/util": { loadStaffRoles: async () => ({ roles: new Map(), members: new Map() }), staffBadgeRole: () => null, instanceName: () => "Meowcord" },
         "@spacebar/schemas": {},
         "@spacebar/api/util/utility/prideBadges": {
             prideBadges: () => [{ id: "8000000000000000001", icon: "pride_rainbow" }],

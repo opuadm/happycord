@@ -120,6 +120,7 @@ test("identity terms survive empty and reduced JSON and database configuration r
         let saved;
         const configContext = vm.createContext({
             DEFAULT_INSTANCE_NAME: require("../../src/util/config/types/ClientConfiguration.ts").DEFAULT_INSTANCE_NAME,
+            AUTOMOD_POLICY_KEYS: require("../../src/util/config/types/AutomodConfiguration.ts").AUTOMOD_POLICY_KEYS,
             process: { env: { CONFIG_PATH: "/fixture/config.json" }, stdout: { write() {} } },
             console: { log() {} },
             existsSync: () => true,

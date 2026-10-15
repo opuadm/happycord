@@ -355,6 +355,8 @@ export async function resyncMemberList(socket: WebSocket, guild_id: string) {
     if (!subscription) return;
     const channel = await Channel.findOne({ where: { id: subscription.channel_id, guild_id } });
     if (!channel) return void delete socket.member_lists![guild_id];
+    const permissions = await getPermission(socket.user_id, guild_id, channel.id).catch(() => undefined);
+    if (!permissions?.has("VIEW_CHANNEL")) return void delete socket.member_lists?.[guild_id];
     await subscribeMemberList(socket, guild_id, channel, subscription.ranges);
 }
 
@@ -388,13 +390,14 @@ export async function onLazyRequest(this: WebSocket, { d }: Payload) {
     }
 
     if (members) {
+        const requested = members.filter((x): x is string => typeof x === "string").slice(0, 100);
+        const ids =
+            requested.length && (await Member.exists({ where: { id: this.user_id, guild_id } }))
+                ? (await Member.find({ where: { guild_id, id: In(requested) }, select: { id: true } })).map((member) => member.id)
+                : [];
         this.presenceSubscriptions ??= {};
-        this.presenceSubscriptions[guild_id] = new Set(members.filter((x) => typeof x === "string").slice(0, 100));
-    }
-
-    if (members?.length) {
-        const ids = members.filter((x) => typeof x === "string").slice(0, 100);
-        const [presences, users] = await Promise.all([getUserPresences(ids), User.find({ where: { id: In(ids) } })]);
+        this.presenceSubscriptions[guild_id] = new Set(ids);
+        const [presences, users] = ids.length ? await Promise.all([getUserPresences(ids), User.find({ where: { id: In(ids) } })]) : [new Map<string, AggregatedPresence>(), []];
         for (const user of users) {
             const presence = presences.get(user.id);
             if (!presence) continue;

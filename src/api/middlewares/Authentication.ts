@@ -1,9 +1,21 @@
 import { NextFunction, Request, Response } from "express";
 import { Session, User } from "@spacebar/database";
 import { Random } from "@spacebar/extensions";
-import { checkOAuth2Token, checkToken, getClientPlatform, getClientPlatforms, isOAuth2AccessToken, Rights, UserTokenData } from "@spacebar/util";
+import {
+    checkOAuth2Token,
+    checkToken,
+    federationRelaySecret,
+    getClientPlatform,
+    getClientPlatforms,
+    isOAuth2AccessToken,
+    relayApiPath,
+    relayLoopbackAllowed,
+    effectiveRights,
+    Rights,
+    UserTokenData,
+} from "@spacebar/util";
 import { storageOwnership } from "../../cdn/util/storageOwnership";
-import { CORS } from "./CORS";
+import { CORS, isInstanceOrigin } from "./CORS";
 
 declare global {
     // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -19,6 +31,7 @@ declare global {
             fingerprint?: string;
             isAuthenticated: boolean;
             oauth2?: UserTokenData["oauth2"];
+            federationRelay?: boolean;
         }
     }
 }
@@ -50,10 +63,24 @@ export async function handleAuthentication(req: Request) {
     }
 
     try {
-        const options = { ipAddress: req.ip, fingerprint: req.fingerprint };
+        const relayHeader = req.headers["x-meowcord-relay"];
+        req.federationRelay =
+            typeof relayHeader === "string" && relayHeader === federationRelaySecret() && ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress ?? "");
+        const foreignOrigin = !!req.headers.origin && !isInstanceOrigin(req, req.headers.origin);
+        const sentFingerprint = !!req.fingerprint && !!req.headers.cookie?.split("; ").includes(`__sb_sessid=${req.fingerprint}`);
+        const options = {
+            ipAddress: req.ip,
+            fingerprint: foreignOrigin || !sentFingerprint ? undefined : req.fingerprint,
+            federationRelay: req.federationRelay,
+            propagateBans: !foreignOrigin,
+        };
         const { decoded, user, session, oauth2 } = (req.tokenData = isOAuth2AccessToken(req.headers.authorization)
             ? await checkOAuth2Token(req.headers.authorization, options)
             : await checkToken(req.headers.authorization, options));
+        if (user.federated_instance) {
+            const path = relayApiPath(req.originalUrl.split("?")[0]);
+            if (!req.federationRelay || !path || !relayLoopbackAllowed(req.method, path)) throw new Error("A shadow user's relay token can't reach this route");
+        }
 
         req.token = decoded;
         req.user_id = decoded.id;
@@ -61,7 +88,7 @@ export async function handleAuthentication(req: Request) {
         req.user = user;
         req.session = session;
         req.oauth2 = oauth2;
-        req.rights = new Rights(user.rights);
+        req.rights = await effectiveRights(user.id, user.rights);
         req.isAuthenticated = true;
 
         const superProperties = req.headers["x-super-properties"];

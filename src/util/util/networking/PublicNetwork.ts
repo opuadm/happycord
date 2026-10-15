@@ -3,7 +3,11 @@ import { BlockList, isIP } from "node:net";
 import { request as requestHttp, IncomingMessage } from "node:http";
 import { request as requestHttps } from "node:https";
 import { Config } from "../Config";
-import { outboundProxy, RawExchange, socksExchange } from "./SocksTransport";
+import type { Socket } from "node:net";
+import { outboundProxy, RawExchange, socksExchange, socksTunnel } from "./SocksTransport";
+import { PublicFetchError } from "./PublicFetchError";
+
+export * from "./PublicFetchError";
 
 const privateV4 = new BlockList();
 const privateV6 = new BlockList();
@@ -25,15 +29,18 @@ for (const [network, prefix] of [
 ] as const)
     privateV4.addSubnet(network, prefix, "ipv4");
 for (const [network, prefix] of [
-    ["::", 127],
+    ["::", 96],
     ["::ffff:0:0", 96],
+    ["::ffff:0:0:0", 96],
     ["64:ff9b::", 96],
+    ["64:ff9b:1::", 48],
     ["100::", 64],
     ["2001::", 23],
     ["2001:db8::", 32],
     ["2002::", 16],
     ["fc00::", 7],
     ["fe80::", 10],
+    ["fec0::", 10],
     ["ff00::", 8],
 ] as const)
     privateV6.addSubnet(network, prefix, "ipv6");
@@ -99,7 +106,46 @@ async function resolveFetchAddress(url: URL, signal: AbortSignal, trustedCdnOrig
         (!Config.get().security.allowPrivateNetworkRequests && !isTrustedCdnAsset(url, trustedCdnOrigin) && addresses.some(({ address }) => isPrivateAddress(address)))
     )
         throw new Error("Public URL resolves to a forbidden address");
-    return addresses[0];
+    return addresses;
+}
+
+const FAMILY_MEMORY = 10 * 60 * 1000;
+const workingFamily = new Map<string, { family: number; at: number }>();
+
+export const orderAddresses = <T extends { family: number }>(hostname: string, addresses: T[], now = Date.now()) => {
+    const known = workingFamily.get(hostname);
+    const first = known && now - known.at < FAMILY_MEMORY && addresses.some((address) => address.family === known.family) ? known.family : addresses[0]?.family;
+    const preferred = addresses.filter((address) => address.family === first);
+    const other = addresses.filter((address) => address.family !== first);
+    return Array.from({ length: Math.max(preferred.length, other.length) }, (_, i) => [preferred[i], other[i]])
+        .flat()
+        .filter((address): address is T => !!address);
+};
+
+export const rememberFamily = (hostname: string, family: number, now = Date.now()) => {
+    if (workingFamily.size > 10_000) workingFamily.clear();
+    workingFamily.set(hostname, { family, at: now });
+};
+
+const unreachable = (error: unknown) =>
+    ["ECONNREFUSED", "ENETUNREACH", "EHOSTUNREACH", "EADDRNOTAVAIL", "ETIMEDOUT"].includes((error as NodeJS.ErrnoException)?.code ?? "") ||
+    /could not reach the host \(code [345]\)/.test(String(error));
+
+export async function publicTunnel(url: URL, signal: AbortSignal): Promise<Socket | null> {
+    const target = new URL(url.href);
+    if (target.protocol === "ws:" || target.protocol === "wss:") target.protocol = target.protocol === "wss:" ? "https:" : "http:";
+    const addresses = await resolveFetchAddress(target, signal);
+    const proxy = outboundProxy();
+    for (const [index, { address }] of addresses.entries()) {
+        if (isPrivateAddress(address) || proxy === "direct") return null;
+        if (!proxy) throw new Error("PUBLIC_FETCH_PROXY is not set, so connections to other instances are refused");
+        try {
+            return await socksTunnel(proxy, url, address, signal);
+        } catch (error) {
+            if (index === addresses.length - 1 || signal.aborted || !unreachable(error)) throw error;
+        }
+    }
+    throw new Error("Public URL has no reachable address");
 }
 
 async function readPublicResponse(response: IncomingMessage, maxBytes: number, method: string) {
@@ -170,7 +216,7 @@ export async function fetchPublicUrl(url: string, init: RequestInit = {}, redire
         });
     const requestUrl = async (target: URL, remaining: number, method: string, headers: Headers, payload?: Buffer): Promise<Response> => {
         if (limits.allowExternal === false && !isTrustedCdnAsset(target, limits.trustedCdnOrigin)) throw new Error("External public requests are disabled");
-        const address = await resolveFetchAddress(target, signal, limits.trustedCdnOrigin);
+        const addresses = await resolveFetchAddress(target, signal, limits.trustedCdnOrigin);
         const outgoing = Object.fromEntries(headers.entries());
         outgoing["accept-encoding"] = "identity";
         delete outgoing.host;
@@ -178,12 +224,24 @@ export async function fetchPublicUrl(url: string, init: RequestInit = {}, redire
         delete outgoing["transfer-encoding"];
         delete outgoing["content-length"];
         if (payload) outgoing["content-length"] = String(payload.length);
-        const viaProxy = !isTrustedCdnAsset(target, limits.trustedCdnOrigin) && !isPrivateAddress(address.address) && proxy !== "direct";
-        if (viaProxy && !proxy) throw new Error("PUBLIC_FETCH_PROXY is not set, so requests to user-chosen URLs are refused");
-        const exchange =
-            viaProxy && proxy
-                ? await socksExchange(proxy, target, address.address, method, outgoing, payload, signal, maxBytes)
-                : await exchangeDirect(target, address, method, outgoing, payload);
+        const exchange = await (async () => {
+            const ordered = orderAddresses(target.hostname, addresses);
+            for (const [index, address] of ordered.entries()) {
+                const viaProxy = !isTrustedCdnAsset(target, limits.trustedCdnOrigin) && !isPrivateAddress(address.address) && proxy !== "direct";
+                if (viaProxy && !proxy) throw new Error("PUBLIC_FETCH_PROXY is not set, so requests to user-chosen URLs are refused");
+                try {
+                    const result =
+                        viaProxy && proxy
+                            ? await socksExchange(proxy, target, address.address, method, outgoing, payload, signal, maxBytes)
+                            : await exchangeDirect(target, address, method, outgoing, payload);
+                    rememberFamily(target.hostname, address.family);
+                    return result;
+                } catch (error) {
+                    if (index === ordered.length - 1 || signal.aborted || !unreachable(error)) throw error;
+                }
+            }
+            throw new Error("Public URL has no reachable address");
+        })();
         const location = exchange.headers.find(([name]) => name === "location")?.[1];
         if ([301, 302, 303, 307, 308].includes(exchange.status) && location && init.redirect !== "manual") {
             if (init.redirect === "error") throw new Error("Public redirect refused");
@@ -207,9 +265,20 @@ export async function fetchPublicUrl(url: string, init: RequestInit = {}, redire
         });
         return result;
     };
+    let stop = () => {};
+    const deadline = new Promise<never>((_, reject) => {
+        stop = () => controller.signal.removeEventListener("abort", expire);
+        const expire = () => reject(new PublicFetchError("timeout", `${new URL(url).host} didn't answer within ${Math.round(timeoutMs / 1000)} seconds`));
+        controller.signal.addEventListener("abort", expire, { once: true });
+    });
     try {
-        return await requestUrl(new URL(url), redirects, (init.method ?? "GET").toUpperCase(), new Headers(init.headers), body);
+        return await Promise.race([requestUrl(new URL(url), redirects, (init.method ?? "GET").toUpperCase(), new Headers(init.headers), body), deadline]);
+    } catch (error) {
+        if (controller.signal.aborted && !init.signal?.aborted && !(error instanceof PublicFetchError))
+            throw new PublicFetchError("timeout", `${new URL(url).host} didn't answer within ${Math.round(timeoutMs / 1000)} seconds`, error);
+        throw error;
     } finally {
+        stop();
         clearTimeout(timer);
     }
 }

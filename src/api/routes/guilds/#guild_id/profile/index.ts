@@ -1,7 +1,7 @@
 import { assertIdentityNameAllowed } from "@spacebar/util/util/IdentityModeration";
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
-import { profileMetadata, resolveProfileCollectibles } from "@spacebar/api/util";
+import { noteRightsBypass, profileMetadata, resolveProfileCollectibles } from "@spacebar/api/util";
 import { Member } from "@spacebar/database";
 import { Config, emitEvent, FieldErrors, getPermission, getRights, GuildMemberUpdateEvent, handleFile, Permissions } from "@spacebar/util";
 import { MemberChangeProfileSchema } from "@spacebar/schemas";
@@ -38,6 +38,7 @@ router.patch(
             if (Object.keys(body).length !== 1 || !body.nick) {
                 const rights = await getRights(req.user_id);
                 rights.hasThrow("MANAGE_USERS");
+                await noteRightsBypass(req, "MANAGE_USERS", member_id);
             } else {
                 permission.hasThrow(Permissions.FLAGS.MANAGE_NICKNAMES);
             }

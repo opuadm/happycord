@@ -3,7 +3,8 @@ import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { InstanceInvite, User } from "@spacebar/database";
 import { AdminUserInvitesUpdateSchema } from "@spacebar/schemas";
-import { adminInviteRows, branchBelowUser, inviteChainAbove, inviteTreeBelow, inviteUserSummaries, setBonusInvites, userInviteQuota } from "@spacebar/api/util";
+import { assertShadowUserEditable } from "@spacebar/api/util/utility/federatedAdmin";
+import { adminInviteRows, assertCanActOnUser, branchBelowUser, inviteChainAbove, inviteTreeBelow, inviteUserSummaries, setBonusInvites, userInviteQuota } from "@spacebar/api/util";
 
 const router = Router({ mergeParams: true });
 
@@ -38,7 +39,7 @@ const inviteOverview = async (userId: string) => {
 router.get(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_USERS",
         spacebarOnly: true,
         description: "Who invited a user, the invites they made, everyone below them in the invite tree and how many invites they have left",
     }),
@@ -57,7 +58,8 @@ router.patch(
     }),
     async (req: Request, res: Response) => {
         const userId = String(req.params.user_id);
-        await User.findOneOrFail({ where: { id: userId }, select: { id: true } });
+        assertShadowUserEditable(await User.findOneOrFail({ where: { id: userId }, select: { id: true, federated_instance: true } }), ["instance invites"]);
+        await assertCanActOnUser(req, userId);
         await setBonusInvites(userId, (req.body as AdminUserInvitesUpdateSchema).bonus_invites);
         res.json(await inviteOverview(userId));
     },

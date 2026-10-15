@@ -1,6 +1,7 @@
 import { Request, Response, Router } from "express";
 import { HTTPError } from "lambert-server/HTTPError";
 import { route } from "@spacebar/api/middlewares";
+import { noteRightsBypass } from "@spacebar/api/util";
 import { AuditLog, Channel, Message } from "@spacebar/database";
 import { Config, emitEvent, FieldErrors, getPermission, getRights, MessageDeleteBulkEvent } from "@spacebar/util";
 import { In } from "typeorm";
@@ -50,6 +51,7 @@ router.post(
                 },
             });
         if (!superuser) permission.hasThrow("MANAGE_MESSAGES");
+        else if (!permission.has("MANAGE_MESSAGES")) await noteRightsBypass(req, "MANAGE_MESSAGES");
 
         const messageIdsInChannel = (
             await Message.find({

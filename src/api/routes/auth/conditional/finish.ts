@@ -1,6 +1,6 @@
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
-import { MfaInvalidTicket, ResponseError, findCredential, readTicket, verifyAssertion } from "@spacebar/api/util";
+import { MfaInvalidTicket, ResponseError, findCredential, guardedMfaAttempt, readTicket, verifyAssertion } from "@spacebar/api/util";
 import { User } from "@spacebar/database";
 import { generateToken } from "@spacebar/util";
 
@@ -12,7 +12,8 @@ router.post("/", route({ authentication: "never", spacebarOnly: false }), async 
     if (!decoded?.ch || !decoded.origin) throw MfaInvalidTicket();
 
     const key = await findCredential(credential);
-    if (!key || !(await verifyAssertion(credential, decoded.ch, decoded.origin, key))) throw new ResponseError(400, { message: "Invalid passkey", code: 60008 });
+    if (!key || !(await guardedMfaAttempt(ticket!, () => verifyAssertion(credential, decoded.ch!, decoded.origin!, key, true))))
+        throw new ResponseError(400, { message: "Invalid passkey", code: 60008 });
 
     const user = await User.findOneOrFail({
         where: { id: key.user_id },

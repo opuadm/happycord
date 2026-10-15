@@ -71,6 +71,9 @@ router.post("/", route({}), async (req: Request, res: Response) => {
         options?: { type: number; value?: unknown }[];
     };
 
+    if (typeof body.application_id !== "string") throw DiscordApiErrors.UNKNOWN_APPLICATION;
+    if (typeof body.channel_id !== "string") throw DiscordApiErrors.UNKNOWN_CHANNEL;
+
     if (body.type === InteractionType.ApplicationCommand && typeof data.id === "string") {
         const entryPoint = await ApplicationCommand.findOne({
             where: {

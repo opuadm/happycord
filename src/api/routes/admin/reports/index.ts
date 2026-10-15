@@ -10,7 +10,7 @@ const STATUSES = ["open", "resolved", "dismissed"];
 router.get(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_MODERATION",
         spacebarOnly: true,
         description: "The report queue, newest first. `status` is open, resolved, dismissed or all.",
         query: {

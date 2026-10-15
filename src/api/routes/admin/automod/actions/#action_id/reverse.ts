@@ -11,7 +11,7 @@ const router = Router({ mergeParams: true });
 router.post(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "MODERATE_USERS",
         spacebarOnly: true,
         requestBody: "AdminAutomodReverseSchema",
         description:
@@ -22,6 +22,7 @@ router.post(
         const entry = await AutomodAction.findOne({ where: { id: req.params.action_id as string } });
         if (!entry) throw new HTTPError("Unknown automod action", 404);
         if (entry.reversed) throw new HTTPError("This action was already reversed", 400);
+        if (entry.confirmed_at) throw new HTTPError("This action was confirmed, so it can't be undone from the review queue", 400);
         await reverseAutomodAction(entry, req.user_id, reversal);
         res.sendStatus(204);
     },

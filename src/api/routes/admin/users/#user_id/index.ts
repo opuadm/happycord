@@ -2,8 +2,9 @@ import { assertIdentityNameAllowed } from "@spacebar/util/util/IdentityModeratio
 import { Request, Response, Router } from "express";
 import { HTTPError } from "lambert-server/HTTPError";
 import { route } from "@spacebar/api/middlewares";
-import { Badge, Guild, InstanceBan, Member, Session, User } from "@spacebar/database";
+import { Badge, FederatedObject, Guild, InstanceBan, Member, Session, User } from "@spacebar/database";
 import { broadcastUserUpdate, Collectibles, CollectibleItemType, Config, emitEvent, emitRequiredAction, FieldErrors, handleFile, Rights, UserUpdateEvent } from "@spacebar/util";
+import type { RightString } from "@spacebar/util";
 import { AccountStandingState, AdminUserUpdateSchema, PrivateUserProjection } from "@spacebar/schemas";
 import { In, Not } from "typeorm";
 import {
@@ -16,10 +17,21 @@ import {
     normalizeIp,
     notifyStandingDrop,
     syncStaffBadge,
+    withStaffDisabled,
 } from "@spacebar/api/util";
-import { ADMIN_USER_COLUMNS, applyUserTag, pickAdminUser } from "../index";
+import { assertShadowUserEditable, SHADOW_USER_LOCAL_FIELDS } from "@spacebar/api/util/utility/federatedAdmin";
+import { ADMIN_USER_COLUMNS, applyUserTag, assertCanManage, pickAdminUser } from "../index";
 
 const router = Router({ mergeParams: true });
+
+export const ADMIN_USER_FIELD_RIGHTS: Record<string, RightString> = {
+    disabled: "MODERATE_USERS",
+    suspended_until: "MODERATE_USERS",
+    account_standing: "MODERATE_USERS",
+    join_status: "MODERATE_USERS",
+    verified: "SUPPORT_USERS",
+    rights: "OPERATOR",
+};
 
 const loadUser = (id: string) =>
     User.findOneOrFail({
@@ -44,7 +56,7 @@ const loadUser = (id: string) =>
 router.get(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_USERS",
         spacebarOnly: true,
         description: "Get a user with their servers, session count and instance bans",
     }),
@@ -61,10 +73,11 @@ router.get(
                   select: { id: true, name: true, icon: true, owner_id: true },
               })
             : [];
-        const [sessions, bans, registration] = await Promise.all([
+        const [sessions, bans, registration, federated] = await Promise.all([
             Session.find({ where: { user_id: user.id }, select: { session_id: true, last_seen_ip: true, last_seen: true, created_at: true } }),
             InstanceBan.find({ where: { user_id: user.id } }),
             User.findOne({ where: { id: user.id }, select: { id: true, registration_ip: true } }),
+            user.federated_instance ? FederatedObject.findOne({ where: { local_id: user.id }, select: { local_id: true, canonical: true } }) : null,
         ]);
         const registrationIp = normalizeIp(registration?.registration_ip);
         const seen = new Map<string, { ip: string; sessions: number; last_seen: Date | null; registration: boolean }>();
@@ -108,7 +121,8 @@ router.get(
                     accounts: byIp.get(entry.ip)?.accounts ?? 1,
                     ban_id: byIp.get(entry.ip)?.ban_id ?? null,
                 })),
-            instance_bans: bans.map((b) => ({ id: b.id, reason: b.reason, created_at: b.created_at })),
+            instance_bans: bans.map((b) => ({ id: b.id, reason: b.reason, created_at: b.created_at, spread: b.is_from_other_instance_ban, ip: b.ip_address ?? null })),
+            canonical: federated?.canonical ?? null,
         });
     },
 );
@@ -116,13 +130,16 @@ router.get(
 router.patch(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_USERS",
         spacebarOnly: true,
         requestBody: "AdminUserUpdateSchema",
-        description: "Edit a user. Changing rights, or editing an operator, requires OPERATOR.",
+        description:
+            "Edit a user. Profile fields need MANAGE_USERS, `disabled`, `suspended_until`, `account_standing` and `join_status` need MODERATE_USERS, `verified` needs SUPPORT_USERS and `rights` needs OPERATOR. Staff at or above your own role can't be edited.",
     }),
     async (req: Request, res: Response) => {
         const body = req.body as AdminUserUpdateSchema;
+        const missing = [...new Set(Object.keys(body).map((field) => ADMIN_USER_FIELD_RIGHTS[field] ?? "MANAGE_USERS"))].filter((right) => !req.rights.has(right));
+        if (missing.length) throw new HTTPError(`You are missing the following rights ${missing.join(", ")}`, 403);
         const user = await loadUser(req.params.user_id as string);
         const callerIsOperator = req.rights.has("OPERATOR");
         const targetIsOperator = new Rights(user.rights).has("OPERATOR");
@@ -130,6 +147,12 @@ router.patch(
         const hadAdminAccess = hasAdminPanelAccess(user.rights);
 
         if (targetIsOperator && !callerIsOperator && !isSelf) throw new HTTPError("Only operators can edit other operators", 403);
+        assertCanManage(req, user);
+        assertShadowUserEditable(
+            user,
+            Object.keys(body).filter((key) => body[key as keyof AdminUserUpdateSchema] !== undefined),
+            SHADOW_USER_LOCAL_FIELDS,
+        );
         if (isSelf && (body.disabled || body.account_standing === AccountStandingState.SUSPENDED)) throw new HTTPError("You can't disable or suspend your own account", 400);
 
         // only some columns are loaded, and the entity has class-level defaults (system, mfa_enabled, ...) for the rest,
@@ -253,7 +276,10 @@ router.patch(
                 });
             set("bio", body.bio);
         }
-        if (body.disabled !== undefined) set("disabled", body.disabled);
+        if (body.disabled !== undefined) {
+            set("disabled", body.disabled);
+            set("flags", withStaffDisabled(user.flags, body.disabled));
+        }
         if (body.suspended_until !== undefined) {
             const until = body.suspended_until === null ? null : new Date(body.suspended_until);
             if (until && (Number.isNaN(until.getTime()) || isSelf)) throw new HTTPError("Choose a valid suspension end, and don't suspend yourself", 400);

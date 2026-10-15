@@ -18,6 +18,7 @@ function gate(options, { requireVerification = true } = {}) {
         "@spacebar/database": {},
         "@spacebar/schemas": { ajv: {} },
         "bignumber.js": { BigNumber: class {} },
+        "../util/utility/staffAudit": { watchStaffRequest: () => {} },
     };
     vm.runInNewContext(
         ts.transpileModule(fs.readFileSync("src/api/middlewares/Route.ts", "utf8"), {

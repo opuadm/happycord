@@ -2,7 +2,7 @@ import { assertIdentityNameAllowed } from "@spacebar/util/util/IdentityModeratio
 import { HTTPError } from "lambert-server/HTTPError";
 import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, Not, PrimaryGeneratedColumn } from "typeorm";
 import { Stopwatch } from "@spacebar/extensions";
-import { Config, emitEvent, DiscordApiErrors } from "@spacebar/util/util";
+import { Config, emitEvent, DiscordApiErrors, dropGuildTags } from "@spacebar/util/util";
 import {
     AvatarDecorationData,
     ChannelOverride,
@@ -228,6 +228,7 @@ export class Member extends BaseClassWithoutId {
 
         await Member.delete({ id: user_id, guild_id });
         await Promise.all([
+            dropGuildTags(guild_id, [user_id]).catch(() => undefined),
             Guild.decrement({ id: guild_id }, "member_count", 1),
             ...managedRoles.map(async (role) => {
                 await Role.delete({ id: role.id });

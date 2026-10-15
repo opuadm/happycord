@@ -1,6 +1,6 @@
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
-import { MfaInvalidCode, MfaInvalidTicket, guardedMfaAttempt, readTicket, verifyMfaMethod } from "@spacebar/api/util";
+import { MfaInvalidCode, MfaInvalidTicket, guardedMfaAttempt, isStaffDisabled, readTicket, verifyMfaMethod } from "@spacebar/api/util";
 import { User } from "@spacebar/database";
 import { generateToken } from "@spacebar/util";
 
@@ -16,9 +16,10 @@ router.post("/", route({ authentication: "never", spacebarOnly: false }), async 
 
     const user = await User.findOneOrFail({
         where: { id: decoded.uid },
-        select: { id: true, disabled: true, deleted: true },
+        select: { id: true, disabled: true, deleted: true, flags: true },
         relations: { settings: true },
     });
+    if (user.disabled && isStaffDisabled(user.flags)) throw MfaInvalidTicket();
     if (decoded.undelete && (user.disabled || user.deleted)) await User.update({ id: user.id }, { disabled: false, deleted: false });
 
     res.json({

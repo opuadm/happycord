@@ -3,6 +3,7 @@ import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
 import { HTTPError } from "lambert-server/HTTPError";
 import { Channel, Guild, Recipient, Relationship } from "@spacebar/database";
+import { checkContactSpam, enforceQuarantineDm } from "@spacebar/api/util";
 import { Config, DiscordApiErrors, DmChannelDTO, FieldErrors, getPermission } from "@spacebar/util";
 import { ChannelType, DmChannelCreateSchema, RelationshipType } from "@spacebar/schemas";
 
@@ -51,7 +52,8 @@ router.post(
         const body = req.body as DmChannelCreateSchema;
         const targets = body.recipients || (body.recipient_id ? [body.recipient_id] : []);
         // the creator is in the group too
-        const maxOthers = Config.get().limits.channel.maxGroupDmRecipients - 1;
+        const { maxGroupDmRecipients, maxStaffGroupDmRecipients } = Config.get().limits.channel;
+        const maxOthers = (req.rights?.has("BYPASS_RATE_LIMITS") ? Math.max(maxGroupDmRecipients, maxStaffGroupDmRecipients ?? 0) : maxGroupDmRecipients) - 1;
         if (new Set(targets.filter((id) => id !== req.user_id)).size > maxOthers)
             throw FieldErrors({
                 recipients: {
@@ -83,6 +85,14 @@ router.post(
                     if (!permission.has("KICK_MEMBERS") && !permission.has("BAN_MEMBERS") && !permission.has("MODERATE_MEMBERS") && !permission.has("MANAGE_GUILD"))
                         throw new HTTPError("Direct messages between members of this server are paused.", 403);
                 }
+            if (!friends && !existing.length) {
+                await checkContactSpam({ user_id: req.user_id, target_id: other, kind: "dm", rights: req.rights, federated: !!req.user?.federated_instance, account: req.user });
+                await enforceQuarantineDm({ user_id: req.user_id, federated: !!req.user?.federated_instance, rights: req.rights });
+            }
+        } else if (others.length > 1 && !req.user_bot) {
+            for (const target of others)
+                await checkContactSpam({ user_id: req.user_id, target_id: target, kind: "dm", rights: req.rights, federated: !!req.user?.federated_instance, account: req.user });
+            await enforceQuarantineDm({ user_id: req.user_id, federated: !!req.user?.federated_instance, rights: req.rights });
         }
         res.json(await Channel.createDMChannel(body.recipients || (body.recipient_id ? [body.recipient_id] : []), req.user_id, body.name));
     },

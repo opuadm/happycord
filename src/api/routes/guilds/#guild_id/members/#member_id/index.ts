@@ -20,7 +20,7 @@ import {
     Permissions,
     ReadyGuildDTO,
 } from "@spacebar/util";
-import { checkMemberProfile, onGuildMemberJoin } from "@spacebar/api/util";
+import { checkMemberProfile, noteRightsBypass, onGuildMemberJoin } from "@spacebar/api/util";
 import { AuditLogEvents, MemberChangeSchema, PublicMemberProjection, PublicUserProjection } from "@spacebar/schemas";
 
 const router = Router({ mergeParams: true });
@@ -218,6 +218,7 @@ router.patch(
         if (("bio" in body || "avatar" in body) && member_id != req.user_id) {
             const rights = await getRights(req.user_id);
             rights.hasThrow("MANAGE_USERS");
+            await noteRightsBypass(req, "MANAGE_USERS", member_id);
         }
 
         const {
@@ -455,7 +456,7 @@ router.put(
                     embedded_activities: [],
                     voice_states: full.voice_states.map((x) => x.toPublicVoiceState()),
                 },
-                ...(sessionId ? { session_id: sessionId } : { user_id: member_id }),
+                ...(sessionId ? { session_id: sessionId, session_user_id: member_id } : { user_id: member_id }),
             } satisfies GuildCreateEvent);
             return res.send({
                 ...guild,

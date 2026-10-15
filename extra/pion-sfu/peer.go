@@ -2,12 +2,25 @@ package main
 
 import (
 	"math/rand/v2"
+	"net"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/pion/webrtc/v4"
 )
+
+func selectedRemote(p *Peer) string {
+	if p.transport == nil {
+		return "unknown"
+	}
+	pair, err := p.transport.ICETransport().GetSelectedCandidatePair()
+	if err != nil || pair == nil {
+		return "unknown"
+	}
+	return net.JoinHostPort(pair.Remote.Address, strconv.Itoa(int(pair.Remote.Port)))
+}
 
 type Peer struct {
 	// unique clientId

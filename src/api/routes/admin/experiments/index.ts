@@ -1,4 +1,4 @@
-import { MoreThan } from "typeorm";
+import { IsNull, MoreThan } from "typeorm";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Request, Response, Router } from "express";
@@ -33,7 +33,7 @@ router.get(
             users: userExperiments ?? {},
             guilds: guildExperiments ?? {},
             rollouts: rolloutExperiments ?? {},
-            users_total: await User.count({ where: { bot: false } }),
+            users_total: await User.count({ where: { bot: false, federated_instance: IsNull() } }),
         });
     },
 );
@@ -141,7 +141,7 @@ router.get(
         const after = req.query.after;
         if (after !== undefined && (typeof after !== "string" || !/^\d{1,32}$/.test(after))) throw new HTTPError("Invalid user cursor", 400);
         const page = await User.find({
-            where: { bot: false, ...(after ? { id: MoreThan(after) } : {}) },
+            where: { bot: false, federated_instance: IsNull(), ...(after ? { id: MoreThan(after) } : {}) },
             select: { id: true, username: true, discriminator: true, global_name: true, avatar: true },
             order: { id: "ASC" },
             take: 2001,

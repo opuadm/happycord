@@ -7,6 +7,8 @@ import { AdminSettingsUpdateSchema } from "@spacebar/schemas";
 
 import { validateLoadingSvg, validateLoadingTips } from "@spacebar/util/util/LoadingScreen";
 
+import { isIP } from "node:net";
+
 const router = Router({ mergeParams: true });
 
 const pickRate = ({ count, window }: { count: number; window: number }) => ({ count, window });
@@ -72,6 +74,10 @@ const pickSettings = () => {
                     return [context === "password_reset" ? "passwordReset" : context, { count: challengeCount, size: challengeSize, difficulty: challengeDifficulty }];
                 }),
             ),
+        },
+        network: {
+            forwardedFor: security.forwardedFor ?? "",
+            trustedProxies: typeof security.trustedProxies === "string" ? security.trustedProxies : "",
         },
         rate: {
             enabled: limits.rate.enabled,
@@ -172,6 +178,24 @@ router.patch(
 
         assertVerificationRequiresEmail(body);
 
+        const network: Record<string, unknown> = {};
+        if (body.network?.forwardedFor !== undefined) network.forwardedFor = body.network.forwardedFor || null;
+        if (body.network?.trustedProxies !== undefined) {
+            const trusted = body.network.trustedProxies?.trim() || null;
+            if (trusted) {
+                const valid = (entry: string) => {
+                    if (["loopback", "linklocal", "uniquelocal"].includes(entry)) return true;
+                    const [address, prefix, extra] = entry.split("/");
+                    const family = isIP(address);
+                    if (!family || extra !== undefined) return false;
+                    return prefix === undefined || (/^\d{1,3}$/.test(prefix) && Number(prefix) <= (family === 4 ? 32 : 128));
+                };
+                if (!trusted.split(",").every((entry) => valid(entry.trim())))
+                    throw new HTTPError("Trusted proxies must be addresses, CIDR ranges or the names loopback, linklocal and uniquelocal, separated by commas", 400);
+            }
+            network.trustedProxies = trusted;
+        }
+
         const { login, register: registerRate, ...rate } = body.rate ?? {};
 
         // a list replaces the old one; merging would keep entries that were taken off it
@@ -193,7 +217,7 @@ router.patch(
             login: body.login ?? {},
             defaults: body.defaults ?? {},
             passwordReset: body.passwordReset ?? {},
-            security: { captcha },
+            security: { captcha, ...network },
             limits: {
                 ...body.limits,
                 rate: {

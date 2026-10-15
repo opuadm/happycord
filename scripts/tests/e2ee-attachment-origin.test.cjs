@@ -147,6 +147,16 @@ test("validated ciphertext URLs follow opened origin and preserve complete signe
         "https://chat.example:9999/attachments/10/30/opaque.bin",
     );
 });
+test("attachments of a conversation hosted on another instance are read through the home's media proxy", () => {
+    const { attachmentCiphertextUrl } = registry("https://home.example");
+    const proxied = "https://home.example/federation-media/host.example/attachments/77/30/opaque.bin?ex=1&hm=x";
+    assert.equal(attachmentCiphertextUrl(proxied, "10", "opaque.bin", "https://home.example", "@77@host.example"), proxied);
+    assert.equal(attachmentCiphertextUrl(proxied, "10", "opaque.bin", "https://home.example"), null);
+    assert.equal(attachmentCiphertextUrl(proxied, "10", "opaque.bin", "https://home.example", "@78@host.example"), null);
+    assert.equal(attachmentCiphertextUrl(proxied, "10", "opaque.bin", "https://home.example", "@77@other.example"), null);
+    assert.equal(attachmentCiphertextUrl(proxied, "77", "opaque.bin", "https://home.example"), null);
+    assert.equal(attachmentCiphertextUrl(proxied, "10", "other.bin", "https://home.example", "@77@host.example"), null);
+});
 test("actual attachment registry feeds normalized URL to actual service worker and decrypts identical bytes", async () => {
     for (const origin of ["https://chat.example:8443", "http://chat.example:8080"]) {
         const f = await fixture(origin),

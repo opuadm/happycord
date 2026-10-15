@@ -20,6 +20,12 @@ The server starts the SFU itself, restarts it if it exits, and connects to it on
 
 Without `PION_SFU_BIN` and with `PION_SFU_IPC` set, the server connects to an SFU started separately on that socket instead. When that SFU goes away, the server closes the running voice connections and keeps reconnecting until a new one listens. The SFU and the server must agree on `WRTC_PUBLIC_IP` and the port, which `WRTC_PORT_MIN` gives the server and `-port` gives the SFU. `WRTC_PUBLIC_IP` and `-ip` take an IPv4 address or a host name, which each side resolves to its IPv4 address once when it starts. `docker-compose.yml` at the repository root runs it this way, see `docs/self-hosting/deploy.md`.
 
+## TURN relay
+
+`turn.go` runs a TURN relay next to the SFU when `TURN_SECRET` is set and `TURN_PORT` isn't 0. It carries the media of users whose calls run on another instance's SFU, so that SFU only sees this instance's address. Credentials follow the TURN REST scheme: the username is `<expiry>:<peer IPv4>:<tag>` and the password is `base64(HMAC-SHA1(TURN_SECRET, username))`. The relay remembers the credential each client address authenticated with, and an allocation from that address may only create permissions for the IPv4 address in that username until it expires. The settings are `TURN_PORT` (3478, UDP and TCP), `TURN_LISTEN_IP` (0.0.0.0), `TURN_PUBLIC_IP` (the `-ip` address), `TURN_RELAY_PORT_MIN` and `TURN_RELAY_PORT_MAX` (49160 to 49200) and `TURN_REALM` (meowcord). When the relay can't start, the SFU logs `TURN disabled` and keeps serving calls. `go test ./...` runs a real allocation against it.
+
+When a peer connection connects, the SFU logs `Client <id> media from <address>` with the remote address of the selected ICE pair and sends it to the server as `remote` in the `connected` message.
+
 Changes from upstream: the IPC socket path is a flag (`-ipc`) so several servers can run on one machine, and pion logging defaults to warnings.
 
 ## Server mute, deafen and stage suppression

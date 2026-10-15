@@ -10,7 +10,7 @@ const router = Router({ mergeParams: true });
 router.get(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_USERS",
         spacebarOnly: true,
         description: "An instance invite with everyone who joined with it and how many accounts sit below it in the invite tree",
     }),

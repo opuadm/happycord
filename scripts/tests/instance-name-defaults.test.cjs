@@ -29,6 +29,7 @@ const { migrate } = sourceModule(
     "src/util/util/Config.ts",
     (name) => {
         if (name === "../config/types/ClientConfiguration") return client;
+        if (name === "../config/types/AutomodConfiguration") return require("../../src/util/config/types/AutomodConfiguration.ts");
         if (name === "../imports" || name === "../config" || name === "../../database/entities") return {};
         return require(name);
     },

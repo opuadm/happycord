@@ -1,25 +1,12 @@
 import { HTTPError } from "lambert-server/HTTPError";
 import { In, IsNull, LessThan, MoreThan } from "typeorm";
 import { createDecipheriv } from "node:crypto";
-import {
-    Application,
-    Channel,
-    E2eeDevice,
-    Guild,
-    GuildScheduledEvent,
-    Member,
-    Message,
-    Recipient,
-    Report,
-    ReportSnapshot,
-    StageInstance,
-    User,
-    UserViolation,
-} from "@spacebar/database";
+import { Application, Channel, Guild, GuildScheduledEvent, Member, Message, Recipient, Report, ReportSnapshot, StageInstance, User, UserViolation } from "@spacebar/database";
 import { ChannelType, CreateReportSchema, ReportMenuType } from "@spacebar/schemas";
 import { DiscordApiErrors, getPermission, getUrlSignature, NewUrlSignatureData } from "@spacebar/util";
 import { snapshotWidget } from "../handlers/ApplicationWidgets";
-import { verifyEd25519 } from "./e2ee";
+import { e2eeDevicesOf, verifyEd25519 } from "./e2ee";
+import { canonicalOf, localReferences } from "./federationIds";
 import { automodVerifiedReport } from "./instanceAutomod";
 
 import { getReportingMenu } from "./reportMenus";
@@ -60,14 +47,23 @@ const openEnvelope = async (message: Message, encodedKey: unknown): Promise<Open
     if (!envelope) return { verified: false };
     const key = typeof encodedKey === "string" && /^[\w-]{43}$/.test(encodedKey) ? Buffer.from(encodedKey, "base64url") : null;
     if (key?.length !== 32) return { verified: false, reason: "The reporter's client didn't share the key for this message." };
-    const device = await E2eeDevice.findOne({ where: { id: envelope.sender_device, user_id: message.author_id } });
+    const { author_id, channel_id } = message;
+    if (!author_id || !channel_id) return { verified: false, reason: "The message has no author." };
+    const device = (await e2eeDevicesOf([author_id], { channel_id })).find((candidate) => candidate.id === envelope.sender_device && candidate.user_id === author_id);
     if (!device) return { verified: false, reason: "The device that sent this message no longer exists." };
     if (device.revoked_at && message.timestamp && message.timestamp >= device.revoked_at) return { verified: false, reason: "This message was sent from a removed device." };
+    const ids = await (async () => {
+        if (envelope.v !== 2) return { channel: channel_id, author: author_id, mid: message.id };
+        const [channel, author, mid] = await Promise.all([canonicalOf(channel_id), canonicalOf(author_id), canonicalOf(message.id)]);
+        return { channel, author, mid };
+    })().catch(() => null);
+    if (!ids) return { verified: false, reason: "This message came from a conversation across instances, and this instance can't name it." };
+    if (envelope.mid && envelope.mid !== ids.mid) return { verified: false, reason: "The envelope belongs to another message." };
     const bind = envelope.mid ? `m:${envelope.mid}` : `n:${message.nonce ?? ""}`;
     const signed = [
         "fosscord-e2ee/v1/sig",
-        message.channel_id,
-        message.author_id,
+        ids.channel,
+        ids.author,
         bind,
         envelope.v,
         envelope.alg,
@@ -77,17 +73,19 @@ const openEnvelope = async (message: Message, encodedKey: unknown): Promise<Open
         envelope.ct,
         [...envelope.keys].sort((a, b) => (a.device_id < b.device_id ? -1 : 1)).map((k) => [k.user_id, k.device_id, k.prekey_id, k.enc, k.wrapped]),
         ...(envelope.backup ? [[...envelope.backup].sort((a, b) => (a.user_id < b.user_id ? -1 : 1)).map((b) => [b.user_id, b.enc, b.wrapped])] : []),
+        ...(envelope.mentions ? [{ mentions: [...envelope.mentions].sort() }] : []),
     ];
     if (!verifyEd25519(device.signing_key, JSON.stringify(signed), envelope.sig)) return { verified: false, reason: "The sender's signature on this message doesn't check out." };
     try {
         const sealed = Buffer.from(envelope.ct, "base64url");
         const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(envelope.iv, "base64url"));
-        decipher.setAAD(Buffer.from(`fosscord-e2ee/v1/msg\n${message.channel_id}\n${message.author_id}\n${envelope.sender_device}\n${bind}`));
+        decipher.setAAD(Buffer.from(`fosscord-e2ee/v1/msg\n${ids.channel}\n${ids.author}\n${envelope.sender_device}\n${bind}`));
         decipher.setAuthTag(sealed.subarray(-16));
         const payload = JSON.parse(Buffer.concat([decipher.update(sealed.subarray(0, -16)), decipher.final()]).toString("utf8"));
+        const text = typeof payload?.content === "string" ? payload.content : "";
         return {
             verified: true,
-            content: typeof payload?.content === "string" ? payload.content.slice(0, 4000) : "",
+            content: (envelope.v === 2 ? await localReferences(text) : text).slice(0, 4000),
             files: Array.isArray(payload?.attachments)
                 ? payload.attachments.flatMap((file: { filename?: unknown }) => (typeof file?.filename === "string" ? [file.filename.slice(0, 200)] : [])).slice(0, 10)
                 : [],

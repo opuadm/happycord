@@ -42,15 +42,17 @@ export function generateStreamKey(type: "guild" | "call", guildId: string | unde
 
 let callStateCleanup: Promise<void> | undefined;
 
-/**
- * Clears the voice states, Go Live streams, stage instances and open calls left by the last run. It runs once per process
- * and has to finish before any client connects: clients reconnect within seconds of a restart and set up their voice
- * states and streams again, and a wipe landing after that leaves people missing from calls and screenshares black.
- */
+const HOSTED_HERE = `NOT (COALESCE("guild_id" IN (SELECT "id" FROM "guilds" WHERE "federated_instance" IS NOT NULL), false) OR COALESCE("guild_id" IS NULL AND "channel_id" IN (SELECT "id" FROM "channels" WHERE "federated_instance" IS NOT NULL), false))`;
+
 export function clearCallStateOnStartup() {
     callStateCleanup ??= (async () => {
         console.log("[Gateway] Clearing voice states, streams and calls left from the last run...");
-        await Promise.all([VoiceState.clear(), Stream.createQueryBuilder().delete().execute(), StageInstances.clear(), PrivateCalls.endStaleCalls()]).then(
+        await Promise.all([
+            VoiceState.createQueryBuilder().delete().where(HOSTED_HERE).execute(),
+            Stream.createQueryBuilder().delete().execute(),
+            StageInstances.clear(),
+            PrivateCalls.endStaleCalls(),
+        ]).then(
             () => console.log("[Gateway] Cleared voice states, streams and calls"),
             (e) => console.error("[Gateway] Error clearing voice states, streams and calls on startup:", e),
         );

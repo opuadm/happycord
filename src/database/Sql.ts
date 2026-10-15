@@ -40,3 +40,4 @@ export function sqlZipArrays(columns: { parameter: string; type: string; name: s
             .join(" ")}) AS t`;
 }
 export const sqlReturning = (statement: string) => (isSqlite() ? statement : `WITH returned AS (${statement}) SELECT * FROM returned`);
+export const sqlJsonText = (column: string, key: string) => (isSqlite() ? `json_extract(${column}, '$.${key}')` : `(${column}->>'${key}')`);

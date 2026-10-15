@@ -41,6 +41,7 @@ function harness(remove) {
                     };
                 if (name === "typeorm") return { LessThanOrEqual: (date) => date };
                 if (name === "express") return {};
+                if (name === "node:net") return require("node:net");
                 throw Error(name);
             },
             setInterval: (run, delay) => {
@@ -60,6 +61,7 @@ function harness(remove) {
             clearInterval: (timer) => {
                 if (timer) timer.cancelled = true;
             },
+            process: { env: {} },
         },
     );
     return { start: () => module.exports.initRateLimits(app), lifecycle, timers, deletions, errors };

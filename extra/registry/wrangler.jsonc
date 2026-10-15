@@ -1,0 +1,26 @@
+{
+    "$schema": "./node_modules/wrangler/config-schema.json",
+    "name": "meowcord-registry",
+    "main": "src/index.js",
+    "compatibility_date": "2026-09-28",
+    "workers_dev": true,
+    "preview_urls": false,
+    "observability": { "enabled": true },
+    "triggers": { "crons": ["17 * * * *"] },
+    "d1_databases": [
+        {
+            "binding": "DB",
+            "database_name": "meowcord-registry",
+            "database_id": "b00aa7d3-9851-4c35-ac8f-b5ec77f3ebab",
+            "migrations_dir": "migrations"
+        }
+    ],
+    "vars": {
+        "OIDC_ISSUER": "https://id.estrogen.delivery",
+        "OIDC_CLIENT_ID": "v48LLh1pgt8flOZLtrpCUQ",
+        "ADMIN_GROUP": "admins",
+        "INSTANCES_JSON_URL": "https://raw.githubusercontent.com/meowcorded/meowcord/main/instances.json",
+        "REFRESH_BATCH": "8",
+        "ALLOW_PRIVATE_HOSTS": ""
+    }
+}

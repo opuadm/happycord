@@ -27,6 +27,7 @@ export async function sendAsset(res: Response, data: Buffer, name: string) {
 
 const inflight = new Map<string, Promise<Buffer | null>>();
 const unavailable = new Map<string, number>();
+let cacheWarned = false;
 
 export function fetchUpstreamAsset(path: string, url: string): Promise<Buffer | null> {
     const pending = inflight.get(path);
@@ -42,8 +43,12 @@ export function fetchUpstreamAsset(path: string, url: string): Promise<Buffer | 
             const response = await fetch(url, { signal: AbortSignal.timeout(15000), redirect: "error" });
             if (!response.ok) return null;
             const buffer = Buffer.from(await response.arrayBuffer());
-            await storage.set(path, buffer, "system:cache");
             unavailable.delete(path);
+            await storage.set(path, buffer, "system:cache").catch((error) => {
+                if (cacheWarned) return;
+                cacheWarned = true;
+                console.warn(`[CDN] serving upstream assets without caching them, the cache write for ${path} failed: ${error?.message ?? error}`);
+            });
             return buffer;
         } catch {
             return null;

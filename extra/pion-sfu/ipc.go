@@ -40,6 +40,7 @@ type SignalMessage struct {
 	BlockAudio  bool   `json:"blockAudio,omitempty"`
 	BlockVideo  bool   `json:"blockVideo,omitempty"`
 	Deaf        bool   `json:"deaf,omitempty"`
+	Remote      string `json:"remote,omitempty"`
 }
 
 func getListener(path string) (net.Listener, error) {

@@ -110,6 +110,7 @@ async function harness(t, options = {}) {
         "@spacebar/util": {
             Config: { get: () => config },
             hasValidSignature: () => false,
+            isRequestSignature: (value) => value === config.security.requestSignature,
             NewUrlUserSignatureData: class {},
             UrlSignResult: { fromUrl: () => ({}) },
         },

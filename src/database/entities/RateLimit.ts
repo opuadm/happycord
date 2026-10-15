@@ -61,6 +61,37 @@ export class RateLimit extends BaseClassWithoutId {
         );
     }
 
+    static async addHits(entries: { id: string; executor_id: string; hits: number; window: number }[]): Promise<{ id: string; hits: number; expires_at: Date }[]> {
+        if (!entries.length) return [];
+        const now = new Date();
+        if (RateLimit.getRepository().manager.connection.options.type === "postgres") {
+            const rows = (await RateLimit.query(
+                `INSERT INTO rate_limits (id, executor_id, hits, blocked, expires_at)
+                 SELECT u.id, u.executor_id, u.hits, false, $1::timestamp + u.window_ms * interval '1 millisecond'
+                 FROM jsonb_to_recordset($2::jsonb) AS u(id varchar, executor_id varchar, hits int, window_ms bigint)
+                 ON CONFLICT (id) DO UPDATE SET
+                     hits = CASE WHEN rate_limits.expires_at <= $1::timestamp THEN EXCLUDED.hits ELSE rate_limits.hits + EXCLUDED.hits END,
+                     expires_at = CASE WHEN rate_limits.expires_at <= $1::timestamp THEN EXCLUDED.expires_at ELSE rate_limits.expires_at END
+                 RETURNING id, hits, expires_at`,
+                [now, JSON.stringify(entries.map(({ id, executor_id, hits, window }) => ({ id, executor_id, hits, window_ms: Math.round(window * 1000) })))],
+            )) as { id: string; hits: number; expires_at: Date }[];
+            return rows.map((row) => ({ id: row.id, hits: Number(row.hits), expires_at: new Date(row.expires_at) }));
+        }
+        const rows = [];
+        for (const { id, executor_id, hits, window } of entries) {
+            const [row] = (await RateLimit.query(
+                `INSERT INTO rate_limits (id, executor_id, hits, blocked, expires_at) VALUES ($1, $2, $3, false, $4)
+                 ON CONFLICT (id) DO UPDATE SET
+                     hits = CASE WHEN rate_limits.expires_at <= $5 THEN EXCLUDED.hits ELSE rate_limits.hits + EXCLUDED.hits END,
+                     expires_at = CASE WHEN rate_limits.expires_at <= $5 THEN EXCLUDED.expires_at ELSE rate_limits.expires_at END
+                 RETURNING hits, expires_at`,
+                [id, executor_id, hits, new Date(now.getTime() + window * 1000), now],
+            )) as { hits: number; expires_at: Date }[];
+            if (row) rows.push({ id, hits: Number(row.hits), expires_at: new Date(row.expires_at) });
+        }
+        return rows;
+    }
+
     static async hit(id: string, executor_id: string, max_hits: number, window: number) {
         const now = new Date();
         const [row] = (await RateLimit.query(

@@ -179,7 +179,16 @@ test("join reasons get low-effort signals and thoughtful answers get none", () =
 
 test("automod config keeps word lists and the allow list as whole lists", () => {
     const source = fs.readFileSync(path.join(__dirname, "../../src/util/util/Config.ts"), "utf8");
-    for (const key of ["automod_wordLists", "automod_allowList", "user_identityBlockedTerms"]) assert.ok(source.includes(`"${key}"`), key);
+    for (const key of [
+        "automod_wordLists",
+        "user_identityBlockedTerms",
+        "automod.allowList",
+        "automod.ipAllowList",
+        "automod.scam.extraDomains",
+        "automod.signup.deniedEmailDomains",
+    ])
+        assert.ok(source.includes(`"${key}"`), key);
+    assert.match(source, /AUTOMOD_STRING_LISTS\.map\(\(path\) => path\.replaceAll\("\.", "_"\)\)/);
     const defaults = require("../../src/util/config/types/AutomodConfiguration.ts").AutomodConfiguration;
     const config = new defaults();
     assert.equal(config.slurs.enabled, true);
@@ -202,7 +211,7 @@ test("the automod migrations are idempotent on both backends", () => {
     }
 });
 
-test("the admin automod tab is registered and gated like reports", () => {
+test("the admin automod tab is registered and gated like reports, with reads, actions and settings on separate rights", () => {
     const index = fs.readFileSync(path.join(__dirname, "../../assets/public/admin/index.html"), "utf8");
     assert.match(index, /href="#\/automod" data-tab="automod" data-access="reports"/);
     assert.match(index, /<script src="\/admin\/automod\.js"><\/script>/);
@@ -211,6 +220,11 @@ test("the admin automod tab is registered and gated like reports", () => {
     for (const route of fs.readdirSync(path.join(__dirname, "../../src/api/routes/admin/automod"), { recursive: true }).filter((name) => name.endsWith(".ts"))) {
         const text = fs.readFileSync(path.join(__dirname, "../../src/api/routes/admin/automod", route), "utf8");
         const routes = text.match(/route\(\{/g)?.length ?? 0;
-        assert.equal(text.match(/right: "MANAGE_USERS"/g)?.length ?? 0, routes, route);
+        assert.equal(text.match(/right: "(VIEW_MODERATION|MODERATE_USERS|MANAGE_USERS|VIEW_USERS)"/g)?.length ?? 0, routes, route);
+        for (const [, method, right] of text.matchAll(/router\.(get|post|patch|put|delete)\(\s*"[^"]*",\s*route\(\{[^}]*?right: "(\w+)"/g))
+            assert.ok(
+                method === "get" || route === "test.ts" ? ["VIEW_MODERATION", "VIEW_USERS"].includes(right) : ["MODERATE_USERS", "MANAGE_USERS"].includes(right),
+                `${route} ${method} ${right}`,
+            );
     }
 });

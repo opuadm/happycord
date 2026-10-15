@@ -1,6 +1,6 @@
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
-import { MfaInvalidCode, ResponseError, currentToken, emitUserUpdate, hasRecentMfa, requireMfa, setSmsFlag, verifyMfaMethod } from "@spacebar/api/util";
+import { MfaInvalidCode, ResponseError, currentToken, emitUserUpdate, hasRecentMfa, requireMfa, setSmsFlag, throttledCodeAttempt, verifyMfaMethod } from "@spacebar/api/util";
 import { BackupCode, SecurityKey, User } from "@spacebar/database";
 
 const router = Router({ mergeParams: true });
@@ -26,7 +26,7 @@ router.post(
 
         const { code } = req.body as { code?: string };
         if (code && !hasRecentMfa(req)) {
-            if (!(await verifyMfaMethod(req.user_id, "totp", code, { typ: "mfa", uid: req.user_id }))) throw MfaInvalidCode();
+            if (!(await throttledCodeAttempt(req.user_id, () => verifyMfaMethod(req.user_id, "totp", code, { typ: "mfa", uid: req.user_id })))) throw MfaInvalidCode();
         } else await requireMfa(req);
 
         const keys = await SecurityKey.count({ where: { user_id: req.user_id } });

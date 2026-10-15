@@ -2,6 +2,7 @@ import { ChildProcess, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import EventEmitter from "node:events";
 import type { ClientEmitter, Codec, SignalingDelegate, SSRCs, VideoStream, WebRtcClient } from "@spacebarchat/spacebar-webrtc-types";
+import { turnSecret, turnSettings } from "@spacebar/util";
 import { IpcClient, IpcPayload } from "./IpcClient";
 import type { VoiceModeration } from "../util/WebRtcWebSocket";
 
@@ -170,6 +171,7 @@ export class PionMediaServer implements SignalingDelegate {
             ["-port", String(this._port), "-ip", this._ip, "-ipc", socketPath, ...(process.env.PION_SFU_VERBOSE ? ["-verbose"] : []), ...extraArgs],
             {
                 stdio: ["ignore", "pipe", "pipe"],
+                env: turnSettings().enabled ? { ...process.env, TURN_SECRET: turnSecret() } : { ...process.env, TURN_PORT: "0" },
             },
         );
         const log = (data: Buffer) => {
@@ -215,6 +217,9 @@ export class PionMediaServer implements SignalingDelegate {
         for (const room of this.rooms.values())
             for (const client of room.clients.values())
                 if (client.uniqueId === payload.clientId) {
+                    const federation = (client.websocket as { federation?: { sender: string } }).federation;
+                    if (payload.remote && federation)
+                        console.log(`[WebRTC] media of ${client.user_id} from ${federation.sender} in ${client.voiceRoomId} comes from ${payload.remote}`);
                     client.webrtcConnected = true;
                     client.emitter.emit("connected");
                 }

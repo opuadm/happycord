@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 export function genSessionId() {
     return genRanHex(32);
 }
@@ -7,5 +9,7 @@ export function genVoiceToken() {
 }
 
 function genRanHex(size: number) {
-    return [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join("");
+    return randomBytes(Math.ceil(size / 2))
+        .toString("hex")
+        .slice(0, size);
 }

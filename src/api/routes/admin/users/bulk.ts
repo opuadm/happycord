@@ -13,13 +13,14 @@ export const BULK_SELECTION_LIMIT = 5000;
 router.get(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "VIEW_USERS",
         spacebarOnly: true,
-        description: `The ids of every account matching a user search, newest first, at most ${BULK_SELECTION_LIMIT}. Takes the same q, ip and filter as the user search.`,
+        description: `The ids of every account matching a user search, newest first, at most ${BULK_SELECTION_LIMIT}. Takes the same q, ip, filter and origin as the user search.`,
         query: {
             q: { type: "string", required: false },
             ip: { type: "string", required: false },
             filter: { type: "string", required: false },
+            origin: { type: "string", required: false },
         },
     }),
     async (req: Request, res: Response) => {
@@ -31,16 +32,17 @@ router.get(
 router.post(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "MODERATE_USERS",
         spacebarOnly: true,
         requestBody: "AdminUsersBulkSchema",
-        description: `Delete or disable up to ${BULK_ACCOUNT_LIMIT} accounts, optionally deleting every message they sent. Your own account and, unless you are an operator, operators are skipped.`,
+        description: `Delete or disable up to ${BULK_ACCOUNT_LIMIT} accounts, optionally deleting every message they sent. Deleting needs MANAGE_USERS. Your own account and staff at or above your own role are skipped.`,
     }),
     async (req: Request, res: Response) => {
         const body = req.body as AdminUsersBulkSchema;
         const ids = [...new Set(body.user_ids)];
         if (!ids.length || ids.length > BULK_ACCOUNT_LIMIT) throw new HTTPError(`Choose between 1 and ${BULK_ACCOUNT_LIMIT} accounts`, 400);
         if (ids.some((id) => !/^\d{1,20}$/.test(id) || BigInt(id) > 9223372036854775807n)) throw new HTTPError("user_ids must be user ids", 400);
+        if (body.action === "delete" && !req.rights.has("MANAGE_USERS")) throw new HTTPError("Deleting accounts needs the MANAGE_USERS right", 403);
         if (body.delete_messages && body.action === "disable" && !req.rights.has("MANAGE_MESSAGES"))
             throw new HTTPError("Deleting their messages needs the MANAGE_MESSAGES right", 403);
         const reason = body.reason?.trim() || `Bulk ${body.action === "delete" ? "deleted" : "disabled"} from the admin dashboard by ${req.user?.username ?? req.user_id}`;
@@ -53,6 +55,7 @@ router.post(
             reason,
             actor_id: req.user_id,
             actor_is_operator: req.rights.has("OPERATOR"),
+            actor_rights: req.rights.bitfield,
         });
         console.log(
             `[Admin] User ${req.user_id} bulk ${body.action === "delete" ? "deleted" : "disabled"} ${result.processed.length} account(s), skipped ${result.skipped.length}, deleted ${result.messages_deleted} message(s): ${result.processed.join(", ")}`,

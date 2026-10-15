@@ -14,6 +14,7 @@ import {
     GuildNsfwLevel,
     GuildPremiumTier,
     GuildProfileResponse,
+    GuildTheme,
     GuildVerificationLevel,
     GuildVisibilityLevel,
     GuildWelcomeScreen,
@@ -374,6 +375,18 @@ export class Guild extends BaseClass {
     @Column({ default: false })
     discovery_excluded: boolean = false;
 
+    @Column({ default: false })
+    global_discovery: boolean = false;
+
+    @Column({ default: false })
+    global_discovery_hidden: boolean = false;
+
+    @Column({ default: false })
+    global_discovery_verified: boolean = false;
+
+    @Column({ type: "varchar", nullable: true })
+    federated_instance?: string | null;
+
     @Column({ type: String, nullable: true })
     vanity_url_code?: string | null;
 
@@ -394,6 +407,9 @@ export class Guild extends BaseClass {
 
     @Column({ type: "jsonb", nullable: true })
     incidents_data?: GuildIncidentsData | null;
+
+    @Column({ type: "jsonb", nullable: true })
+    theme?: GuildTheme | null;
 
     premium_features?: {
         features: string[];
@@ -432,13 +448,16 @@ export class Guild extends BaseClass {
         return count;
     }
 
-    // includeUndiscoverable is for guild.discovery.showAllGuilds, which lists every guild
-    async toDiscoverableGuild(includeUndiscoverable = false): Promise<DiscoverableGuild | null> {
+    async toDiscoverableGuild(includeUndiscoverable = false, context?: { categories: Map<number, Categories>; online: Map<string, number> }): Promise<DiscoverableGuild | null> {
         if (!includeUndiscoverable && !this.features.includes("DISCOVERABLE")) {
             return null;
         }
-        // a category that no longer exists leaves the card without one instead of failing the whole list
-        const category = this.primary_category_id != null ? await Categories.findOne({ where: { id: this.primary_category_id } }) : null;
+        const category =
+            this.primary_category_id == null
+                ? null
+                : context
+                  ? (context.categories.get(this.primary_category_id) ?? null)
+                  : await Categories.findOne({ where: { id: this.primary_category_id } });
 
         return {
             id: this.id,
@@ -453,28 +472,21 @@ export class Guild extends BaseClass {
             preferred_locale: this.preferred_locale || "en",
             premium_subscription_count: this.premium_subscription_count ?? 0,
             approximate_member_count: this.member_count ?? 1,
-            /*await Member.countBy({
-                guild_id: this.id,
-            }),*/
-            approximate_presence_count: await Guild.countOnlineMembers(this.id),
-            /* await Member.countBy({
-                guild_id: this.id,
-                user: {
-                    sessions: {
-                        status: "online",
-                    },
-                },
-            }),*/
+            approximate_presence_count: context ? (context.online.get(this.id) ?? 0) : await Guild.countOnlineMembers(this.id),
             emojis: this.emojis?.map((e) => e.toJSON()) ?? undefined,
             emoji_count: this.emojis ? this.emojis.length : undefined,
             stickers: this.stickers?.map((s) => s.toJSON()) ?? undefined,
             sticker_count: this.stickers ? this.stickers.length : undefined,
             auto_removed: false,
             primary_category_id: category ? this.primary_category_id! : 0,
-            keywords: [],
-            is_published: false,
-            reasons_to_join: [],
-            created_at: new Date(Snowflake.deconstruct(this.id).timestamp).toISOString(), // TODO: make column
+            keywords: this.discovery_metadata?.keywords ?? [],
+            is_published: this.features.includes("DISCOVERABLE"),
+            reasons_to_join: (this.discovery_metadata?.reasons_to_join ?? []).map((reason) => ({
+                reason: reason.reason,
+                emoji_id: reason.emoji_id ?? undefined,
+                emoji_name: reason.emoji_name ?? undefined,
+            })),
+            created_at: new Date(Snowflake.deconstruct(this.id).timestamp).toISOString(),
             primary_category: category?.toJSON(),
         };
     }
@@ -663,9 +675,13 @@ export class Guild extends BaseClass {
             channel_ordering: undefined,
             discovery_weight: undefined,
             discovery_excluded: undefined,
+            global_discovery: undefined,
+            global_discovery_hidden: undefined,
+            global_discovery_verified: undefined,
             vanity_url_code: this.vanity_url_code ?? null,
             incidents_data: this.incidents_data ?? null,
             safety_alerts_channel_id: this.safety_alerts_channel_id ?? null,
+            theme: this.theme ?? null,
             profile: this.profile?.tag
                 ? ({
                       tag: this.profile.tag,

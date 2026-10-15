@@ -78,7 +78,7 @@ const trustsServer = () =>
     (window as unknown as { GLOBAL_ENV?: { E2EE_TRUST_SERVER?: boolean } }).GLOBAL_ENV?.E2EE_TRUST_SERVER !== false &&
     browserStorage?.getItem("fosscord-e2ee-strict-safety") !== "true";
 const engine = new Engine(api, classifyChannel, trustsServer);
-const attachments = createAttachments();
+const attachments = createAttachments((id) => engine.knownCanonical(id));
 attachments.start();
 
 interface StickerStore {
@@ -311,7 +311,7 @@ const start = async (userId: string) => {
 };
 
 const startWhenReady = () => {
-    if (started || probing || failure || signedOut || loggedOut || !http || Date.now() - lastProbe < 10000) return;
+    if (started || probing || failure || signedOut || loggedOut || !http || !storedToken() || Date.now() - lastProbe < 10000) return;
     lastProbe = Date.now();
     probing = true;
     api.request<{ id?: unknown }>("get", "/users/@me")

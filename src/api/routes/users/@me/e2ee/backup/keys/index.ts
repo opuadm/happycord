@@ -2,8 +2,8 @@ import { Request, Response, Router } from "express";
 import { In, IsNull, Not } from "typeorm";
 import { route } from "@spacebar/api/middlewares";
 import { decodeKey, E2eeErrors, e2eeRateLimit, withE2eeMutation } from "@spacebar/api/util";
-import { E2eeBackupKey, E2eeKeyBackup, Message, Recipient } from "@spacebar/database";
-import { E2eeBackupKeysUploadSchema } from "@spacebar/schemas";
+import { Channel, E2eeBackupKey, E2eeKeyBackup, FederatedObject, Message, Recipient } from "@spacebar/database";
+import { ChannelType, E2eeBackupKeysUploadSchema } from "@spacebar/schemas";
 
 const router: Router = Router({ mergeParams: true });
 
@@ -44,6 +44,19 @@ router.post(
                 : [];
             const allowed = new Set(member.map((r) => r.channel_id));
             const known = new Set(messages.filter((m) => allowed.has(m.channel_id!)).map((m) => m.id));
+            const remote = keys.filter((k) => !messages.some((m) => m.id === k.message_id)).map((k) => k.message_id);
+            const mirrored = remote.length ? await FederatedObject.find({ where: { local_id: In(remote) }, select: { local_id: true, instance: true } }) : [];
+            if (mirrored.length) {
+                const hosts = await Recipient.createQueryBuilder("recipient")
+                    .innerJoin(Channel, "channel", "channel.id = recipient.channel_id")
+                    .select("DISTINCT channel.federated_instance", "instance")
+                    .where("recipient.user_id = :user_id", { user_id: req.user_id })
+                    .andWhere("channel.federated_instance IS NOT NULL")
+                    .andWhere("channel.type IN (:...types)", { types: [ChannelType.DM, ChannelType.GROUP_DM] })
+                    .getRawMany<{ instance: string }>();
+                const instances = new Set(hosts.map((row) => row.instance));
+                for (const object of mirrored) if (instances.has(object.instance)) known.add(object.local_id);
+            }
             const rows = keys
                 .filter((k) => known.has(k.message_id))
                 .map((k) => ({

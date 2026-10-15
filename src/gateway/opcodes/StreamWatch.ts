@@ -1,7 +1,7 @@
 import { Not } from "typeorm";
 import { Member, Recipient, Stream, StreamSession } from "@spacebar/database";
 import { genVoiceToken, parseStreamKey, Payload, WebSocket } from "@spacebar/gateway";
-import { Config, emitEvent, getPermission, StreamCreateEvent, StreamServerUpdateEvent } from "@spacebar/util";
+import { Config, emitEvent, FederatedVoice, getPermission, StreamCreateEvent, StreamServerUpdateEvent } from "@spacebar/util";
 import { StreamWatchSchema } from "@spacebar/schemas";
 import { check } from "./instanceOf";
 
@@ -9,6 +9,7 @@ export async function onStreamWatch(this: WebSocket, data: Payload) {
     const startTime = Date.now();
     check.call(this, StreamWatchSchema, data.d);
     const body = data.d as StreamWatchSchema;
+    if (await FederatedVoice.relayStream(this.user_id, this.session_id, "watch", { ...body })) return;
 
     let parsedKey: {
         type: "guild" | "call";

@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import bcrypt from "bcrypt";
 import { Request, Response, Router } from "express";
 import { route } from "@spacebar/api/middlewares";
-import { MfaInvalidCode, MfaInvalidTicket, guardedMfaAttempt, loginMfaResponse, readTicket, revokeSessions, verifyMfaMethod } from "@spacebar/api/util";
+import { MfaInvalidCode, MfaInvalidTicket, guardedMfaAttempt, isStaffDisabled, loginMfaResponse, readTicket, revokeSessions, verifyMfaMethod } from "@spacebar/api/util";
 import { User } from "@spacebar/database";
 import { Config, Email, FieldErrors, generateToken } from "@spacebar/util";
 
@@ -52,6 +52,7 @@ router.post(
                 mfa_enabled: true,
                 totp_secret: true,
                 disabled: true,
+                flags: true,
                 deleted: true,
             },
         });
@@ -88,7 +89,7 @@ router.post(
                     hash: await bcrypt.hash(password, 12),
                     valid_tokens_since: new Date(),
                 },
-                disabled: false,
+                disabled: !!user.disabled && isStaffDisabled(user.flags),
             },
         );
         await revokeSessions(user.id);

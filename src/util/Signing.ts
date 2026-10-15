@@ -187,6 +187,14 @@ export const isExpired = (data: UrlSignResult | UrlSignatureData) => {
     return false;
 };
 
+export const isRequestSignature = (value: unknown) => {
+    const expected = Config.get().security.requestSignature;
+    if (typeof value !== "string" || !expected) return false;
+    const given = Buffer.from(value);
+    const wanted = Buffer.from(expected);
+    return given.length === wanted.length && timingSafeEqual(given, wanted);
+};
+
 export const hasValidSignature = (req: NewUrlUserSignatureData, sig: UrlSignResult) => {
     // if the required query parameters are not present, return false
     if (!sig.expiresAt || !sig.issuedAt || !sig.hash) {

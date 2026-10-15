@@ -4,6 +4,7 @@ import { revokeSessions } from "@spacebar/api/util";
 import { User } from "@spacebar/database";
 import { Email, MailTypes } from "@spacebar/util";
 import { AdminPasswordResetSchema } from "@spacebar/schemas";
+import { assertShadowUserEditable } from "@spacebar/api/util/utility/federatedAdmin";
 import { assertCanManage } from "../index";
 
 const router = Router({ mergeParams: true });
@@ -11,7 +12,7 @@ const router = Router({ mergeParams: true });
 router.post(
     "/",
     route({
-        right: "MANAGE_USERS",
+        right: "SUPPORT_USERS",
         spacebarOnly: true,
         requestBody: "AdminPasswordResetSchema",
         description: "Make a one hour password reset link for a user, optionally emailing it and signing them out everywhere",
@@ -28,9 +29,11 @@ router.post(
                 rights: true,
                 bot: true,
                 data: true,
+                federated_instance: true,
             },
         });
         assertCanManage(req, user);
+        assertShadowUserEditable(user, ["the password"]);
 
         const link = await Email.generateLink(MailTypes.resetPassword, user.id);
         const emailed = !!(body.send_email && user.email && Email.transporter);

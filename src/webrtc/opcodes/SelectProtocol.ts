@@ -2,6 +2,7 @@ import { SelectProtocolSchema, validateSchema } from "@spacebar/schemas";
 import { mediaServer, Send, VoiceOPCodes, VoicePayload, WebRtcWebSocket } from "@spacebar/webrtc";
 import type { Codec } from "@spacebarchat/spacebar-webrtc-types";
 import { DAVE_PROTOCOL_VERSION, DaveSession } from "../dave/DaveSession";
+import { daveIds } from "../util/DaveIdentity";
 
 export async function onSelectProtocol(this: WebRtcWebSocket, payload: VoicePayload) {
     if (!this.webRtcClient) return;
@@ -25,6 +26,7 @@ export async function onSelectProtocol(this: WebRtcWebSocket, payload: VoicePayl
             media_session_id: this.session_id,
             audio_codec: "opus",
             dave_protocol_version: this.daveVersion,
+            ...(this.federation && this.channel_id && { meowcord_dave: { channel_id: this.channel_id, group: this.channel_id } }),
         },
     });
 
@@ -34,13 +36,19 @@ export async function onSelectProtocol(this: WebRtcWebSocket, payload: VoicePayl
     if (others.length)
         await Send(this, {
             op: VoiceOPCodes.CLIENTS_CONNECT,
-            d: { user_ids: others.map((client) => client.user_id) },
+            d: {
+                user_ids: others.map((client) => client.user_id),
+                ...daveIds(
+                    others.map((client) => client.websocket),
+                    this,
+                ),
+            },
         });
 
     for (const client of others) {
         await Send(client.websocket, {
             op: VoiceOPCodes.CLIENTS_CONNECT,
-            d: { user_ids: [this.user_id] },
+            d: { user_ids: [this.user_id], ...daveIds([this], client.websocket) },
         });
         await Send(client.websocket, {
             op: VoiceOPCodes.CLIENT_FLAGS,
