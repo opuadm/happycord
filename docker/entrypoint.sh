@@ -5,8 +5,10 @@ cd /app
 case "${1:-server}" in
 client)
     mkdir -p /data/client/cache /data/client/cache_compressed
-    if [ -f assets/cache/index.html ] && [ "$2" != "--force" ]; then
-        echo "[client] using the cached client, run the client service with --force to fetch the current one"
+    cached=$(grep -o '"BUILD_NUMBER":"[0-9]*"' assets/cache/index.html 2>/dev/null | head -n1 | grep -o '[0-9]*' || true)
+    pinned=$(grep -o '"buildNumber": "[0-9]*"' client/release.json | head -n1 | grep -o '[0-9]*' || true)
+    if [ -n "$cached" ] && [ "$cached" = "$pinned" ] && [ "$2" != "--force" ]; then
+        echo "[client] cached client is build $cached, matching the pin"
     else
         bun scripts/client.js
     fi
