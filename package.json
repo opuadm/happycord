@@ -37,6 +37,7 @@
     "generate:client": "bun scripts/client.js && bun scripts/e2ee-anchors.js && bun scripts/clan-badges.js && bun scripts/vencord.js && bun scripts/compress-client.js",
     "generate:clan-badges": "bun scripts/clan-badges.js",
     "check:client": "bun scripts/vencord.js --reporter && bun scripts/vencord-check.mjs",
+    "publish:client": "scripts/publish-client-index.sh",
     "check:e2ee-anchors": "bun scripts/e2ee-anchors.js",
     "generate:schema": "bun scripts/schema.js",
     "generate:migration": "bun node_modules/typeorm/cli.js migration:generate -d dist/database/Database.js",

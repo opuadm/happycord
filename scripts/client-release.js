@@ -28,11 +28,12 @@ const verify = (actual) => {
         if (actual[key] !== expected[key]) throw new Error(`Unreviewed client release: ${key} differs from client/release.json`);
     return actual;
 };
-const RELEASE_REPOSITORY = "meowcorded/meowcord";
+const RELEASE_REPOSITORY = process.env.CLIENT_RELEASE_REPOSITORY || "opuadm/happycord";
+const RELEASE_BRANCH = process.env.CLIENT_RELEASE_BRANCH || "client-indexes";
 const pinnedIndexUrl = () => {
     if (process.env.CLIENT_INDEX_URL) return process.env.CLIENT_INDEX_URL;
     const { buildNumber } = JSON.parse(fs.readFileSync(releasePath, "utf8"));
-    return `https://github.com/${RELEASE_REPOSITORY}/releases/download/client-${buildNumber}/index.html`;
+    return `https://raw.githubusercontent.com/${RELEASE_REPOSITORY}/${RELEASE_BRANCH}/${buildNumber}/index.html`;
 };
 const check = (cache = cachePath) => {
     const manifest = JSON.parse(fs.readFileSync(path.join(cache, "release-manifest.json"), "utf8"));
