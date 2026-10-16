@@ -3,7 +3,7 @@ import { HTTPError } from "lambert-server/HTTPError";
 import { In } from "typeorm";
 import { route } from "@spacebar/api/middlewares";
 import { Channel, ScheduledMessage, ScheduledMessagePayload, ScheduledMessageState, User } from "@spacebar/database";
-import { DiscordApiErrors, getPermission, SCHEDULED_MESSAGE_LIMIT } from "@spacebar/util";
+import { DiscordApiErrors, getPermission, SCHEDULED_MESSAGE_LIMIT, hasApexExperiment, SCHEDULED_MESSAGES_EXPERIMENT } from "@spacebar/util";
 import { assertCanSendDirectMessage, scheduledMessageJSON, validateScheduledContent, validateScheduledSendAt } from "@spacebar/api/util";
 
 const router = Router({ mergeParams: true });
@@ -30,6 +30,7 @@ router.post(
         responses: { 200: {}, 400: { body: "APIErrorResponse" }, 403: { body: "APIErrorResponse" } },
     }),
     async (req: Request, res: Response) => {
+        if (!hasApexExperiment(req.user_id, SCHEDULED_MESSAGES_EXPERIMENT)) throw new HTTPError("Scheduled messages are not available for this account.", 403);
         const body = req.body ?? {};
         const channel = await Channel.findOne({
             where: { id: String(body.channel_id) },

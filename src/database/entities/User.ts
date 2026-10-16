@@ -248,6 +248,9 @@ export class User extends BaseClass {
     badge_ids?: string[];
 
     @Column({ type: "jsonb", nullable: true })
+    badge_settings?: { display_order?: string[]; hidden_badges?: string[] } | null;
+
+    @Column({ type: "jsonb", nullable: true })
     avatar_decoration_data?: AvatarDecorationData;
 
     @Column({ type: "jsonb", nullable: true })
@@ -273,6 +276,9 @@ export class User extends BaseClass {
 
     @Column({ type: "text", array: true, default: "{}", select: false })
     pride_badges?: string[];
+
+    @Column({ type: "int", default: 0 })
+    notification_flags: number = 0;
 
     @Column({ type: "jsonb", nullable: true })
     profile_widgets?: ProfileWidget[] | null;

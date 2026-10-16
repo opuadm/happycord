@@ -3,7 +3,16 @@ import { HTTPError } from "lambert-server/HTTPError";
 import { IsNull, Not } from "typeorm";
 import { route } from "@spacebar/api/middlewares";
 import { Message, SavedMessage } from "@spacebar/database";
-import { DiscordApiErrors, emitEvent, FieldErrors, MESSAGE_REMINDER_LIMIT, SAVED_MESSAGE_LIMIT } from "@spacebar/util";
+import {
+    DiscordApiErrors,
+    emitEvent,
+    FieldErrors,
+    MESSAGE_REMINDER_LIMIT,
+    SAVED_MESSAGE_LIMIT,
+    hasApexExperiment,
+    MESSAGE_BOOKMARKS_EXPERIMENT,
+    MESSAGE_BOOKMARKS_V2_EXPERIMENT,
+} from "@spacebar/util";
 import { canReadMessage, savedMessageRelations, savedMessageResult } from "@spacebar/api/util/handlers/SavedMessages";
 
 const router = Router({ mergeParams: true });
@@ -14,6 +23,8 @@ router.put(
         responses: { 200: {}, 400: { body: "APIErrorResponse" }, 404: { body: "APIErrorResponse" } },
     }),
     async (req: Request, res: Response) => {
+        if (!hasApexExperiment(req.user_id, MESSAGE_BOOKMARKS_EXPERIMENT) && !hasApexExperiment(req.user_id, MESSAGE_BOOKMARKS_V2_EXPERIMENT))
+            throw new HTTPError("Saved messages are not available for this account.", 403);
         const { channel_id, message_id } = req.params as { [key: string]: string };
         const message = await Message.findOne({
             where: { id: message_id, channel_id },

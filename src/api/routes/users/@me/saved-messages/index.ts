@@ -23,6 +23,12 @@ router.get("/", route({ responses: { 200: {} } }), async (req: Request, res: Res
         const message = byId.get(entry.message_id) ?? null;
         results.push(savedMessageResult(entry, message && (await canReadMessage(req.user_id, message)) ? message : null, req.user_id));
     }
+    if (req.query.bookmark_ids !== undefined) {
+        return res.json({
+            reminders: results.filter((result) => result.save_data.due_at != null),
+            bookmark_ids: saved.map((entry) => entry.message_id),
+        });
+    }
     res.json({ results });
 });
 

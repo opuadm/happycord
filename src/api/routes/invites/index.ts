@@ -1,12 +1,82 @@
 import { route } from "@spacebar/api/middlewares";
 import { APPLICATION_BYPASS_INVITE_FLAG, isApplyGuild, onGuildMemberJoin, startJoinRequest } from "@spacebar/api/util";
-import { AuditLog, Ban, Channel, Guild, GuildScheduledEvent, Invite, Member, PublicInviteRelation, Recipient, ScheduledEvents, User } from "@spacebar/database";
-import { ChannelRecipientAddEvent, Config, DiscordApiErrors, DmChannelDTO, emitEvent, getPermission, InviteDeleteEvent } from "@spacebar/util";
+import {
+    AuditLog,
+    Ban,
+    Channel,
+    FriendInvite,
+    Guild,
+    GuildScheduledEvent,
+    Invite,
+    Member,
+    PublicInviteRelation,
+    Recipient,
+    Relationship,
+    ScheduledEvents,
+    User,
+} from "@spacebar/database";
+import {
+    ChannelRecipientAddEvent,
+    Config,
+    DiscordApiErrors,
+    DmChannelDTO,
+    emitEvent,
+    getPermission,
+    getUserPresence,
+    InviteDeleteEvent,
+    PresenceUpdateEvent,
+    RelationshipAddEvent,
+} from "@spacebar/util";
 import { Request, Response, Router } from "express";
 import { HTTPError } from "lambert-server/HTTPError";
-import { AuditLogEvents, ChannelType, MessageType, UserFlags } from "@spacebar/schemas";
+import { AuditLogEvents, ChannelType, MessageType, RelationshipType, UserFlags } from "@spacebar/schemas";
+import { InviteType } from "@spacebar/schemas/api/guilds/Invite";
+import { serializeFriendInvite } from "../users/@me/invites/index";
 
 const router: Router = Router({ mergeParams: true });
+
+async function joinViaFriendInvite(found: FriendInvite, user_id: string) {
+    if (found.isExpired()) {
+        await FriendInvite.delete({ code: found.code });
+        throw DiscordApiErrors.UNKNOWN_INVITE;
+    }
+    if (found.inviter_id === user_id) throw DiscordApiErrors.CANNOT_FRIEND_SELF;
+    const friend = await User.findOneOrFail({ where: { id: found.inviter_id }, select: { id: true } });
+    const own = await Relationship.find({
+        where: [
+            { from_id: user_id, to_id: friend.id },
+            { from_id: friend.id, to_id: user_id },
+        ],
+    });
+    if (own.some((row) => row.type === RelationshipType.BLOCKED)) throw DiscordApiErrors.FRIEND_REQUEST_BLOCKED;
+    if (own.some((row) => row.type === RelationshipType.FRIEND)) throw DiscordApiErrors.ALREADY_FRIENDS;
+
+    const accept = async (from_id: string, to_id: string) => {
+        const existing = own.find((row) => row.from_id === from_id && row.to_id === to_id);
+        const relationship = existing ?? Relationship.create({ from_id, to_id, type: RelationshipType.FRIEND, since: new Date() });
+        relationship.type = RelationshipType.FRIEND;
+        relationship.note = null;
+        await relationship.save();
+        return relationship;
+    };
+    const [outgoing, incoming] = await Promise.all([accept(user_id, friend.id), accept(friend.id, user_id)]);
+    found.uses++;
+    await found.save();
+    const [ownPresence, friendPresence, ownUser, friendUser] = await Promise.all([
+        getUserPresence(user_id),
+        getUserPresence(friend.id),
+        User.getPublicUser(user_id),
+        User.getPublicUser(friend.id),
+    ]);
+    await Promise.all([
+        emitEvent({ event: "RELATIONSHIP_ADD", data: outgoing.toPublicRelationship(), user_id } satisfies RelationshipAddEvent),
+        emitEvent({ event: "RELATIONSHIP_ADD", data: incoming.toPublicRelationship(), user_id: friend.id } satisfies RelationshipAddEvent),
+        emitEvent({ event: "PRESENCE_UPDATE", data: { user: friendUser, ...friendPresence }, user_id } satisfies PresenceUpdateEvent),
+        emitEvent({ event: "PRESENCE_UPDATE", data: { user: ownUser, ...ownPresence }, user_id: friend.id } satisfies PresenceUpdateEvent),
+    ]);
+    const invite = await FriendInvite.findOneOrFail({ where: { code: found.code }, relations: { inviter: true } });
+    return { ...serializeFriendInvite(invite), new_member: true };
+}
 
 async function joinGroupDm(found: Invite, user_id: string) {
     if (found.isExpired()) {
@@ -75,6 +145,15 @@ router.get(
     async (req: Request, res: Response) => {
         const { invite_code } = req.params as { [key: string]: string };
 
+        const friendInvite = await FriendInvite.findOne({ where: { code: invite_code }, relations: { inviter: true } });
+        if (friendInvite) {
+            if (friendInvite.isExpired()) {
+                await FriendInvite.delete({ code: invite_code });
+                throw DiscordApiErrors.UNKNOWN_INVITE;
+            }
+            return res.status(200).send({ ...serializeFriendInvite(friendInvite), type: InviteType.FRIEND });
+        }
+
         const invite = await Invite.findOne({
             where: { code: invite_code },
             relations: Object.fromEntries(PublicInviteRelation.map((i) => [i, true])), //TODO: clean up
@@ -126,6 +205,8 @@ router.post(
 
         const { invite_code } = req.params as { [key: string]: string };
         const { public_flags } = req.user;
+        const friendInvite = await FriendInvite.findOne({ where: { code: invite_code } });
+        if (friendInvite) return res.json(await joinViaFriendInvite(friendInvite, req.user_id));
         const found = await Invite.findOne({
             where: { code: invite_code },
         });
@@ -214,6 +295,12 @@ router.delete(
     }),
     async (req: Request, res: Response) => {
         const { invite_code } = req.params as { [key: string]: string };
+        const friendInvite = await FriendInvite.findOne({ where: { code: invite_code }, relations: { inviter: true } });
+        if (friendInvite) {
+            if (friendInvite.inviter_id !== req.user_id) throw DiscordApiErrors.UNKNOWN_INVITE;
+            await FriendInvite.delete({ code: invite_code });
+            return res.json({ ...serializeFriendInvite(friendInvite), type: InviteType.FRIEND });
+        }
         const invite = await Invite.findOne({
             where: { code: invite_code },
             relations: Object.fromEntries(PublicInviteRelation.map((i) => [i, true])),

@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: AGPL-3.0-only */
 import { Request, Response, Router } from "express";
+import { HTTPError } from "lambert-server/HTTPError";
 import { route } from "@spacebar/api/middlewares";
 import { Guild, Member } from "@spacebar/database";
-import { DiscordApiErrors } from "@spacebar/util";
+import { DiscordApiErrors, hasGuildExperiment, SERVER_THEME_EXPERIMENT } from "@spacebar/util";
 import { GuildTheme, GuildThemeModifySchema } from "@spacebar/schemas";
 
 const router = Router({ mergeParams: true });
@@ -30,6 +31,7 @@ router.patch(
     }),
     async (req: Request, res: Response) => {
         const { guild_id } = req.params as { [key: string]: string };
+        if (!hasGuildExperiment(guild_id, SERVER_THEME_EXPERIMENT)) throw new HTTPError("Server themes are not available for this server.", 403);
         const guild = await Guild.findOne({ where: { id: guild_id } });
         if (!guild) throw DiscordApiErrors.UNKNOWN_GUILD;
 

@@ -2688,23 +2688,6 @@ async function openUser(id, reload) {
                 ? html`<form id="user-form" class="card stack">
                 <h3>${access.manage_users ? "Profile & account" : "Account"}</h3>
                 ${
-            ${
-              home || access.manage_users
-                ? ""
-                : html`<div class="card">
-                      <h3>Profile</h3>
-                      <div class="list">
-                          <div class="list-item"><span class="grow muted">Display name</span><span>${u.global_name || html`<span class="muted">Not set</span>`}</span></div>
-                          <div class="list-item"><span class="grow muted">Pronouns</span><span>${u.pronouns || html`<span class="muted">Not set</span>`}</span></div>
-                          <div class="list-item"><span class="grow muted">Bio</span><span style="white-space:pre-wrap;text-align:right">${u.bio || html`<span class="muted">Not set</span>`}</span></div>
-                      </div>
-                  </div>`
-            }
-            ${
-              editsAccount
-                ? html`<form id="user-form" class="card stack">
-                <h3>${access.manage_users ? "Profile & account" : "Account"}</h3>
-                ${
                   access.manage_users
                     ? html`<label>Username<input name="username" value="${u.username}" minlength="2" maxlength="${maxUsername}" required /></label>
                 <label>Pronouns<input name="pronouns" value="${u.pronouns ?? ""}" maxlength="${maxPronouns}" /></label>

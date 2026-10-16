@@ -733,6 +733,13 @@ export interface RelationshipRemoveEvent extends Event {
     data: PartialRelationshipSchema;
 }
 
+export interface FriendSuggestionDeleteEvent extends Event {
+    event: "FRIEND_SUGGESTION_DELETE";
+    data: {
+        suggested_user_id: string;
+    };
+}
+
 export interface GatewaySessionClientInfo {
     version: number;
     os: string;
@@ -1068,6 +1075,7 @@ export type EVENT =
     | "RELATIONSHIP_ADD"
     | "RELATIONSHIP_REMOVE"
     | "RELATIONSHIP_UPDATE"
+    | "FRIEND_SUGGESTION_DELETE"
     | "SESSIONS_REPLACE"
     | "USER_SETTINGS_PROTO_UPDATE"
     | "USER_GUILD_SETTINGS_UPDATE"

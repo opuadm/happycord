@@ -6,7 +6,7 @@ import { Badge, Member, Relationship, User } from "@spacebar/database";
 import { broadcastUserUpdate, Config, DiscordApiErrors, emitEvent, FieldErrors, handleFile, instanceName, loadStaffRoles, staffBadgeRole, UserUpdateEvent } from "@spacebar/util";
 import { PartialConnectedAccountResponse, PrivateUserProjection, PublicUserProjection, RelationshipType, UserProfileModifySchema } from "@spacebar/schemas";
 
-import { prideBadges } from "@spacebar/api/util/utility/prideBadges";
+import { prideBadges, PRIDE_BADGES } from "@spacebar/api/util/utility/prideBadges";
 
 import { isSubscriptionBadge } from "@spacebar/api/util/utility/profile";
 
@@ -107,6 +107,16 @@ router.get("/", route({ responses: { 200: { body: "UserProfileResponse" } } }), 
 
     badges.push(...prideBadges(user.pride_badges));
 
+    const hidden = new Set((user.badge_settings?.hidden_badges ?? []).map(String));
+    hidden.delete(STAFF_BADGE_ID);
+    for (const badge of PRIDE_BADGES) hidden.delete(badge.id);
+    const ordered = user.badge_settings?.display_order ?? [];
+    const visible = badges.filter((badge) => !hidden.has(String(badge.id)));
+    if (ordered.length) {
+        const rank = new Map(ordered.map((id, index) => [String(id), index]));
+        visible.sort((a, b) => (rank.get(String(a.id)) ?? Number.MAX_SAFE_INTEGER) - (rank.get(String(b.id)) ?? Number.MAX_SAFE_INTEGER));
+    }
+
     const connected_accounts: PartialConnectedAccountResponse[] = user.connected_accounts
         .filter((x) => x.visibility != 0)
         .map((x) => ({
@@ -125,7 +135,7 @@ router.get("/", route({ responses: { 200: { body: "UserProfileResponse" } } }), 
         premium_guild_since: null,
         profile_themes_experiment_bucket: 4,
         user_profile: profileMetadata(user),
-        badges: badges.filter((badge) => !isSubscriptionBadge(badge)),
+        badges: visible.filter((badge) => !isSubscriptionBadge(badge)),
         guild_badges: [],
         widgets: user.profile_widgets ?? [],
         legacy_username: null,

@@ -62,6 +62,8 @@ import {
     getApexExperiments,
     getUserExperiments,
     getGuildExperiments,
+    hasUserExperiment,
+    FRIENDS_LIST_EXPERIMENT,
 } from "@spacebar/util";
 import {
     ChannelType,
@@ -79,6 +81,7 @@ import {
 import { check } from "./instanceOf";
 import { openConnections } from "../events/Connection";
 import { botIntentsAllowed } from "../util/GatewayIntents";
+import { suggestionCount } from "@spacebar/api/util/handlers/FriendSuggestions";
 
 type GuildPresenceMember = Omit<PublicMember, "user">;
 
@@ -760,13 +763,14 @@ export async function onIdentify(this: WebSocket, data: Payload) {
         return a + (b as { micros: number }).micros;
     }, 0);
 
-    const [authenticator_types, preferences, guild_join_requests] = await Promise.all([
+    const [authenticator_types, preferences, guild_join_requests, friend_suggestion_count] = await Promise.all([
         SecurityKey.authenticatorTypes(this.user_id),
         User.findOne({
             where: { id: this.user_id },
-            select: { id: true, account_preferences: true, private_channel_settings: true },
+            select: { id: true, account_preferences: true, private_channel_settings: true, notification_flags: true },
         }),
         GuildJoinRequest.activeForUser(this.user_id),
+        hasUserExperiment(this.user_id, FRIENDS_LIST_EXPERIMENT) ? suggestionCount(this.user_id) : 0,
     ]);
 
     // const d: ReadyEventData = {
@@ -818,15 +822,14 @@ export async function onIdentify(this: WebSocket, data: Payload) {
                 apex_experiments: getApexExperiments(this.user_id),
                 geo_ordered_rtc_regions: [],
                 api_code_version: 1,
-                friend_suggestion_count: 0,
+                friend_suggestion_count,
                 analytics_token: "",
                 tutorial: null,
                 session_type: "normal", // TODO
                 auth_session_id_hash: this.session!.getDiscordDeviceInfo().id_hash,
                 auth: { authenticator_types },
                 notification_settings: {
-                    // ????
-                    flags: 0,
+                    flags: preferences?.notification_flags ?? 0,
                 },
                 game_relationships: [],
             }) satisfies ReadyEventData,

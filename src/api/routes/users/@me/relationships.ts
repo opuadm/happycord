@@ -14,6 +14,8 @@ import {
     RelationshipUpdateEvent,
     emitEvent,
     getUserPresence,
+    hasApexExperiment,
+    FRIEND_REQUEST_MESSAGE_EXPERIMENT,
 } from "@spacebar/util";
 import { PublicUserProjection, RelationshipType, RelationshipModifySchema, RelationshipListSchema } from "@spacebar/schemas";
 
@@ -327,7 +329,7 @@ async function updateRelationship(req: Request, res: Response, friend: User, typ
         select: Object.fromEntries(userProjection.map((i) => [i, true])), //TODO: cleanup
     });
 
-    const note = typeof req.body?.note === "string" ? req.body.note.replace(/\n/g, " ").trim() : "";
+    const note = hasApexExperiment(req.user_id, FRIEND_REQUEST_MESSAGE_EXPERIMENT) && typeof req.body?.note === "string" ? req.body.note.replace(/\n/g, " ").trim() : "";
     if (note.length > MAX_NOTE_LENGTH)
         throw FieldErrors({
             note: {

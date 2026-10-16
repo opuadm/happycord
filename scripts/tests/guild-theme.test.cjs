@@ -43,7 +43,10 @@ function setupThemeRoutes(guildData, memberExists) {
                 UNKNOWN_GUILD,
                 MISSING_ACCESS,
             },
+            hasGuildExperiment: () => true,
+            SERVER_THEME_EXPERIMENT: "2026-04_server_theme",
         },
+        "lambert-server/HTTPError": { HTTPError: StubError },
         "@spacebar/schemas": {},
     });
 
